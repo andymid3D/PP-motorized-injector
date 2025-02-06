@@ -198,10 +198,10 @@ to second message that contain parameter arrays for variables or constants (for 
 int messageArrayToESP32;  // parameter array, can be either variable array or constants array, depending on previous message..?
 
 // encoder & position data from FAS library
-long oldFA0Position = 0;         // encoder postion on motor FAS zeroing - maybe not need, revise ComparisonFunction
+//long oldFA0Position = 0;         // encoder postion on motor FAS zeroing - maybe not need, revise ComparisonFunction
 long actualFAPosition;           // getPosition from zeroed FastAccel library, to compare to Encoder data, and to send to ESP32 for display
-unsigned long oldENPosition;     // for referencing encoder positions..
-unsigned long actualENPosition;  // same for encoder data.. if cannot zero encoder data (so far only zeros on Arduino reset), then also make
+//unsigned long oldENPosition;     // for referencing encoder positions..
+int64_t actualENPosition;  // same for encoder data.. if cannot zero encoder data (so far only zeros on Arduino reset), then also make
                                  // oldENPosition, and subract to actualOldENPosition on FA zeroing, before substituting old with actual, should
                                  // give same value since last zero of FA
 
@@ -246,6 +246,9 @@ const int debounce_Interval = 5;
 // FIXME commented out for testing
 //#include <RotaryEncoderPCNT.h>
 //RotaryEncoderPCNT encoder(ENCODER_A_PIN, ENCODER_B_PIN);
+
+#include <ESP32Encoder.h>
+ESP32Encoder encoder;
 
 
 #include <FastAccelStepper.h>  // *
@@ -341,6 +344,8 @@ void getInputs() {
     barrelEndstop.update();
     barrelEndStopActivated = barrelEndstop.isPressed();
   }
+
+  actualENPosition = encoder.getCount() / 2;
 }
 
 
@@ -451,21 +456,21 @@ other options..? */
 
   // functions fully described
 
-  /**
-   * Encoder PCNT library use should mean that encoder value is callable at any time (will always give back 
-   * current position, so really only needed at start of relative motor moves, to check next move positions) 
-   * Encoder function will get called not every loop, but maybe every 10ms, to give time for max distances to trigger other code, and every 100ms
-   * wil be called by SerialRegular100msMessages, where if motor is stopped, actual = old, and no need to print value
-   */
-  long EncoderActualPosition() {
+//   /**
+//    * Encoder PCNT library use should mean that encoder value is callable at any time (will always give back 
+//    * current position, so really only needed at start of relative motor moves, to check next move positions) 
+//    * Encoder function will get called not every loop, but maybe every 10ms, to give time for max distances to trigger other code, and every 100ms
+//    * wil be called by SerialRegular100msMessages, where if motor is stopped, actual = old, and no need to print value
+//    */
+//   long EncoderActualPosition() {
 
-// FIXME commented out for testing
-    //actualENPosition = encoder.getCount() / 2;  // revise last int, if motor steps = 400 & encoder PPR = 1000, adjust this int
-                                                // (possible issue of needing to round, this is bad, better maybe to increase driver steps to same as encoder?)
-    oldENPosition = actualENPosition;           // if this does NOT change between Serial.prints, then don't print
+// // FIXME commented out for testing
+//     //actualENPosition = encoder.getCount() / 2;  // revise last int, if motor steps = 400 & encoder PPR = 1000, adjust this int
+//                                                 // (possible issue of needing to round, this is bad, better maybe to increase driver steps to same as encoder?)
+//     oldENPosition = actualENPosition;           // if this does NOT change between Serial.prints, then don't print
 
-    return (actualENPosition);
-  }
+//     return (actualENPosition);
+//   }
 
   /**
    * 
@@ -760,7 +765,7 @@ void transitionToState(InjectorStates toState) {
         programmedMotorMove(generalFastSpeed, -30000 /*,defaultAcceletationNema*/); 
     
     } else if (toState == COMPRESSION) {
-        doMoveMotor = true;
+        //doMoveMotor = true;
         //compressionFunction();  // FIXME  compression function currently commented out
 
     } else if (toState == INJECT) {
@@ -774,8 +779,6 @@ void transitionToState(InjectorStates toState) {
     } else if (toState == RELEASE) {
         doMoveMotor = true;
         programmedMotorMove(releaseMouldMoveSpeed, releaseMouldMoveDistSteps); // common machine action, uses default accel
-
-
 
     } else {  
       switch(currentState) {
@@ -974,6 +977,10 @@ void machineState()  //
     Serial.println("injector_ESP32_state_machine.ino");
 
     // encoder setup
+
+    encoder.attachHalfQuad ( ENCODER_A_PIN, ENCODER_B_PIN );
+    encoder.setCount ( 0 );
+
 
 // FIXME commented out for testing
     //encoder.attachHalfQuad(ENCODER_A_PIN, ENCODER_B_PIN);  // possible have to reverse..? or rename, for Encoder library "CLK, DT ", and also rename EncoderPins..?
