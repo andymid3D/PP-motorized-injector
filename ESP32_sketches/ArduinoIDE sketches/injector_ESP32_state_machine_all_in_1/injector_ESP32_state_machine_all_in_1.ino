@@ -240,7 +240,7 @@ ESP32Encoder encoder;      // should use PCNT timer on ESP32, so should be calla
 #include <FastAccelStepper.h>  // *
 FastAccelStepperEngine engine = FastAccelStepperEngine();
 FastAccelStepper *stepper = NULL;
-stepper->setAbsoluteSpeedLimit(8000);  // 16.000.000 tick/s / 2000steps/s maxSpeedLimit = 8000 ticks/ step
+stepper->setAbsoluteSpeedLimit(3200);  // 16.000.000 tick/s / 2000steps/s maxSpeedLimit = 8000 ticks/ step
                                                            // 16.000.000 tick/s / 5000steps/s maxSpeedLimit = 3200 ticks/ step
 
 #include <elapsedMillis.h>
@@ -338,10 +338,11 @@ Bounce2::Button EMERGENCY_STOP = Bounce2::Button();
   // functions declarations, to try and organize most commonly re-used functions
   long EncoderActualPosition();                                             // reads encoder position and returns REFERENCE variable for use by other functions
   void ResetEncoderZero();                                                 // resets Encoder to Zero, ONLY to be called ONCE at power up, toggle initialHomingDone
-  void ProgrammedMotorMove(motorSpeed, motorAcceleration, motorMove);      // simply moves motor at set speed, accel and distance indicated
+  void ProgrammedMotorMove(motorSpeed, motorMove, motorAcceleration);      // simply moves motor at set speed, accel and distance indicated
   void ContinuousMotorMoveForward(motorSpeed);                             // simply moves plunger continously (during button press or other condition is 0/1)
   void ContinuousMotorMoveBackward(motorSpeed);                            // simply moves plunger continously (during button press or other condition is 0/1)
   void HomeMove(GeneralFastSpeed, HomingSlowSpeed);                                 // simply sends plunger to TopEndstop - CAN USE ContinuousMotorMoveBackward
+  void RefillPositionMove(GeneralFastSpeed/2, refillOpeningOffsetDistSteps, motorAcceleration )  // tp becalled after HomeMove, to always move to correct Refill position from Home
   bool compareMotorEncoder();                                              // function to compare Encoder & FastAccel position, to detect when skipping steps, 
 and therefore compression of plastic or filling of mould, and to reduce speed/distance commands until are below min threshold,
 when then returns "complete"/"1" to function where has been called from 
@@ -418,6 +419,11 @@ compareMotorEncoder function, this function needs to have the ProgrammedMotorMov
     if (digitalRead(EndstopTOPPlungerPin) == !topPlungerEndstopActive) {
       ContinuousMotorMoveBackward(HomingSlowSpeed);
     }
+  }
+
+  void RefillPositionMove(GeneralFastSpeed/2, refillOpeningOffsetDistSteps, motorAcceleration )
+  {
+    ProgrammedMotorMove(GeneralFastSpeed/2, refillOpeningOffsetDistSteps, motorAcceleration );
   }
 
   // function to compare Motor & Encoder positions
