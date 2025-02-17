@@ -61,7 +61,7 @@ should NEVER need changing, even from advanced Common panel, as superior values 
 performing outside of the decided security limits of movement/accel, distances, etc
 revise what is  NOT NEEDED, OR what variables should go inside Functions to make LOCAL*/
 const int minTempForAnyMove = 20;              // FIXME              // min temp considered safe for machine move
-const int maxSpeedLimit = 2000;                // 2000 corresponds to 5rps NEMA, about 1/4 rps gear, about 18.85/4 = 4.7125cm linear
+const int maxSpeedLimit = 2000;                // FIXME, 5000 IRL, 2000 corresponds to 5rps NEMA, about 1/4 rps gear, about 18.85/4 = 4.7125cm linear
                                                // plunger movement, about 25cm3 injected volume, per second MAX speed limited
 const int moveContinuosDistSteps = 5000;       // arbitrary large distance for continuous movements, gets reset to 0 each loop anyway
 const int defaultAcceletationNema = 50000;     /* check in reality, maybe large moulds will benefit from slower acceleration together with higher speeds..?
@@ -117,7 +117,8 @@ long int generalFastSpeed = maxSpeedLimit; // how fast to home, continous move u
 // int HomeOffSetDistSteps;       // once first reached HomeEndstop, how much to back off before slower approach
 // int HomeOffSetAccel;      // once first reached HomeEndstop, how much Accel to back off before slower approach
 // int HomeOffsetSpeed;      // once first reached HomeEndstop, how quic to back off before slower approach
-// int HomingSlowSpeed;      // how slow to home, 2nd approach, continous move until reaching endstop
+long int homingFastSpeed = generalFastSpeed/2;
+long int homingSlowSpeed = maxSpeedLimit / 10;                             // how slow to home, 2nd approach, continous move until reaching endstop
 long int initialCompressionSpeed = generalFastSpeed / 2;                   // could be generalFastSpeed / 2..?
 long int minCompressionSpeed = generalFastSpeed / 20;                      // at what speed is compression no longer useful..?
 long int comparisonPercentage = 50;                                        /* EXAMPLE VALUE what % difference between sent motor steps and read encoder steps should a change
@@ -230,10 +231,6 @@ const int ringLedCount = 35;  // 35 for LED ring on end of barrel
 const int debounce_Interval = 5;
 
 // libraries to include
-
-// FIXME commented out for testing
-// #include <RotaryEncoderPCNT.h>
-// RotaryEncoderPCNT encoder(ENCODER_A_PIN, ENCODER_B_PIN);
 
 #include <ESP32Encoder.h>
 ESP32Encoder encoder;
@@ -424,11 +421,12 @@ void bounceButtonsSetup()
 /*
   // functions declarations, to try and organize most commonly re-used functions
   long EncoderActualPosition();                                             // reads encoder position and returns REFERENCE variable for use by other functions
-  void ResetEncoderZero();                                                 // resets Encoder to Zero, ONLY to be called ONCE at power up, toggle initialHomingDone
+  void resetEncoderZero();                                                 // resets Encoder to Zero, ONLY to be called ONCE at power up, toggle initialHomingDone
   void ProgrammedMotorMove(motorSpeed, motorAcceleration, motorMove);      // simply moves motor at set speed, accel and distance indicated
   void ContinuousMotorMoveForward(motorSpeed);                             // simply moves plunger continously (during button press or other condition is 0/1)
   void ContinuousMotorMoveUp(motorSpeed);                            // simply moves plunger continously (during button press or other condition is 0/1)
   void HomeMove(generalFastSpeed, HomingSlowSpeed);                                 // simply sends plunger to TopEndstop - CAN USE ContinuousMotorMoveUp
+  void RefillPositionMove(GeneralFastSpeed/2, refillOpeningOffsetDistSteps, motorAcceleration )  // tp becalled after HomeMove, to always move to correct Refill position from Home
   bool compareMotorEncoder();                                              // function to compare Encoder & FastAccel position, to detect when skipping steps,
 and therefore compression of plastic or filling of mould, and to reduce speed/distance commands until are below min threshold,
 when then returns "complete"/"1" to function where has been called from
@@ -467,11 +465,11 @@ other options..? */
 /**
  *
  */
-void ResetEncoderZero()
+void resetEncoderZero()
 {
 
-  // FIXME commented out for testing
-  //   encoder.clearCount();
+  // FIXME commented out for testing - uncommented by Andy and changed from clearCount.. why clearCount and not setCount(0)?
+  encoder.setCount(0);
 
   return;
 }
@@ -541,95 +539,29 @@ int HomingSlowSpeed = maxSpeedLimit / 10; // how slow to home, 2nd approach, con
  * FIXME
  * once called, no user action can stop until complete!
  */
-// void homeMove(int generalFastSpeed, int homingSlowSpeed)
-// {
-//   //int HomingDirection;      // maybe not needed, as using ContMoveBackwards
-//   int homeOffSetDistSteps = 212;             // once first reached HomeEndstop, how much to back off before slower approach, 212 steps ≈ 5mm
-//   int homeOffSetAccel = 10000;               // once first reached HomeEndstop, how much Accel to back off before slower approach 10000 = 1/5th normal
-//   int homeOffsetSpeed = maxSpeedLimit / 2;   // once first reached HomeEndstop, how quick to back off before slower approach
-//   int homingSlowSpeed = maxSpeedLimit / 10;  // how slow to home, 2nd approach, continous move until reaching endstop
-
-//   if (digitalRead(ENDSTOP_TOP_PLUNGER_PIN) == !topPlungerEndstopActive) {
-//     continuousMotorMoveUp(generalFastSpeed);  // OR ProgrammedMotorMove with maxHomingStepsDistSteps, if fails, gives error?
-//   }
-
-//   programmedMotorMove(homeOffsetSpeed, homeOffSetDistSteps, homeOffSetAccel);  // programmed motor move assumed to be positive DistSteps..?
-//    FIXED: ACCEL LAST PARAMETER OK
-//   if (digitalRead(ENDSTOP_TOP_PLUNGER_PIN) == !topPlungerEndstopActive) {
-//     continuousMotorMoveUp(homingSlowSpeed);
-//   }
-// }
-
-// function to compare Motor & Encoder positions
-bool compareMotorEncoder(int motorMove, int actualENPosition, int comparisonPercentage) // chatGPT written
+void homeMove(int homingFastSpeed, int homingSlowSpeed)
 {
-  // Calculate difference between motor position and encoder position
-  int motorError = abs(motorMove - actualENPosition);
+  // int HomingDirection;      // maybe not needed, as using ContMoveBackwards
+  int homeOffSetDistSteps = 212;           // once first reached HomeEndstop, how much to back off before slower approach, 212 steps ≈ 5mm
+  int homeOffSetAccel = 10000;             // once first reached HomeEndstop, how much Accel to back off before slower approach 10000 = 1/5th normal
+  int homeOffsetSpeed = maxSpeedLimit / 2; // once first reached HomeEndstop, how quick to back off before slower approach
+  //int homingFastSpeed = generalFastSpeed;
+  //int homingSlowSpeed = maxSpeedLimit / 10; // how slow to home, 2nd approach, continous move until reaching endstop
 
-  // Calculate the acceptable difference threshold
-  int threshold = (motorMove * comparisonPercentage) / 100;
-
-  // Return true if the difference is greater than the threshold
-  return (motorError >= threshold);
-}
-
-//   /**
-//    * FIXME
-//    * motor compression function takes compareMotorEncoder and motor moves to apply pressure up to a threshold and then
-//    * reduce the speed (increases torque of stepper?) until again threshold past, etc, until minCompressionSpeed reached,
-//    *  thenwill stop
-//    */
-//   void compressionFunction(int initialCompressionSpeed, int minCompressionSpeed)  // chatGPT written
-//   {
-//     buttonLEDsColors(RED_RGB, BLACK_RGB, RED_RGB);
-//     select_button.update();
-
-//     // add ButtonSelect interrupt function on user press, goes to Ready_to_Inject (also EStop..? or EStop better permament in loop
-//     //  and then goes to ERROR-STATE?)
-//     if (!select_button.isPressed()) {
-//       // Set initial speed
-//       stepper->setSpeedInHz(initialCompressionSpeed);  // Starting speed in steps per second
-
-//       while (stepper->getSpeedInMilliHz()/1000 > minCompressionSpeed) {
-//         // Move the plunger down
-//         stepper->runForward();
-
-// // FIXME commented out for testing
-//         // // Call the comparison function to check if motor-encoder difference exceeds threshold
-//         // if (compareMotorEncoder(stepper->targetPos(), encoder.getPosition(), comparisonPercentage)) {
-//         //   // Reduce speed when the difference is greater than the allowed threshold
-//         //   int newSpeed = stepper->getSpeedInMilliHz() / 1000 * speedReductionFactor / 10;
-//         //   stepper->setSpeedInHz(newSpeed);
-//         //   buttonLEDsColors(RED_RGB, BLACK_RGB, YELLOW_RGB);  // to show compression is acting (has reduced speed at least once) and ongoing..
-
-//         //   // Optionally, reduce comparison threshold on each iteration (for finer control)
-//         //   comparisonPercentage *= speedReductionFactor; /* could lead to infinite smaller steps if minCompressionSpeed is too low...?
-//         //   for debugging this option, would be good to show actual speed - if later wish to add another compressionDuringHeating function
-//         //   where the plastic is already quite compressed, and will start (and end) from/to a much lower speeds, have to make sure this
-//         //   does not produce infinite loop as never reaches minCompressionSpeed */
-//         // }
-//       }
-
-//       // Stop motor when speed falls below threshold
-//       stepper->stopMove();
-//       buttonLEDsColors(RED_RGB, BLACK_RGB, GREEN_RGB);  // to show compression is complete
-//       delay(500);                           // ONLY DELAY IN ENTIRE SKETCH, and is only to give time for GREENrgb LED to be shown before
-
-//       return;  // once finished function should return to function that called it, be it compression or inject.. should be break..?
-//     } else {
-//       stepper->stopMove();
-//       InjectorStates::READY_TO_INJECT;
-//     }
-//   }
-
-void clearLEDs()
-{
-  for (int i = 0; i < keypadLedCount; i++)
+  if (digitalRead(ENDSTOP_TOP_PLUNGER_PIN) == !topPlungerEndstopActive)
   {
-    keypadleds.setPixelColor(i, 0);
+    continuousMotorMoveUp(homingFastSpeed); // OR ProgrammedMotorMove with maxHomingStepsDistSteps, if fails, gives error?
+  }
+
+  programmedMotorMove(homeOffsetSpeed, homeOffSetDistSteps, homeOffSetAccel); // programmed motor move assumed to be positive DistSteps..?
+  // FIXED: ACCEL LAST PARAMETER OK
+  if (digitalRead(ENDSTOP_TOP_PLUNGER_PIN) == !topPlungerEndstopActive)
+  {
+    continuousMotorMoveUp(homingSlowSpeed);
   }
 }
 
+// FIXME moved this definitions & function above first declaration below
 boolean changeSelectLEDcolour;
 boolean changeUpLEDcolour;
 boolean changeDownLEDcolour;
@@ -638,9 +570,6 @@ uint32_t currentSelectLEDcolour;
 uint32_t currentUpLEDcolour;
 uint32_t currentDownLEDcolour;
 
-/**
- *
- */
 void buttonLEDsColors(uint32_t newSelectLEDcolour, uint32_t newUpLEDcolour, uint32_t newDownLEDcolour) // could use case/switch instead? but are different types of defining behaviours..?
 {
   changeSelectLEDcolour = currentSelectLEDcolour != newSelectLEDcolour;
@@ -661,6 +590,94 @@ void buttonLEDsColors(uint32_t newSelectLEDcolour, uint32_t newUpLEDcolour, uint
     currentDownLEDcolour = newDownLEDcolour;
   }
 }
+
+// void RefillPositionMove(int GeneralFastSpeed, int refillOpeningOffsetDistSteps, int motorAcceleration)
+// {
+//   programmedMotorMove(GeneralFastSpeed / 2, refillOpeningOffsetDistSteps, motorAcceleration);
+// }  // FIXME  not needed if transitionToState==REFILL has same ProgrammedMotorMove??
+
+// function to compare Motor & Encoder positions
+bool compareMotorEncoder(int motorMove, int actualENPosition, int comparisonPercentage) // chatGPT written
+{
+  // Calculate difference between motor position and encoder position
+  int motorError = abs(motorMove - actualENPosition);
+
+  // Calculate the acceptable difference threshold
+  int threshold = (motorMove * comparisonPercentage) / 100;
+
+  // Return true if the difference is greater than the threshold
+  return (motorError >= threshold);
+}
+
+/**
+ * FIXME
+ * motor compression function takes compareMotorEncoder and motor moves to apply pressure up to a threshold and then
+ * reduce the speed (increases torque of stepper?) until again threshold past, etc, until minCompressionSpeed reached,
+ *  thenwill stop
+ */
+void compressionFunction(int initialCompressionSpeed, int minCompressionSpeed) // chatGPT written
+{
+  buttonLEDsColors(RED_RGB, BLACK_RGB, RED_RGB);
+  selectButton.update();
+
+  // add ButtonSelect interrupt function on user press, goes to Ready_to_Inject (also EStop..? or EStop better permament in loop
+  //  and then goes to ERROR-STATE?)
+  if (!selectButton.isPressed())
+  {
+    // Set initial speed
+    stepper->setSpeedInHz(initialCompressionSpeed); // Starting speed in steps per second
+
+    while (stepper->getSpeedInMilliHz() / 1000 > minCompressionSpeed)
+    {
+      // Move the plunger down
+      stepper->runForward();
+
+      // FIXME commented out for testing - Andy uncommented for testing!
+
+      // Call the comparison function to check if motor-encoder difference exceeds threshold
+      if (compareMotorEncoder(stepper->targetPos(), encoder.getCount(), comparisonPercentage))
+      {
+        // Reduce speed when the difference is greater than the allowed threshold
+        int newSpeed = stepper->getSpeedInMilliHz() / 1000 * speedReductionFactor / 10;
+        stepper->setSpeedInHz(newSpeed);
+        buttonLEDsColors(RED_RGB, BLACK_RGB, YELLOW_RGB); // to show compression is acting (has reduced speed at least once) and ongoing..
+
+        // Optionally, reduce comparison threshold on each iteration (for finer control)
+        comparisonPercentage *= speedReductionFactor; /* could lead to infinite smaller steps if minCompressionSpeed is too low...?
+        for debugging this option, would be good to show actual speed - if later wish to add another compressionDuringHeating function
+        where the plastic is already quite compressed, and will start (and end) from/to a much lower speeds, have to make sure this
+        does not produce infinite loop as never reaches minCompressionSpeed */
+      }
+    }
+
+    // Stop motor when speed falls below threshold
+    stepper->stopMove();
+    buttonLEDsColors(RED_RGB, BLACK_RGB, GREEN_RGB); // to show compression is complete
+    delay(500);                                      // ONLY DELAY IN ENTIRE SKETCH, and is only to give time for GREENrgb LED to be shown before
+
+    //  return;  //  FIXME - removed return and added line below... once finished function should return to function that called it, be it compression or inject.. should be break..?
+    currentState = READY_TO_INJECT;
+  }
+  else
+  {
+    stepper->stopMove();
+    currentState = READY_TO_INJECT;
+  }
+}
+
+void clearLEDs()
+{
+  for (int i = 0; i < keypadLedCount; i++)
+  {
+    keypadleds.setPixelColor(i, 0);
+  }
+}
+
+
+
+/**
+ *
+ */
 
 /**
  *
@@ -746,11 +763,21 @@ int sanityCheck()
   // FIXME add error state when function REQUIRES something under barrel (compression, purge or mould fill)
   return error;
 }
+
 /**
  * to transition states would also apply button activation / availablity..? or this only in machine states..?
  * some motor moves user may want to stop before motor move is completed..? INJECT or HOLD, or COMPRESSION
  * how to apply ContinuousMotorMoves..? As in Purge, where State does not change whilst moving motor.. this function must be in Machine State..?
  *
+ * also, transitionToState motor moves are completely furfilled BEFORE entering new state..? is Compression move finished
+ * before entering COMPRESSION, where the Select button press can cancel..? Although a !Select is included in CompressionFunction...
+ *
+ * Encoder zeroing is performed after move to home in INIT_HOMED_ENCODER_ZEROED?
+ * maybe another State in between is needed?
+ *
+ * note: REFILL State will requiere homeMove before OffsetMove, as offset is RELATIVE from HOME
+ *
+ * also, how is toState set..?
  */
 void transitionToState(InjectorStates toState)
 {
@@ -766,22 +793,21 @@ void transitionToState(InjectorStates toState)
     else if (toState == INIT_HOMED_ENCODER_ZEROED)
     {
       doMoveMotor = true;
-      continuousMotorMoveUp(generalFastSpeed); // FIXME this should be...: ?
-      // homeMove(generalFastSpeed, homingSlowSpeed);  // followed by
+      homeMove(homingFastSpeed, homingSlowSpeed); // followed by
       // encoder.setCount(0);  // or this last line should go in machineState..? reset has to occur AFTER homeMove finishes, but not PART of homeMove
-      // transitionToState(InjectorStates::REFILL);  and finally transition to next State
     }
     else if (toState == REFILL) // once INIT_HOMED_ENCODER_ZEROED done, REFILL is where plunger at homed offset for plastic filling
     {
       doMoveMotor = true;
+      homeMove(homingFastSpeed, homingSlowSpeed); // to do next programmedMotorMove, has to be from homed move, as next move is RELATIVE MOVE
       programmedMotorMove(generalFastSpeed, refillOpeningOffsetDistSteps /*,defaultAcceletationNema*/);
     }
     else if (toState == COMPRESSION)
     {
-      // doMoveMotor = true;
-      // compressionFunction();  // FIXME  compression function currently commented out
+      doMoveMotor = true;
+      compressionFunction(initialCompressionSpeed, minCompressionSpeed);
     }
-    else if (toState == INJECT)
+    else if (toState == INJECT) // FIXME   should be ABSOLUTE motor move, relative to Purge Zeroed position, after ANTIDRIP has moved plunger backwards a small amount...
     {
       doMoveMotor = true;
       programmedMotorMove(fillMouldMoveSpeed, fillMouldMoveDistSteps, fillMouldAccel);
@@ -813,7 +839,7 @@ void transitionToState(InjectorStates toState)
 
 void machineState() //
 {
-  // static StatesMachine runState;  // useful here, or to make runState a Static variable between loops
+  // static StatesMachine runState;  // ?? useful here, or to make runState a Static variable between loops
   //  maybe can add "static" to above enum declaration...?
 
   /** button activation/ availability is activted on entering new state..? if motor move is started during transtion, STOPPING move by user
@@ -827,23 +853,14 @@ void machineState() //
 
     buttonLEDsColors(RED_RGB, RED_RGB, RED_RGB); // FIXME ERROR_STATE should be all red, with flashing sequence as per Error to Identify
 
-    if (selectButtonPressed) // FIXME ERROR_STATE this is only for testing, SHOULD NOT EXIST IN REAL SKETCH
-    {
-      transitionToState(InjectorStates::INIT_HEATING);
-    }
     break;
 
-  case InjectorStates::INIT_HEATING: //  FIXME INIT_HEATING this is only for testing, SHOULD NOT EXIST IN REAL SKETCH
+  case InjectorStates::INIT_HEATING: //
     buttonLEDsColors(RED_RGB, RED_RGB, RED_RGB);
-
-    if (upButtonPressed)
-    {
-      transitionToState(InjectorStates::INIT_HOT_NOT_HOMED);
-    }
 
     if (nozzleTemperature > minTempForAnyMove)
     {
-      transitionToState(InjectorStates::INIT_HOT_NOT_HOMED);
+      currentState = INIT_HOT_NOT_HOMED;
     }
 
     break;
@@ -853,25 +870,18 @@ void machineState() //
 
     if (upButtonPressed)
     {
-      transitionToState(InjectorStates::INIT_HOMED_ENCODER_ZEROED);
+      currentState = INIT_HOMED_ENCODER_ZEROED;
     }
-    if (downButtonPressed) //  FIXME INIT_HOT_NOT_HOME downButtonPressed this is only for testing, SHOULD NOT EXIST IN REAL SKETCH
-    {
-      transitionToState(InjectorStates::INIT_HEATING);
-    }
+
     break;
 
-  case InjectorStates::INIT_HOMED_ENCODER_ZEROED:      // FIXME should be only the reset of the encoder, no button presses exist in real sketch
-    buttonLEDsColors(YELLOW_RGB, RED_RGB, YELLOW_RGB); //  FIXME YELLOW_RGB, YELLOW_RGB, YELLOW_RGB
+  case InjectorStates::INIT_HOMED_ENCODER_ZEROED:
+    buttonLEDsColors(YELLOW_RGB, YELLOW_RGB, YELLOW_RGB);
 
-    if (downButtonPressed)
-    {
-      transitionToState(InjectorStates::REFILL);
-    }
-    if (upButtonPressed)
-    {
-      transitionToState(InjectorStates::INIT_HOT_NOT_HOMED);
-    }
+    //  resetEncoderZero();  // use a separate function taht does the same, or just the command..
+    encoder.setCount(0);
+    currentState = REFILL;
+
     break;
 
   case InjectorStates::REFILL:
@@ -886,7 +896,7 @@ void machineState() //
 
     if (selectButtonPressed)
     {
-      transitionToState(InjectorStates::COMPRESSION);
+      currentState = COMPRESSION;
     }
 
     if (upButtonPressed && downButtonPressed)
@@ -899,10 +909,15 @@ void machineState() //
   case InjectorStates::COMPRESSION:
     buttonLEDsColors(RED_RGB, BLACK_RGB, RED_RGB);
 
-    if (selectButtonPressed)
-    {
-      transitionToState(InjectorStates::REFILL);
-    }
+    // if (selectButtonPressed) //  there is already an "if !Select" in the CompressionFunction that does this same ...
+    // {
+    //   stepper->stopMove();
+    //   currentState = READY_TO_INJECT;
+    // }
+
+    //  ... however, the CompressionFunction has a "return" at the end, as was initially contemplated to be able to use in INJECT
+    //  as well as COMPRESSION States, in the case that want to assure max pressure filling as well as max pressure Compression...
+    //  revise and decide what is most appropiate usecase, as otherwise, ATM, there is no way of getting to READY_TO_INJECT
     break;
 
   case InjectorStates::READY_TO_INJECT:
@@ -910,11 +925,11 @@ void machineState() //
 
     if (selectButtonPressed && downButtonPressed)
     {
-      transitionToState(InjectorStates::PURGE_ZERO);
+      currentState = PURGE_ZERO;
     }
     else if (upButtonPressed)
     {
-      transitionToState(InjectorStates::REFILL);
+      currentState = REFILL;
     }
 
     break;
@@ -924,7 +939,7 @@ void machineState() //
     if (selectButtonPressed)
     {
       stepper->setCurrentPosition(0);
-      transitionToState(InjectorStates::ANTIDRIP);
+      currentState = ANTIDRIP;
     }
 
     if (upButtonPressed)
@@ -947,12 +962,12 @@ void machineState() //
     if (selectButtonPressed)
     {
       stepper->stopMove();
-      transitionToState(READY_TO_INJECT);
+      currentState = READY_TO_INJECT;
     }
 
     if (upButtonPressed && downButtonPressed)
     {
-      transitionToState(InjectorStates::INJECT);
+      currentState = INJECT;
     }
 
     break;
@@ -965,7 +980,12 @@ void machineState() //
       stepper->stopMove();
       Serial.println("Motor moved " && stepper->getCurrentPosition() && " steps"); // send via serial the actual steps moved by motor: in the case mould was overfilling, can be useful info for user
       //
-      transitionToState(InjectorStates::RELEASE);
+      currentState = RELEASE;
+    }
+
+    else // here the function will wait for the transitionToState motor move to complete before moving to the next State??
+    {
+      currentState = HOLD_INJECTION;
     }
 
     break;
@@ -976,13 +996,21 @@ void machineState() //
     if (selectButtonPressed)
     {
       stepper->stopMove();
-      transitionToState(InjectorStates::RELEASE);
+      currentState = RELEASE;
+    }
+
+    else // here the function will wait for the transitionToState motor move to complete before moving to the next State??
+    {
+      currentState = RELEASE;
     }
 
     break;
 
   case InjectorStates::RELEASE:
     buttonLEDsColors(GREEN_RGB, GREEN_RGB, GREEN_RGB);
+
+    currentState = CONFIRM_MOULD_REMOVAL; // here the function will wait for the transitionToState motor move to complete before moving to the next State??
+
     break;
 
   case InjectorStates::CONFIRM_MOULD_REMOVAL:
@@ -992,7 +1020,7 @@ void machineState() //
     {
       if (selectButtonPressed || upButtonPressed || downButtonPressed)
       {
-        transitionToState(InjectorStates::REFILL);
+        currentState = REFILL;
       }
     }
 
@@ -1000,7 +1028,7 @@ void machineState() //
     {
       if (selectButtonPressed || upButtonPressed || downButtonPressed)
       {
-        transitionToState(InjectorStates::READY_TO_INJECT);
+        currentState = READY_TO_INJECT;
       }
     }
     break;
@@ -1031,6 +1059,7 @@ void serialRegular100msMessages()
     Serial.printf("inputs: ES=%d, SEL=%d, UP=%d, DW=%d, TE=%d, BE=%d, BR=%d\n", emergencyStop, selectButtonPressed, upButtonPressed, downButtonPressed, topEndStopActivated, bottomEndStopActivated, barrelEndStopActivated);
 
     // // FIXME commented out for testing
+    //  FIXME  use SafeString library for ALL SERIAL PRINTS, UART COMMS, and MILLISDELAYS!! very robust library with many error mensajes, non-blocking
     //       //actualENPosition = encoder.getCount() / 2;
     //       if (actualENPosition != oldENPosition) /* ... and actualENPosition & oldENPosition are updated by EncoderActualPosition, but if there
     //      there has been no change in last 100ms, then do not print new position... possibly this should be divided in loop..? */
@@ -1097,15 +1126,12 @@ void setup()
   encoder.attachHalfQuad(ENCODER_A_PIN, ENCODER_B_PIN);
   encoder.setCount(0);
 
-  // FIXME commented out for testing
-  // encoder.attachHalfQuad(ENCODER_A_PIN, ENCODER_B_PIN);  // possible have to reverse..? or rename, for Encoder library "CLK, DT ", and also rename EncoderPins..?
-  // encoder.setCount ( 0 );  move this line to INIT_HOMED_ENCODER_ZEROED function?
-
   // stepper setup
   // #define DRIVER_RMT 1  // type of driver for FAS, to separate any motor interference, not needed as directly used "1" below..?
   engine.init();
 
-  // FIXME  Core assignment
+  // FIXME  Core assignment... NECESSARY?!? Revising webs, comms BETWEEN cores can be a problem... test and check, decide if needed to assign distinct cores
+  // useful info..? https://www.codeproject.com/Articles/5295781/Use-both-cores-on-an-ESP32-Easy-synchronization-wi
   // engine.init(1);
   // FIXME  DRIVER type used
   // stepper = engine.stepperConnectToPin(STEPPER_STEP_PIN, 1);  // "1" defines DRIVER_RMT, for encoder to use PCNT, not Stepper
