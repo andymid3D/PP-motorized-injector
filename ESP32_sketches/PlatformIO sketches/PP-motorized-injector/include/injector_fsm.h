@@ -61,4 +61,5 @@ extern boolean barrelEndStopActivated;
 extern InjectorStates currentState;
 extern uint16_t error;
 
+
 #endif

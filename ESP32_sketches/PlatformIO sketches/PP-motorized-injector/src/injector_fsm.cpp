@@ -1,6 +1,50 @@
 #include "config.h"
 #include "injector_fsm.h"
 
+typedef struct fsm_inputs {
+
+  // buttons 
+  boolean selectButtonPressed;
+  boolean upButtonPressed;
+  boolean downButtonPressed;
+  boolean emergencyStop;
+  // endstops
+  boolean topEndStopActivated;
+  boolean bottomEndStopActivated;
+  boolean barrelEndStopActivated;
+  // temperature
+  int nozzleTemperature;
+  // encoder and motor
+  int64_t actualENPosition;
+  int64_t actualMOTPosition;
+  int trackingError;
+
+} fsm_inputs;
+
+typedef struct state {
+  InjectorStates currentState;
+  uint16_t error;
+} state;
+
+typedef struct fsm_outputs {
+// LEDS
+  uint32_t currentSelectLEDcolour;
+  uint32_t currentUpLEDcolour;
+  uint32_t currentDownLEDcolour;
+  boolean changeSelectLEDcolour;
+  boolean changeUpLEDcolour;
+  boolean changeDownLEDcolour;
+  // motor
+  boolean doMoveMotor;
+  int motorSpeed;
+  int motorDistance;
+  int motorAcceleration;
+  // heater
+  boolean doHeaterControl;
+  int heaterTemperature;
+
+} fsm_outputs;
+
 boolean readNozzleTemp = true;
 int nozzleTemperature;
 
@@ -28,6 +72,9 @@ boolean barrelEndStopActivated;
 
 InjectorStates currentState = InjectorStates::INIT_HEATING;  // declaring variable runState can only have valid values of enum
 uint16_t error = InjectorError::NO_ERROR;
+
+
+
 
 ////////////////////
 /**
