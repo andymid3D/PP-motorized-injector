@@ -144,27 +144,21 @@ ESP32 in Flash as array/struct of values particular to each mould
 */
 
 /// @brief struct to hold ActualMouldParams
-char mouldName;             // unique string name for stuct of mould parameters for below variables
-int fillMouldMoveSpeed;     /* speed of next move, sent from ESP32, test, is possible different for 2D and 3D moulds,
-higher speeds will lead to earlier over-current errors */
-int fillMouldMoveDistSteps; /* distance to move plunger to fill mould, sent from ESP32 at the start of each injection, as
-per mould in use */
-int fillMouldAccel;         // possibly not needed, have to discover whether small 2D/2.5D moulds benefit from slower accel on fill..?
 
-int holdMouldMoveSpeed;     /* ... and how fast (will be a low speed, test.. this will have to translate into a timed move,
-for example has to last 15s to allow 25g of plastic to cool enough, then distSteps * speed has to take 15s.
-make formula that can take time requiered, distance to move, and divide to get speed OR use ContMove for Time..? */
-int holdMouldMoveDistSteps; // after mould fill, apply a little more move/pressure to get good surface finish
-int holdMouldAcccel;        // as this will be a very slow speed and small distance motor move, either use fillMouldAccel, or leave as default..?
-struct actualMouldParams
+typedef struct actualMouldParams
 {
-  const char *mouldName;
-  int fillMouldMoveSpeed;
-  int fillMouldAccel;
-  int fillMouldMoveDistSteps;
-  int holdMouldMoveSpeed;
-  int holdMouldMoveDistSteps;
-};
+  const char *mouldName;          // unique string name for stuct of mould parameters for below variables
+  int fillMouldMoveSpeed;         /* speed of next move, sent from ESP32, test, is possible different for 2D and 3D moulds,
+                                     higher speeds will lead to earlier over-current errors */
+  int fillMouldAccel;             // possibly not needed, have to discover whether small 2D/2.5D moulds benefit from slower accel on fill..?
+  int fillMouldMoveDistSteps;     /* distance to move plunger to fill mould, sent from ESP32 at the start of each injection, as
+                                     per mould in use */
+  int holdMouldMoveSpeed;         /* ... and how fast (will be a low speed, test.. this will have to translate into a timed move,
+                                     for example has to last 15s to allow 25g of plastic to cool enough, then distSteps * speed has to take 15s.
+                                     make formula that can take time requiered, distance to move, and divide to get speed OR use ContMove for Time..? */      
+  int holdMouldMoveDistSteps;     // after mould fill, apply a little more move/pressure to get good surface finish
+  int holdMouldAcccel;        // as this will be a very slow speed and small distance motor move, either use fillMouldAccel, or leave as default..?
+} actualMouldParams_t;
 
 // FIXME commented out for testing
 // struct actualMouldParams mouldNow = { "Posavasos", maxSpeedLimit, motorAcceleration, 2160, (maxSpeedLimit / 10), 80 };
@@ -186,23 +180,10 @@ int64_t actualENPosition; // same for encoder data.. if cannot zero encoder data
                           // oldENPosition, and subract to actualOldENPosition on FA zeroing, before substituting old with actual, should
                           // give same value since last zero of FA
 
-// endstop states, active or not, other checks to relay via Serial. mostly active LOW, with PULLUP (exceptions as per endstop)
-bool EMERGENCYStopPinActive = 0;          // is Emergency Stop true, then cannot allow movement - consider wiring also direct to stepper motor wires
-                                          // but ONLY if sure that breaking this connection will not damage driver.. otherwise, also wire to driver PSU
-bool topPlungerEndstopActive = 0;         // is 1/NC, then can move up, if 0/NC, then triggered
-bool bottomPlungerEndstopActive = 0;      // is 1/NC, then can move down, if 0/NC, then triggered
-bool barrelClampOKEndstopActive = 0;      // is 0/NO, then can move inject, if 1/NC, then triggered, barrel has moved!!
-bool mouldPresentEndstopActive = 0;       // still to see how to implement, to assure that nozzle is blocked by either mould or
-bool nozzleBlockPresentEndstopActive = 0; // purge bar/cap, so can move down w/o displacing barrel
 bool endOfDayFlag = 0;                    // 0 = refillAfterInject, 1= skip and, possibly, measure steps since last top endstop - could read from encoder.. as FA library
                                           // is contemplated to be reset after each purge, so if ==0, reset encoder, ==1 do not reset encoder
 bool initialHomingDone = 0;               // on power on, machine needs homing, then mark this flag to show has been done at least once
 int errorReason;
-
-// lower keypad button states, could be bool?  Or just use directly digitalRead of pin in any arguments/functions..?
-bool DownPinState;   // var for purge function, read from BUTTON_DOWN_PIN pin
-bool UpPinState;     // var for purge function, read from BUTTON_UP_PIN pin
-bool SelectPinState; // var for purge function, read from BUTTON_SELECT_PIN pin
 
 //  LED stuff
 int ledLBrightness = 50;      // initial brightness for LEDs, to possible increase to 100 during an actual press..?
@@ -216,4 +197,4 @@ const int ringLedCount = 35;  // 35 for LED ring on end of barrel
 #define BLACK_RGB ((uint32_t)0x000000)
 #define WHITE_RGB ((uint32_t)0xFFFFFF)
 
-#endif
+#endif // CONFIG_H
