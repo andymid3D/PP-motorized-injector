@@ -34,32 +34,56 @@ enum InjectorError : uint16_t {
                                 // to Refill or READY_TO_INJECT, depending on EndOfDayFlag
   };
 
-extern boolean readNozzleTemp;
-extern int nozzleTemperature;
+  typedef struct fsm_inputs {
 
-extern boolean readEmergencyStop;
-extern boolean emergencyStop;
+    // buttons 
+    boolean selectButtonPressed;
+    boolean upButtonPressed;
+    boolean downButtonPressed;
+  
+    boolean emergencyStop;
+    // endstops
+    boolean topEndStopActivated;
+    boolean bottomEndStopActivated;
+    boolean barrelEndStopActivated;
+    // temperature
+    int nozzleTemperature;
+    // encoder and motor
+    int64_t actualENPosition;
+    int64_t actualMOTPosition;
+    int trackingError;
+  
+  } fsm_inputs_t;
+  
+  typedef struct fsm_state {
+    InjectorStates currentState;
+    uint16_t error;
+  } fsm_state_t;
+  
+  typedef struct fsm_outputs {
+  // LEDS
+    uint32_t currentSelectLEDcolour;
+    uint32_t currentUpLEDcolour;
+    uint32_t currentDownLEDcolour;
+    boolean changeSelectLEDcolour;
+    boolean changeUpLEDcolour;
+    boolean changeDownLEDcolour;
+    // motor
+    boolean doMoveMotor;
+    int motorSpeed;
+    int motorDistance;
+    int motorAcceleration;
+    // heater
+    boolean doHeaterControl;
+    int heaterTemperature;
+  
+  } fsm_outputs_t;
+  
+extern fsm_inputs_t fsm_inputs;
+extern fsm_outputs_t fsm_outputs;
+extern fsm_state_t fsm_state;
+//extern InjectorStates currentState;
+//extern uint16_t error;
+void stateMachineLoop();
 
-extern boolean readSelectButton;
-extern boolean selectButtonPressed;
-
-extern boolean readUpButton;
-extern boolean upButtonPressed;
-
-extern boolean readDownButton;
-extern boolean downButtonPressed;
-
-extern boolean readTopEndStop;
-extern boolean topEndStopActivated;
-
-extern boolean readBottomEndStop;
-extern boolean bottomEndStopActivated;
-
-extern boolean readBarrelEndStop;
-extern boolean barrelEndStopActivated;
-
-extern InjectorStates currentState;
-extern uint16_t error;
-
-
-#endif
+#endif // INJECTOR_FSM_H

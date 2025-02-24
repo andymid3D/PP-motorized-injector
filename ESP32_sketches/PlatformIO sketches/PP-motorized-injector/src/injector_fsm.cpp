@@ -1,78 +1,14 @@
 #include "config.h"
 #include "injector_fsm.h"
 
-typedef struct fsm_inputs {
-
-  // buttons 
-  boolean selectButtonPressed;
-  boolean upButtonPressed;
-  boolean downButtonPressed;
-  boolean emergencyStop;
-  // endstops
-  boolean topEndStopActivated;
-  boolean bottomEndStopActivated;
-  boolean barrelEndStopActivated;
-  // temperature
-  int nozzleTemperature;
-  // encoder and motor
-  int64_t actualENPosition;
-  int64_t actualMOTPosition;
-  int trackingError;
-
-} fsm_inputs;
-
-typedef struct state {
-  InjectorStates currentState;
-  uint16_t error;
-} state;
-
-typedef struct fsm_outputs {
-// LEDS
-  uint32_t currentSelectLEDcolour;
-  uint32_t currentUpLEDcolour;
-  uint32_t currentDownLEDcolour;
-  boolean changeSelectLEDcolour;
-  boolean changeUpLEDcolour;
-  boolean changeDownLEDcolour;
-  // motor
-  boolean doMoveMotor;
-  int motorSpeed;
-  int motorDistance;
-  int motorAcceleration;
-  // heater
-  boolean doHeaterControl;
-  int heaterTemperature;
-
-} fsm_outputs;
-
-boolean readNozzleTemp = true;
-int nozzleTemperature;
-
-boolean readEmergencyStop = true;
-boolean emergencyStop;
-
-boolean readSelectButton = true;
-boolean selectButtonPressed;
-
-boolean readUpButton = true;
-boolean upButtonPressed;
-
-boolean readDownButton = true;
-boolean downButtonPressed;
-
-boolean readTopEndStop = true;
-boolean topEndStopActivated;
-
-boolean readBottomEndStop = true;
-boolean bottomEndStopActivated;
-
-boolean readBarrelEndStop = true;
-boolean barrelEndStopActivated;
 
 
 InjectorStates currentState = InjectorStates::INIT_HEATING;  // declaring variable runState can only have valid values of enum
 uint16_t error = InjectorError::NO_ERROR;
 
+fsm_inputs_t fsm_inputs;
+fsm_outputs_t fsm_outputs;
+fsm_state_t fsm_state;
 
 
 
@@ -88,27 +24,27 @@ int sanityCheck()
 {
   int error = InjectorError::NO_ERROR;
 
-  if (nozzleTemperature <= minTempForAnyMove) // and stop machine
+  if (fsm_inputs.nozzleTemperature <= minTempForAnyMove) // and stop machine
   {
     error |= InjectorError::ERROR_1;
   }
 
-  if (barrelEndStopActivated)
+  if (fsm_inputs.barrelEndStopActivated)
   {
     error |= InjectorError::ERROR_2;
   }
 
-  if (topEndStopActivated)
+  if (fsm_inputs.topEndStopActivated)
   {
     error |= InjectorError::ERROR_3;
   }
 
-  if (bottomEndStopActivated)
+  if (fsm_inputs.bottomEndStopActivated)
   {
     error |= InjectorError::ERROR_4;
   }
 
-  if (emergencyStop)
+  if (fsm_inputs.emergencyStop)
   {
     error |= InjectorError::ERROR_5;
   }
@@ -196,7 +132,7 @@ void machineState() //
 
     buttonLEDsColors(RED_RGB, RED_RGB, RED_RGB); // FIXME ERROR_STATE should be all red, with flashing sequence as per Error to Identify
 
-    if (selectButtonPressed) // FIXME ERROR_STATE this is only for testing, SHOULD NOT EXIST IN REAL SKETCH
+    if (fsm_inputs.selectButtonPressed) // FIXME ERROR_STATE this is only for testing, SHOULD NOT EXIST IN REAL SKETCH
     {
       transitionToState(InjectorStates::INIT_HEATING);
     }
@@ -205,12 +141,12 @@ void machineState() //
   case InjectorStates::INIT_HEATING: //  FIXME INIT_HEATING this is only for testing, SHOULD NOT EXIST IN REAL SKETCH
     buttonLEDsColors(RED_RGB, RED_RGB, RED_RGB);
 
-    if (upButtonPressed)
+    if (fsm_inputs.upButtonPressed)
     {
       transitionToState(InjectorStates::INIT_HOT_NOT_HOMED);
     }
 
-    if (nozzleTemperature > minTempForAnyMove)
+    if (fsm_inputs.nozzleTemperature > minTempForAnyMove)
     {
       transitionToState(InjectorStates::INIT_HOT_NOT_HOMED);
     }
@@ -220,11 +156,11 @@ void machineState() //
   case InjectorStates::INIT_HOT_NOT_HOMED:
     buttonLEDsColors(YELLOW_RGB, YELLOW_RGB, YELLOW_RGB);
 
-    if (upButtonPressed)
+    if (fsm_inputs.upButtonPressed)
     {
       transitionToState(InjectorStates::INIT_HOMED_ENCODER_ZEROED);
     }
-    if (downButtonPressed) //  FIXME INIT_HOT_NOT_HOME downButtonPressed this is only for testing, SHOULD NOT EXIST IN REAL SKETCH
+    if (fsm_inputs.downButtonPressed) //  FIXME INIT_HOT_NOT_HOME downButtonPressed this is only for testing, SHOULD NOT EXIST IN REAL SKETCH
     {
       transitionToState(InjectorStates::INIT_HEATING);
     }
@@ -233,11 +169,11 @@ void machineState() //
   case InjectorStates::INIT_HOMED_ENCODER_ZEROED:      // FIXME should be only the reset of the encoder, no button presses exist in real sketch
     buttonLEDsColors(YELLOW_RGB, RED_RGB, YELLOW_RGB); //  FIXME YELLOW_RGB, YELLOW_RGB, YELLOW_RGB
 
-    if (downButtonPressed)
+    if (fsm_inputs.downButtonPressed)
     {
       transitionToState(InjectorStates::REFILL);
     }
-    if (upButtonPressed)
+    if (fsm_inputs.upButtonPressed)
     {
       transitionToState(InjectorStates::INIT_HOT_NOT_HOMED);
     }
@@ -253,12 +189,12 @@ void machineState() //
       buttonLEDsColors(GREEN_RGB, BLUE_RGB, BLUE_RGB);
     }
 
-    if (selectButtonPressed)
+    if (fsm_inputs.selectButtonPressed)
     {
       transitionToState(InjectorStates::COMPRESSION);
     }
 
-    if (upButtonPressed && downButtonPressed)
+    if (fsm_inputs.upButtonPressed && fsm_inputs.downButtonPressed)
     {
       endOfDayFlag = !endOfDayFlag;
     }
@@ -268,7 +204,7 @@ void machineState() //
   case InjectorStates::COMPRESSION:
     buttonLEDsColors(RED_RGB, BLACK_RGB, RED_RGB);
 
-    if (selectButtonPressed)
+    if (fsm_inputs.selectButtonPressed)
     {
       transitionToState(InjectorStates::REFILL);
     }
@@ -277,11 +213,11 @@ void machineState() //
   case InjectorStates::READY_TO_INJECT:
     buttonLEDsColors(GREEN_RGB, YELLOW_RGB, GREEN_RGB);
 
-    if (selectButtonPressed && downButtonPressed)
+    if (fsm_inputs.selectButtonPressed && fsm_inputs.downButtonPressed)
     {
       transitionToState(InjectorStates::PURGE_ZERO);
     }
-    else if (upButtonPressed)
+    else if (fsm_inputs.upButtonPressed)
     {
       transitionToState(InjectorStates::REFILL);
     }
@@ -290,19 +226,19 @@ void machineState() //
 
   case InjectorStates::PURGE_ZERO:
     buttonLEDsColors(GREEN_RGB, YELLOW_RGB, YELLOW_RGB);
-    if (selectButtonPressed)
+    if (fsm_inputs.selectButtonPressed)
     {
       stepper->setCurrentPosition(0);
       transitionToState(InjectorStates::ANTIDRIP);
     }
 
-    if (upButtonPressed)
+    if (fsm_inputs.upButtonPressed)
     {
       doMoveMotor = true;
       continuousMotorMoveUp(purgeSpeed);
     }
 
-    if (downButtonPressed)
+    if (fsm_inputs.downButtonPressed)
     {
       doMoveMotor = true;
       continuousMotorMoveDown(purgeSpeed);
@@ -313,13 +249,13 @@ void machineState() //
   case InjectorStates::ANTIDRIP:
     buttonLEDsColors(RED_RGB, GREEN_RGB, GREEN_RGB);
 
-    if (selectButtonPressed)
+    if (fsm_inputs.selectButtonPressed)
     {
       stepper->stopMove();
       transitionToState(READY_TO_INJECT);
     }
 
-    if (upButtonPressed && downButtonPressed)
+    if (fsm_inputs.upButtonPressed && fsm_inputs.downButtonPressed)
     {
       transitionToState(InjectorStates::INJECT);
     }
@@ -329,7 +265,7 @@ void machineState() //
   case InjectorStates::INJECT:
     buttonLEDsColors(RED_RGB, GREEN_RGB, BLACK_RGB); // middle/UP LED GREEN flashing
 
-    if (selectButtonPressed)
+    if (fsm_inputs.selectButtonPressed)
     {
       stepper->stopMove();
       Serial.println("Motor moved " && stepper->getCurrentPosition() && " steps"); // send via serial the actual steps moved by motor: in the case mould was overfilling, can be useful info for user
@@ -342,7 +278,7 @@ void machineState() //
   case InjectorStates::HOLD_INJECTION:
     buttonLEDsColors(RED_RGB, GREEN_RGB, GREEN_RGB); // bottom/DOWN LED GREEN flashing
 
-    if (selectButtonPressed)
+    if (fsm_inputs.selectButtonPressed)
     {
       stepper->stopMove();
       transitionToState(InjectorStates::RELEASE);
@@ -359,7 +295,7 @@ void machineState() //
 
     if (endOfDayFlag == 0)
     {
-      if (selectButtonPressed || upButtonPressed || downButtonPressed)
+      if (fsm_inputs.selectButtonPressed || fsm_inputs.upButtonPressed || fsm_inputs.downButtonPressed)
       {
         transitionToState(InjectorStates::REFILL);
       }
@@ -367,7 +303,7 @@ void machineState() //
 
     if (endOfDayFlag == 1)
     {
-      if (selectButtonPressed || upButtonPressed || downButtonPressed)
+      if (fsm_inputs.selectButtonPressed || fsm_inputs.upButtonPressed || fsm_inputs.downButtonPressed)
       {
         transitionToState(InjectorStates::READY_TO_INJECT);
       }
@@ -384,9 +320,5 @@ void stateMachineLoop() {
 
       Serial.printf("Found error!. Changing to ERROR_STATE to INIT_HEATING with error %d\n", error);
   } 
-  // latch inputs, here you can simulate inputs
-  
-    // eval states
-  
-    // update outputs
+  machineState();
 }

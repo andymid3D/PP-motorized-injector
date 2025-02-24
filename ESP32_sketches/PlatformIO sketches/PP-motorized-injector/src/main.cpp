@@ -52,6 +52,15 @@ Bounce2::Button bottomEndstop = Bounce2::Button();
 Bounce2::Button barrelEndstop = Bounce2::Button();
 Bounce2::Button EMERGENCYstop = Bounce2::Button();
 
+boolean readNozzleTemp = true;
+boolean readEmergencyStop = true;
+boolean readSelectButton = true;
+boolean readUpButton = true;
+boolean readDownButton = true;
+boolean readTopEndStop = true;
+boolean readBottomEndStop = true;
+boolean readBarrelEndStop = true;
+
 /**
  * 
  */
@@ -92,46 +101,43 @@ void bounceButtonsSetup() {
  */
 void getInputs() {
   if (readNozzleTemp) {
-    nozzleTemperature = thermocouple.readCelsius();
+    fsm_inputs.nozzleTemperature = thermocouple.readCelsius();
   } 
 
   if (readEmergencyStop) {
-    emergencyStop = EMERGENCYstop.pressed();
+    fsm_inputs.emergencyStop = EMERGENCYstop.pressed();
   }
 
   if (readSelectButton) {
-    selectButton.update();
-    selectButtonPressed = selectButton.pressed();
+    fsm_inputs.selectButtonPressed = selectButton.pressed();
   }
 
   if (readUpButton) {
-    upButton.update();
-    upButtonPressed = upButton.pressed();
+    fsm_inputs.upButtonPressed = upButton.pressed();
   }
 
   if (readDownButton) {
-    downButton.update();
-    downButtonPressed = downButton.pressed();
+    fsm_inputs.downButtonPressed = downButton.pressed();
   }
 
   if (readTopEndStop) {
-    topEndstop.update();
-    topEndStopActivated = topEndstop.isPressed();
+    fsm_inputs.topEndStopActivated = topEndstop.isPressed();
   }
 
   if (readBottomEndStop) {
-    bottomEndstop.update();
-    bottomEndStopActivated = bottomEndstop.isPressed();
+    fsm_inputs.bottomEndStopActivated = bottomEndstop.isPressed();
   }
 
   if (readBarrelEndStop) {
-    barrelEndstop.update();
-    barrelEndStopActivated = barrelEndstop.isPressed();
+    fsm_inputs.barrelEndStopActivated = barrelEndstop.isPressed();
   }
 
-  actualENPosition = encoder.getCount() / 2;
+  fsm_inputs.actualENPosition = encoder.getCount() / 2;
 }
 
+void setOutputs() {
+  // FIXME
+}
 
 ////////////////////////////////
 // END Input block
@@ -322,7 +328,9 @@ void loop() {
   if (now - mediumTaskTime >= 10) {
     mediumTaskTime = now;
     // medium tasks
-    //stateMachineLoop();
+    getInputs();
+    stateMachineLoop();
+    setOutputs();
 
   }
   if (now - slowTaskTime >= 100) {
