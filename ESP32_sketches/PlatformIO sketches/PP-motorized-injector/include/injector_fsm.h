@@ -65,9 +65,6 @@ enum InjectorError : uint16_t {
     uint32_t currentSelectLEDcolour;
     uint32_t currentUpLEDcolour;
     uint32_t currentDownLEDcolour;
-    boolean changeSelectLEDcolour;
-    boolean changeUpLEDcolour;
-    boolean changeDownLEDcolour;
     // motor
     boolean doMoveMotor;
     int motorSpeed;

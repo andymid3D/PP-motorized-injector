@@ -150,44 +150,14 @@ void clearLEDs()
   }
 }
 
-boolean changeSelectLEDcolour;
-boolean changeUpLEDcolour;
-boolean changeDownLEDcolour;
 
-uint32_t currentSelectLEDcolour;
-uint32_t currentUpLEDcolour;
-uint32_t currentDownLEDcolour;
-
-/**
- *
- */
-void buttonLEDsColors(uint32_t newSelectLEDcolour, uint32_t newUpLEDcolour, uint32_t newDownLEDcolour) // could use case/switch instead? but are different types of defining behaviours..?
-{
-  changeSelectLEDcolour = currentSelectLEDcolour != newSelectLEDcolour;
-  if (changeSelectLEDcolour)
-  {
-    currentSelectLEDcolour = newSelectLEDcolour;
-  }
-
-  changeUpLEDcolour = currentUpLEDcolour != newUpLEDcolour;
-  if (changeUpLEDcolour)
-  {
-    currentUpLEDcolour = newUpLEDcolour;
-  }
-
-  changeDownLEDcolour = currentDownLEDcolour != newDownLEDcolour;
-  if (changeDownLEDcolour)
-  {
-    currentDownLEDcolour = newDownLEDcolour;
-  }
-}
 
 /**
  *
  */
 void outputButtonLEDsColors() // could use case/switch instead? but are different types of defining behaviours..?
 {
-  if (selectButtonPressed || upButtonPressed || downButtonPressed) // set brightness to about 80% on any button press
+  if (fsm_inputs.selectButtonPressed || fsm_inputs.upButtonPressed || fsm_inputs.downButtonPressed) // set brightness to about 80% on any button press
   {
     keypadleds.setBrightness(ledHBrightness);
   }
@@ -196,23 +166,9 @@ void outputButtonLEDsColors() // could use case/switch instead? but are differen
     keypadleds.setBrightness(ledLBrightness);
   }
 
-  if (changeSelectLEDcolour)
-  {
-    keypadleds.setPixelColor(0, currentSelectLEDcolour);
-    changeSelectLEDcolour = false;
-  }
-
-  if (changeUpLEDcolour)
-  {
-    keypadleds.setPixelColor(1, currentUpLEDcolour);
-    changeUpLEDcolour = false;
-  }
-
-  if (changeDownLEDcolour)
-  {
-    keypadleds.setPixelColor(2, currentDownLEDcolour);
-    changeDownLEDcolour = false;
-  }
+  keypadleds.setPixelColor(0, fsm_outputs.currentSelectLEDcolour);
+  keypadleds.setPixelColor(1, fsm_outputs.currentUpLEDcolour);
+  keypadleds.setPixelColor(2, fsm_outputs.currentDownLEDcolour);
 
   keypadleds.show();
 
@@ -262,8 +218,8 @@ void setup() {
     // Buttons & Endstops Bounce2 setup is very long, so called from the following function
     bounceButtonsSetup();
 
-    currentState = InjectorStates::INIT_HEATING;
-    error = InjectorError::NO_ERROR;
+    fsm_state.currentState = InjectorStates::INIT_HEATING;
+    fsm_state.error = InjectorError::NO_ERROR;
 
     readNozzleTemp = true;
     readEmergencyStop = true;
@@ -281,14 +237,14 @@ long slowTaskTime = 2;
 void serialRegular100msMessages() {
   Serial.println("===============");
   //Serial.printf("loops: %d, avg time: %d\n", numLoops, avgLoopTime);
-  Serial.printf("state: %d, ER: %d\n",currentState, error);
-  Serial.println("selectLed: " + String(currentSelectLEDcolour, HEX));
-  Serial.println("upLed: " + String(currentUpLEDcolour, HEX));
-  Serial.println("downLed: " + String(currentDownLEDcolour, HEX));
+  Serial.printf("state: %d, ER: %d\n",fsm_state.currentState, fsm_state.error);
+  Serial.println("selectLed: " + String(fsm_outputs.currentSelectLEDcolour, HEX));
+  Serial.println("upLed: " + String(fsm_outputs.currentUpLEDcolour, HEX));
+  Serial.println("downLed: " + String(fsm_outputs.currentDownLEDcolour, HEX));
 
-  Serial.printf("temps: NZ=%d\n", nozzleTemperature);
+  Serial.printf("temps: NZ=%d\n", fsm_inputs.nozzleTemperature);
 
-  Serial.printf("inputs: ES=%d, SEL=%d, UP=%d, DW=%d, TE=%d, BE=%d, BR=%d\n", emergencyStop, selectButtonPressed, upButtonPressed, downButtonPressed, topEndStopActivated, bottomEndStopActivated, barrelEndStopActivated);
+  Serial.printf("inputs: ES=%d, SEL=%d, UP=%d, DW=%d, TE=%d, BE=%d, BR=%d\n", fsm_inputs.emergencyStop, fsm_inputs.selectButtonPressed, fsm_inputs.upButtonPressed, fsm_inputs.downButtonPressed, fsm_inputs.topEndStopActivated, fsm_inputs.bottomEndStopActivated, fsm_inputs.barrelEndStopActivated);
 
 // // FIXME commented out for testing
 //       //actualENPosition = encoder.getCount() / 2;

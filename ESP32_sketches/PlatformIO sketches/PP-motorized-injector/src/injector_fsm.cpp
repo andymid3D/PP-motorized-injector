@@ -11,6 +11,16 @@ fsm_outputs_t fsm_outputs;
 fsm_state_t fsm_state;
 
 
+/**
+ *
+ */
+void buttonLEDsColors(uint32_t newSelectLEDcolour, uint32_t newUpLEDcolour, uint32_t newDownLEDcolour) // could use case/switch instead? but are different types of defining behaviours..?
+{
+    fsm_outputs.currentSelectLEDcolour = newSelectLEDcolour;
+    fsm_outputs.currentUpLEDcolour = newUpLEDcolour;
+    fsm_outputs.currentDownLEDcolour = newDownLEDcolour;
+}
+
 
 ////////////////////
 /**
