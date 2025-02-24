@@ -1,13 +1,13 @@
 {
   "navigation": {
-    "selectedUserPageObject": "[injector_initial_layout.eez-project]:/userPages/1",
+    "selectedUserPageObject": "[injector_initial_layout.eez-project]:/userPages/0",
     "selectedUserWidgetObject": "[injector_initial_layout.eez-project]:/userWidgets/1",
     "selectedGlobalVariableObject": "[injector_initial_layout.eez-project]:/variables/globalVariables/2",
     "selectedStructureObject": "[injector_initial_layout.eez-project]:/variables/structures/0",
     "selectedEnumObject": "[injector_initial_layout.eez-project]:/variables/enums/1",
     "selectedLvglGroupObject": "[injector_initial_layout.eez-project]:/lvglGroups/groups/0",
     "subnavigationSelectedItems": {
-      "variables-tab/sub-navigation/selected-item": "Structs"
+      "variables-tab/sub-navigation/selected-item": "Enums"
     }
   },
   "layoutModel": {
@@ -205,7 +205,7 @@
               "type": "tabset",
               "id": "EDITORS",
               "weight": 46.96706800900507,
-              "selected": 2,
+              "selected": 1,
               "enableDeleteWhenEmpty": false,
               "enableClose": false,
               "children": [
@@ -264,7 +264,8 @@
                   },
                   "icon": "svg:user_widget"
                 }
-              ]
+              ],
+              "active": true
             },
             {
               "type": "row",
@@ -285,8 +286,7 @@
                       "enableClose": false,
                       "icon": "svg:properties"
                     }
-                  ],
-                  "active": true
+                  ]
                 },
                 {
                   "type": "tabset",
