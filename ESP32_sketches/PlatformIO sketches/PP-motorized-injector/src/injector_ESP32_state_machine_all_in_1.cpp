@@ -21,37 +21,36 @@ local and never need changing
  */
 
 #include <Arduino.h>
+#include "state_machine.h"
+#include "motor_control.h"
+#include "button_control.h"
+#include "serial_comms.h"
+#include "config.h"
 
-// pin definitions, decided on from "GPIO_Limitations_ESP32_NodeMCU.jpg", and which side may be more convenient
+// Global variables
+// ESP32Encoder encoder;
+// int nozzleTemperature;
 
-#define ENCODER_A_PIN 34               // * A+ encoder pin, A- not used  "CLK ENCODER "
-#define ENCODER_B_PIN 35               // * B+ encoder pin, B- not used  "DT ENCODER "
-#define WS2812B_RING_LEDS_PIN 32       // 1 pin for 35 LEDs nozzle ring, to change color as per moment of use..
-#define WS2812B_BUTTON_LEDS_PIN 33     // * 1 pin to address 3 LEDs buttons...
-#define BUTTON_SELECT_PIN 25           // * these 3 pins for lower keypad, to facilite Purge and INject Confirm
-#define BUTTON_UP_PIN 26               // *
-#define BUTTON_DOWN_PIN 27             // *
-#define TEMPNozzleVSPI_SCK_CLK 14      //  *  18 (possible change to analog component if run out of pins
-#define TEMPNozzleVSPI_MISO_DO 12      // * 19
-#define TEMPNozzleVSPI_Dpin_MOSI_CS 13 // * 23 these 3 pins are for daughter PCB thermocouple
+bool SelectPinState;
+int ledLBrightness = 50;
+int ledHBrightness = 200;
+const int keypadLedCount = 3;
+const int ringLedCount = 35;
+const int debounce_Interval = 5;
+
+boolean readNozzleTemp = true;
+int nozzleTemperature;
+boolean readEmergencyStop = true;
+boolean emergencyStop;
+boolean readSelectButton = true;
+boolean readUpButton = true;
+boolean readDownButton = true;
+boolean readTopEndStop = true;
+boolean readBottomEndStop = true;
+boolean readBarrelEndStop = true;
+int actualENPosition;
 
 //////////////////
-
-#define STEPPER_STEP_PIN 23 // * any GPIO for ESP32
-#define STEPPER_DIR_PIN 22  // * may not be needed if using -ve moves..?
-
-#define ENDSTOP_TOP_PLUNGER_PIN 19    // * all buttons/endstops with INPUT_PULLUP to avoid floating values
-#define ENDSTOP_BOTTOM_PLUNGER_PIN 18 // * so all ACTIVE STATES are ==0
-#define ENDSTOP_BARREL_PLUNGER_PIN 5  // *
-#define UART_tx_ESP32 17              // * TX2 UART comms with ESP32
-#define UART_rx_ESP32 16              // *
-// #define CURRENTSensor1   4      // * as yet to be decided on how to use motor phase current readng
-#define EMERGENCY_STOP_PIN 0 //  *
-// #define CURRENTSensor2   2      // * to be useful for detecting motor current (reaching amc compression/fill)
-#define ENDSTOP_NOZZLE_BLOCK_COMPRESS_OR_PURGE_PIN 15 // also as above, not decided hardware method yet
-#define EndstopMOULDPresentPin                        // do not yet have a way of detecting, possibly pressure sensor under plastic floor on platform..?
-
-//////////////////////////////////
 
 // global common constants
 // revise what is now NOT NEEDED, OR what variables should go inside Functions to make LOCAL
@@ -117,7 +116,7 @@ long int generalFastSpeed = maxSpeedLimit; // how fast to home, continous move u
 // int HomeOffSetDistSteps;       // once first reached HomeEndstop, how much to back off before slower approach
 // int HomeOffSetAccel;      // once first reached HomeEndstop, how much Accel to back off before slower approach
 // int HomeOffsetSpeed;      // once first reached HomeEndstop, how quic to back off before slower approach
-long int homingFastSpeed = generalFastSpeed/2;
+long int homingFastSpeed = generalFastSpeed / 2;
 long int homingSlowSpeed = maxSpeedLimit / 10;                             // how slow to home, 2nd approach, continous move until reaching endstop
 long int initialCompressionSpeed = generalFastSpeed / 2;                   // could be generalFastSpeed / 2..?
 long int minCompressionSpeed = generalFastSpeed / 20;                      // at what speed is compression no longer useful..?
@@ -172,10 +171,11 @@ struct actualMouldParams
 {
   const char *mouldName;
   int fillMouldMoveSpeed;
-  int fillMouldAccel;
   int fillMouldMoveDistSteps;
+  int fillMouldAccel;
   int holdMouldMoveSpeed;
   int holdMouldMoveDistSteps;
+  int holdMouldAcccel;
 };
 
 // FIXME commented out for testing
@@ -363,9 +363,9 @@ enum InjectorError : uint16_t
 enum InjectorStates : int
 {
   ERROR_STATE = 0,               // SOME TYPE OF CHECK TRIGGERED
-  INIT_HEATING = 1,              // INITIAL POWER ON STATES
-  INIT_HOT_NOT_HOMED = 2,        // INITIAL POWER ON STATES
-  INIT_HOMED_ENCODER_ZEROED = 3, // INITIAL POWER ON STATES
+  INIT_HEATING,              // INITIAL POWER ON STATES
+  INIT_HOT_NOT_HOMED,        // INITIAL POWER ON STATES
+  INIT_HOMED_ENCODER_ZEROED, // INITIAL POWER ON STATES
   REFILL,                        // DEFAULT WAITING STATES
   COMPRESSION,                   // DEFAULT WAITING STATES
   READY_TO_INJECT,               // DEFAULT WAITING STATES
@@ -545,8 +545,8 @@ void homeMove(int homingFastSpeed, int homingSlowSpeed)
   int homeOffSetDistSteps = 212;           // once first reached HomeEndstop, how much to back off before slower approach, 212 steps ≈ 5mm
   int homeOffSetAccel = 10000;             // once first reached HomeEndstop, how much Accel to back off before slower approach 10000 = 1/5th normal
   int homeOffsetSpeed = maxSpeedLimit / 2; // once first reached HomeEndstop, how quick to back off before slower approach
-  //int homingFastSpeed = generalFastSpeed;
-  //int homingSlowSpeed = maxSpeedLimit / 10; // how slow to home, 2nd approach, continous move until reaching endstop
+  // int homingFastSpeed = generalFastSpeed;  // these 2 variables need to be globals as they are called in this function, but also in other functions
+  // int homingSlowSpeed = maxSpeedLimit / 10; // how slow to home, 2nd approach, continous move until reaching endstop
 
   if (digitalRead(ENDSTOP_TOP_PLUNGER_PIN) == !topPlungerEndstopActive)
   {
@@ -656,12 +656,12 @@ void compressionFunction(int initialCompressionSpeed, int minCompressionSpeed) /
     delay(500);                                      // ONLY DELAY IN ENTIRE SKETCH, and is only to give time for GREENrgb LED to be shown before
 
     //  return;  //  FIXME - removed return and added line below... once finished function should return to function that called it, be it compression or inject.. should be break..?
-    currentState = READY_TO_INJECT;
+    currentState = InjectorStates::READY_TO_INJECT;
   }
   else
   {
     stepper->stopMove();
-    currentState = READY_TO_INJECT;
+    currentState = InjectorStates::READY_TO_INJECT;
   }
 }
 
@@ -672,8 +672,6 @@ void clearLEDs()
     keypadleds.setPixelColor(i, 0);
   }
 }
-
-
 
 /**
  *
@@ -860,7 +858,7 @@ void machineState() //
 
     if (nozzleTemperature > minTempForAnyMove)
     {
-      currentState = INIT_HOT_NOT_HOMED;
+      currentState = InjectorStates::INIT_HOT_NOT_HOMED;
     }
 
     break;
@@ -870,7 +868,7 @@ void machineState() //
 
     if (upButtonPressed)
     {
-      currentState = INIT_HOMED_ENCODER_ZEROED;
+      currentState = InjectorStates::INIT_HOMED_ENCODER_ZEROED;
     }
 
     break;
@@ -880,7 +878,7 @@ void machineState() //
 
     //  resetEncoderZero();  // use a separate function taht does the same, or just the command..
     encoder.setCount(0);
-    currentState = REFILL;
+    currentState = InjectorStates::REFILL;
 
     break;
 
@@ -896,7 +894,7 @@ void machineState() //
 
     if (selectButtonPressed)
     {
-      currentState = COMPRESSION;
+      currentState = InjectorStates::COMPRESSION;
     }
 
     if (upButtonPressed && downButtonPressed)
@@ -925,11 +923,11 @@ void machineState() //
 
     if (selectButtonPressed && downButtonPressed)
     {
-      currentState = PURGE_ZERO;
+      currentState = InjectorStates::PURGE_ZERO;
     }
     else if (upButtonPressed)
     {
-      currentState = REFILL;
+      currentState = InjectorStates::REFILL;
     }
 
     break;
@@ -939,7 +937,7 @@ void machineState() //
     if (selectButtonPressed)
     {
       stepper->setCurrentPosition(0);
-      currentState = ANTIDRIP;
+      currentState = InjectorStates::ANTIDRIP;
     }
 
     if (upButtonPressed)
@@ -962,12 +960,12 @@ void machineState() //
     if (selectButtonPressed)
     {
       stepper->stopMove();
-      currentState = READY_TO_INJECT;
+      currentState = InjectorStates::READY_TO_INJECT;
     }
 
     if (upButtonPressed && downButtonPressed)
     {
-      currentState = INJECT;
+      currentState = InjectorStates::INJECT;
     }
 
     break;
@@ -980,12 +978,12 @@ void machineState() //
       stepper->stopMove();
       Serial.println("Motor moved " && stepper->getCurrentPosition() && " steps"); // send via serial the actual steps moved by motor: in the case mould was overfilling, can be useful info for user
       //
-      currentState = RELEASE;
+      currentState = InjectorStates::RELEASE;
     }
 
     else // here the function will wait for the transitionToState motor move to complete before moving to the next State??
     {
-      currentState = HOLD_INJECTION;
+      currentState = InjectorStates::HOLD_INJECTION;
     }
 
     break;
@@ -996,12 +994,12 @@ void machineState() //
     if (selectButtonPressed)
     {
       stepper->stopMove();
-      currentState = RELEASE;
+      currentState = InjectorStates::RELEASE;
     }
 
     else // here the function will wait for the transitionToState motor move to complete before moving to the next State??
     {
-      currentState = RELEASE;
+      currentState = InjectorStates::RELEASE;
     }
 
     break;
@@ -1009,7 +1007,7 @@ void machineState() //
   case InjectorStates::RELEASE:
     buttonLEDsColors(GREEN_RGB, GREEN_RGB, GREEN_RGB);
 
-    currentState = CONFIRM_MOULD_REMOVAL; // here the function will wait for the transitionToState motor move to complete before moving to the next State??
+    currentState = InjectorStates::CONFIRM_MOULD_REMOVAL; // here the function will wait for the transitionToState motor move to complete before moving to the next State??
 
     break;
 
@@ -1020,7 +1018,7 @@ void machineState() //
     {
       if (selectButtonPressed || upButtonPressed || downButtonPressed)
       {
-        currentState = REFILL;
+        currentState = InjectorStates::REFILL;
       }
     }
 
@@ -1028,7 +1026,7 @@ void machineState() //
     {
       if (selectButtonPressed || upButtonPressed || downButtonPressed)
       {
-        currentState = READY_TO_INJECT;
+        currentState = InjectorStates::READY_TO_INJECT;
       }
     }
     break;
@@ -1116,10 +1114,12 @@ void loop()
 
 void setup()
 {
-  Serial.begin(9600);
+  setupSerial();
+  setupButtons();
+  // Initialize other hardware components here
 
   delay(2000); // wait 2 seconds. REQUIERED !!!
-  Serial.println("injector_ESP32_state_machine.ino");
+  Serial.println("injector_ESP32_state_machine");
 
   // encoder setup
 
