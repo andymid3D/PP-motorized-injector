@@ -115,20 +115,24 @@ void exitState(InjectorStates state)
 {
   switch (state)
   {
-  case InjectorStates::INIT_HOMED_ENCODER_ZEROED:
+  case InjectorStates::PURGE_ZERO:
+    stepper->setCurrentPosition(0);
+    break;
+  case InjectorStates::INJECT:
     stepper->stopMove();
+    Serial.println("Motor moved " && stepper->getCurrentPosition() && " steps"); // send via serial the actual steps moved by motor: in the case mould was overfilling, can be useful info for user
+    break;
+  case InjectorStates::HOLD_INJECTION:
+    stepper->stopMove();
+    break;
+  default:
     break;
   }
 }
 
 void enterState(InjectorStates state)
 {
-  switch (state)
-  {
-  case InjectorStates::INIT_HOT_NOT_HOMED:
-    buttonLEDsColors(YELLOW_RGB, YELLOW_RGB, YELLOW_RGB);
-    break;
-  }
+  ;
 }
 
 void machineState() //
@@ -340,8 +344,7 @@ void machineState() //
     if (fsm_inputs.selectButtonPressed)
     {
       // exit PURGE_ZERO state action
-      stepper->setCurrentPosition(0);
-      exitState(fsm_state.currentState);
+        exitState(fsm_state.currentState);
       // transition action, from PURGE_ZERO to ANTIDRIP
 
       // transition to next state
@@ -359,10 +362,9 @@ void machineState() //
     if (fsm_inputs.selectButtonPressed)
     {
       // exit ANTIDRIP state action
-      stepper->stopMove();
       exitState(fsm_state.currentState);
       // transition action, from ANTIDRIP to READY_TO_INJECT
-
+      stepper->stopMove();
       // transition to next state
       fsm_state.currentState = READY_TO_INJECT;
       // enter READY_TO_INJECT state action
@@ -384,41 +386,62 @@ void machineState() //
     break;
 
   case InjectorStates::INJECT:
+    // state action, runs every loop while the state is active
     buttonLEDsColors(RED_RGB, GREEN_RGB, BLACK_RGB); // middle/UP LED GREEN flashing
 
     if (fsm_inputs.selectButtonPressed)
     {
-      stepper->stopMove();
-      Serial.println("Motor moved " && stepper->getCurrentPosition() && " steps"); // send via serial the actual steps moved by motor: in the case mould was overfilling, can be useful info for user
-      //
+      // exit INJECT state action
+      exitState(fsm_state.currentState);
+      // transition action, from INJECT to RELEASE
+
+      // transition to next state
       fsm_state.currentState = InjectorStates::RELEASE;
+      // enter RELEASE state action
+      enterState(fsm_state.currentState);
     }
 
     break;
 
   case InjectorStates::HOLD_INJECTION:
+    // state action, runs every loop while the state is active
     buttonLEDsColors(RED_RGB, GREEN_RGB, GREEN_RGB); // bottom/DOWN LED GREEN flashing
 
     if (fsm_inputs.selectButtonPressed)
     {
-      stepper->stopMove();
+      // exit HOLD_INJECTION state action
+      exitState(fsm_state.currentState);
+      // transition action, from HOLD_INJECTION to RELEASE
+
+      // transition to next state
       fsm_state.currentState = InjectorStates::RELEASE;
+      // enter RELEASE state action
+      enterState(fsm_state.currentState);
     }
 
     break;
 
   case InjectorStates::RELEASE:
+    // state action, runs every loop while the state is active
     buttonLEDsColors(GREEN_RGB, GREEN_RGB, GREEN_RGB);
     break;
 
   case InjectorStates::CONFIRM_MOULD_REMOVAL:
+    // state action, runs every loop while the state is active
     buttonLEDsColors(GREEN_RGB, GREEN_RGB, GREEN_RGB);
 
     if (endOfDayFlag == 0)
     {
       if (fsm_inputs.selectButtonPressed || fsm_inputs.upButtonPressed || fsm_inputs.downButtonPressed)
       {
+        // exit CONFIRM_MOULD_REMOVAL state action
+        exitState(fsm_state.currentState);
+        // transition action, from CONFIRM_MOULD_REMOVAL to REFILL
+
+        // transition to next state
         fsm_state.currentState = InjectorStates::REFILL;
+        // enter REFILL state action
+        enterState(fsm_state.currentState);
       }
     }
 
@@ -426,7 +449,14 @@ void machineState() //
     {
       if (fsm_inputs.selectButtonPressed || fsm_inputs.upButtonPressed || fsm_inputs.downButtonPressed)
       {
+        // exit CONFIRM_MOULD_REMOVAL state action
+        exitState(fsm_state.currentState);  
+        // transition action, from CONFIRM_MOULD_REMOVAL to READY_TO_INJECT
+
+        // transition to next state
         fsm_state.currentState = InjectorStates::READY_TO_INJECT;
+        // enter READY_TO_INJECT state action
+        enterState(fsm_state.currentState);
       }
     }
     break;
