@@ -93,8 +93,41 @@ void bounceButtonsSetup() {
   EMERGENCYstop.setPressedState(LOW);   //  CHECK THAT IS NO!!
 }
 
+////////////////////////////////
+// END Input block
+////////////////////////////////
+void clearLEDs()
+{
+  for (int i = 0; i < keypadLedCount; i++)
+  {
+    keypadleds.setPixelColor(i, 0);
+  }
+}
 
 
+
+/**
+ *
+ */
+void outputButtonLEDsColors() // could use case/switch instead? but are different types of defining behaviours..?
+{
+  if (fsm_inputs.selectButtonPressed || fsm_inputs.upButtonPressed || fsm_inputs.downButtonPressed) // set brightness to about 80% on any button press
+  {
+    keypadleds.setBrightness(ledHBrightness);
+  }
+  else
+  {
+    keypadleds.setBrightness(ledLBrightness);
+  }
+
+  keypadleds.setPixelColor(0, fsm_outputs.currentSelectLEDcolour);
+  keypadleds.setPixelColor(1, fsm_outputs.currentUpLEDcolour);
+  keypadleds.setPixelColor(2, fsm_outputs.currentDownLEDcolour);
+
+  keypadleds.show();
+
+  return;
+}
 
 /**
  * 
@@ -136,43 +169,7 @@ void getInputs() {
 }
 
 void setOutputs() {
-  // FIXME
-}
-
-////////////////////////////////
-// END Input block
-////////////////////////////////
-void clearLEDs()
-{
-  for (int i = 0; i < keypadLedCount; i++)
-  {
-    keypadleds.setPixelColor(i, 0);
-  }
-}
-
-
-
-/**
- *
- */
-void outputButtonLEDsColors() // could use case/switch instead? but are different types of defining behaviours..?
-{
-  if (fsm_inputs.selectButtonPressed || fsm_inputs.upButtonPressed || fsm_inputs.downButtonPressed) // set brightness to about 80% on any button press
-  {
-    keypadleds.setBrightness(ledHBrightness);
-  }
-  else
-  {
-    keypadleds.setBrightness(ledLBrightness);
-  }
-
-  keypadleds.setPixelColor(0, fsm_outputs.currentSelectLEDcolour);
-  keypadleds.setPixelColor(1, fsm_outputs.currentUpLEDcolour);
-  keypadleds.setPixelColor(2, fsm_outputs.currentDownLEDcolour);
-
-  keypadleds.show();
-
-  return;
+  outputButtonLEDsColors();
 }
 
 
