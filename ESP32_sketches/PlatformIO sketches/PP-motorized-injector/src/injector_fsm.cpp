@@ -2,10 +2,6 @@
 #include "injector_fsm.h"
 
 
-
-InjectorStates currentState = InjectorStates::INIT_HEATING;  // declaring variable runState can only have valid values of enum
-uint16_t error = InjectorError::NO_ERROR;
-
 fsm_inputs_t fsm_inputs;
 fsm_outputs_t fsm_outputs;
 fsm_state_t fsm_state;
@@ -112,17 +108,6 @@ void transitionToState(InjectorStates toState)
       programmedMotorMove(releaseMouldMoveSpeed, releaseMouldMoveDistSteps); // common machine action, uses default accel
     }
     
-    // on leave actions
-      switch (currentState)
-      {
-
-      case INIT_HOMED_ENCODER_ZEROED:
-
-        break;
-      }
-    
-
-    currentState = toState;
   }
 }
 
@@ -155,66 +140,119 @@ void machineState() //
    * can only be done once in new State..?
    */
 
-  switch (currentState)
+  switch (fsm_state.currentState)
   {
   case InjectorStates::ERROR_STATE: // function that includes stopMove(), flashes LEDs red (maybe with
     // Serial.println("ERROR!! " + error);
+
     // state action, runs every loop while the state is active
     buttonLEDsColors(RED_RGB, RED_RGB, RED_RGB); // FIXME ERROR_STATE should be all red, with flashing sequence as per Error to Identify
 
     if (fsm_inputs.selectButtonPressed) // FIXME ERROR_STATE this is only for testing, SHOULD NOT EXIST IN REAL SKETCH
     {
-      // exit state action
-      exitState(currentState);
+      // exit ERROR state action
+      exitState(fsm_state.currentState);
       // transition action, from ERROR_STATE to INIT_HEATING
-      currentState = InjectorStates::INIT_HEATING;
-      // enter state action
-      enterState(currentState);
+    
+      // transition to next state
+      fsm_state.currentState = InjectorStates::INIT_HEATING;
+      // enter INIT_HEATING state action
+      enterState(fsm_state.currentState);
     }
     break;
 
   case InjectorStates::INIT_HEATING: //  FIXME INIT_HEATING this is only for testing, SHOULD NOT EXIST IN REAL SKETCH
+    // state action, runs every loop while the state is active
     buttonLEDsColors(RED_RGB, RED_RGB, RED_RGB);
 
     if (fsm_inputs.upButtonPressed)
     {
-      transitionToState(InjectorStates::INIT_HOT_NOT_HOMED);
+      // exit INIT_HEATING state action
+      exitState(fsm_state.currentState);
+      // transition action, from INIT_HEATING to INIT_HOT_NOT_HOMED
+
+      // transition to next state
+      fsm_state.currentState = InjectorStates::INIT_HOT_NOT_HOMED;
+      // enter INIT_HOT_NOT_HOMED state action
+      enterState(fsm_state.currentState);
     }
 
     if (fsm_inputs.nozzleTemperature > minTempForAnyMove)
     {
-      transitionToState(InjectorStates::INIT_HOT_NOT_HOMED);
+      // exit INIT_HEATING state action
+      exitState(fsm_state.currentState);
+      // transition action, from INIT_HEATING to INIT_HOT_NOT_HOMED
+
+      // transition to next state
+      fsm_state.currentState = InjectorStates::INIT_HOT_NOT_HOMED;
+      // enter INIT_HOT_NOT_HOMED state action
+      enterState(fsm_state.currentState);
     }
 
     break;
 
   case InjectorStates::INIT_HOT_NOT_HOMED:
+    // state action, runs every loop while the state is active
     buttonLEDsColors(YELLOW_RGB, YELLOW_RGB, YELLOW_RGB);
 
     if (fsm_inputs.upButtonPressed)
     {
-      transitionToState(InjectorStates::INIT_HOMED_ENCODER_ZEROED);
+      // exit INIT_HOT_NOT_HOMED state action
+      exitState(fsm_state.currentState);
+      // transition action, from INIT_HOT_NOT_HOMED to INIT_HOMED_ENCODER_ZEROED
+
+      // transition to next state
+      fsm_state.currentState = InjectorStates::INIT_HOMED_ENCODER_ZEROED;
+      // enter INIT_HOMED_ENCODER_ZEROED state action
+      enterState(fsm_state.currentState);
     }
     if (fsm_inputs.downButtonPressed) //  FIXME INIT_HOT_NOT_HOME downButtonPressed this is only for testing, SHOULD NOT EXIST IN REAL SKETCH
     {
-      transitionToState(InjectorStates::INIT_HEATING);
+      // exit INIT_HOT_NOT_HOMED state action
+      exitState(fsm_state.currentState);
+      // transition action, from INIT_HOT_NOT_HOMED to INIT_HEATING
+
+      // transition to next state
+      fsm_state.currentState = InjectorStates::INIT_HEATING;
+      // enter INIT_HEATING state action
+      enterState(fsm_state.currentState);
     }
     break;
 
   case InjectorStates::INIT_HOMED_ENCODER_ZEROED:      // FIXME should be only the reset of the encoder, no button presses exist in real sketch
+    // state action, runs every loop while the state is active
     buttonLEDsColors(YELLOW_RGB, RED_RGB, YELLOW_RGB); //  FIXME YELLOW_RGB, YELLOW_RGB, YELLOW_RGB
 
     if (fsm_inputs.downButtonPressed)
     {
-      transitionToState(InjectorStates::REFILL);
+      // exit INIT_HOMED_ENCODER_ZEROED state action
+      exitState(fsm_state.currentState);
+      // transition action, from INIT_HOMED_ENCODER_ZEROED to REFILL
+
+      // transition to next state
+      fsm_state.currentState = InjectorStates::REFILL;
+      // enter REFILL state action
+      enterState(fsm_state.currentState);
     }
     if (fsm_inputs.upButtonPressed)
     {
-      transitionToState(InjectorStates::INIT_HOT_NOT_HOMED);
+      // exit INIT_HOMED_ENCODER_ZEROED state action
+      exitState(fsm_state.currentState);
+      // transition action, from INIT_HOMED_ENCODER_ZEROED to INIT_HOT_NOT_HOMED
+
+      // transition to next state
+      fsm_state.currentState = InjectorStates::INIT_HOT_NOT_HOMED;
+      // enter INIT_HOT_NOT_HOMED state action
+      enterState(fsm_state.currentState);
     }
     break;
 
   case InjectorStates::REFILL:
+    // state action, runs every loop while the state is active
+    if (fsm_inputs.upButtonPressed && fsm_inputs.downButtonPressed)
+    {
+      endOfDayFlag = !endOfDayFlag;
+    }
     if (endOfDayFlag == 0)
     {
       buttonLEDsColors(GREEN_RGB, BLACK_RGB, BLACK_RGB);
@@ -226,47 +264,67 @@ void machineState() //
 
     if (fsm_inputs.selectButtonPressed)
     {
-      transitionToState(InjectorStates::COMPRESSION);
-    }
+      // exit REFILL state action
+      exitState(fsm_state.currentState);
+      // transition action, from REFILL to COMPRESSION
 
-    if (fsm_inputs.upButtonPressed && fsm_inputs.downButtonPressed)
-    {
-      endOfDayFlag = !endOfDayFlag;
+      // transition to next state
+      fsm_state.currentState = InjectorStates::COMPRESSION;
+      // enter COMPRESSION state action
+      enterState(fsm_state.currentState);
     }
 
     break;
 
   case InjectorStates::COMPRESSION:
+    // state action, runs every loop while the state is active
     buttonLEDsColors(RED_RGB, BLACK_RGB, RED_RGB);
 
     if (fsm_inputs.selectButtonPressed)
     {
-      transitionToState(InjectorStates::REFILL);
+      // exit COMPRESSION state action
+      exitState(fsm_state.currentState);
+      // transition action, from COMPRESSION to READY_TO_INJECT
+
+      // transition to next state
+      fsm_state.currentState = InjectorStates::READY_TO_INJECT;
+      // enter READY_TO_INJECT state action
+      enterState(fsm_state.currentState);
     }
     break;
 
   case InjectorStates::READY_TO_INJECT:
+    // state action, runs every loop while the state is active
     buttonLEDsColors(GREEN_RGB, YELLOW_RGB, GREEN_RGB);
 
     if (fsm_inputs.selectButtonPressed && fsm_inputs.downButtonPressed)
     {
-      transitionToState(InjectorStates::PURGE_ZERO);
+      // exit READY_TO_INJECT state action
+      exitState(fsm_state.currentState);
+      // transition action, from READY_TO_INJECT to PURGE_ZERO
+
+      // transition to next state
+      fsm_state.currentState = InjectorStates::PURGE_ZERO;
+      // enter PURGE_ZERO state action
+      enterState(fsm_state.currentState);
     }
     else if (fsm_inputs.upButtonPressed)
     {
-      transitionToState(InjectorStates::REFILL);
+      // exit READY_TO_INJECT state action
+      exitState(fsm_state.currentState);
+      // transition action, from READY_TO_INJECT to REFILL
+
+      // transition to next state
+      fsm_state.currentState = InjectorStates::REFILL;
+      // enter REFILL state action
+      enterState(fsm_state.currentState);
     }
 
     break;
 
   case InjectorStates::PURGE_ZERO:
+    // state action, runs every loop while the state is active
     buttonLEDsColors(GREEN_RGB, YELLOW_RGB, YELLOW_RGB);
-    if (fsm_inputs.selectButtonPressed)
-    {
-      stepper->setCurrentPosition(0);
-      transitionToState(InjectorStates::ANTIDRIP);
-    }
-
     if (fsm_inputs.upButtonPressed)
     {
       doMoveMotor = true;
@@ -279,20 +337,48 @@ void machineState() //
       continuousMotorMoveDown(purgeSpeed);
     }
 
+    if (fsm_inputs.selectButtonPressed)
+    {
+      // exit PURGE_ZERO state action
+      stepper->setCurrentPosition(0);
+      exitState(fsm_state.currentState);
+      // transition action, from PURGE_ZERO to ANTIDRIP
+
+      // transition to next state
+      fsm_state.currentState = InjectorStates::ANTIDRIP;
+      // enter ANTIDRIP state action
+      enterState(fsm_state.currentState);
+    }
+
     break;
 
   case InjectorStates::ANTIDRIP:
+    // state action, runs every loop while the state is active
     buttonLEDsColors(RED_RGB, GREEN_RGB, GREEN_RGB);
 
     if (fsm_inputs.selectButtonPressed)
     {
+      // exit ANTIDRIP state action
       stepper->stopMove();
-      transitionToState(READY_TO_INJECT);
+      exitState(fsm_state.currentState);
+      // transition action, from ANTIDRIP to READY_TO_INJECT
+
+      // transition to next state
+      fsm_state.currentState = READY_TO_INJECT;
+      // enter READY_TO_INJECT state action
+      enterState(fsm_state.currentState);
     }
 
     if (fsm_inputs.upButtonPressed && fsm_inputs.downButtonPressed)
     {
-      transitionToState(InjectorStates::INJECT);
+      // exit ANTIDRIP state action
+      exitState(fsm_state.currentState);
+      // transition action, from ANTIDRIP to INJECT
+
+      // transition to next state
+      fsm_state.currentState = InjectorStates::INJECT;
+      // enter INJECT state action
+      enterState(fsm_state.currentState);
     }
 
     break;
@@ -305,7 +391,7 @@ void machineState() //
       stepper->stopMove();
       Serial.println("Motor moved " && stepper->getCurrentPosition() && " steps"); // send via serial the actual steps moved by motor: in the case mould was overfilling, can be useful info for user
       //
-      transitionToState(InjectorStates::RELEASE);
+      fsm_state.currentState = InjectorStates::RELEASE;
     }
 
     break;
@@ -316,7 +402,7 @@ void machineState() //
     if (fsm_inputs.selectButtonPressed)
     {
       stepper->stopMove();
-      transitionToState(InjectorStates::RELEASE);
+      fsm_state.currentState = InjectorStates::RELEASE;
     }
 
     break;
@@ -332,7 +418,7 @@ void machineState() //
     {
       if (fsm_inputs.selectButtonPressed || fsm_inputs.upButtonPressed || fsm_inputs.downButtonPressed)
       {
-        transitionToState(InjectorStates::REFILL);
+        fsm_state.currentState = InjectorStates::REFILL;
       }
     }
 
@@ -340,7 +426,7 @@ void machineState() //
     {
       if (fsm_inputs.selectButtonPressed || fsm_inputs.upButtonPressed || fsm_inputs.downButtonPressed)
       {
-        transitionToState(InjectorStates::READY_TO_INJECT);
+        fsm_state.currentState = InjectorStates::READY_TO_INJECT;
       }
     }
     break;
@@ -351,7 +437,7 @@ void machineState() //
 void stateMachineLoop() {
   error = sanityCheck();
   if (error != InjectorError::NO_ERROR) {
-      transitionToState(InjectorStates::ERROR_STATE);
+      fsm_state.currentState = InjectorStates::ERROR_STATE;
 
       Serial.printf("Found error!. Changing to ERROR_STATE to INIT_HEATING with error %d\n", error);
   } 
