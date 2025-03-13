@@ -72,7 +72,7 @@ void transitionToState(InjectorStates toState)
   if (currentState != toState)
   {
     Serial.printf("Changing from %d to %d\n", currentState, toState);
-
+// on enter actions
     if (toState == ERROR_STATE)
     {
       stepper->stopMove();
@@ -111,8 +111,8 @@ void transitionToState(InjectorStates toState)
       doMoveMotor = true;
       programmedMotorMove(releaseMouldMoveSpeed, releaseMouldMoveDistSteps); // common machine action, uses default accel
     }
-    else
-    {
+    
+    // on leave actions
       switch (currentState)
       {
 
@@ -120,9 +120,29 @@ void transitionToState(InjectorStates toState)
 
         break;
       }
-    }
+    
 
     currentState = toState;
+  }
+}
+
+void exitState(InjectorStates state)
+{
+  switch (state)
+  {
+  case InjectorStates::INIT_HOMED_ENCODER_ZEROED:
+    stepper->stopMove();
+    break;
+  }
+}
+
+void enterState(InjectorStates state)
+{
+  switch (state)
+  {
+  case InjectorStates::INIT_HOT_NOT_HOMED:
+    buttonLEDsColors(YELLOW_RGB, YELLOW_RGB, YELLOW_RGB);
+    break;
   }
 }
 
@@ -139,12 +159,17 @@ void machineState() //
   {
   case InjectorStates::ERROR_STATE: // function that includes stopMove(), flashes LEDs red (maybe with
     // Serial.println("ERROR!! " + error);
-
+    // state action, runs every loop while the state is active
     buttonLEDsColors(RED_RGB, RED_RGB, RED_RGB); // FIXME ERROR_STATE should be all red, with flashing sequence as per Error to Identify
 
     if (fsm_inputs.selectButtonPressed) // FIXME ERROR_STATE this is only for testing, SHOULD NOT EXIST IN REAL SKETCH
     {
-      transitionToState(InjectorStates::INIT_HEATING);
+      // exit state action
+      exitState(currentState);
+      // transition action, from ERROR_STATE to INIT_HEATING
+      currentState = InjectorStates::INIT_HEATING;
+      // enter state action
+      enterState(currentState);
     }
     break;
 
