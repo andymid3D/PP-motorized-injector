@@ -57,59 +57,7 @@ int sanityCheck()
   // FIXME add error state when function REQUIRES something under barrel (compression, purge or mould fill)
   return error;
 }
-/**
- * to transition states would also apply button activation / availablity..? or this only in machine states..?
- * some motor moves user may want to stop before motor move is completed..? INJECT or HOLD, or COMPRESSION
- * how to apply ContinuousMotorMoves..? As in Purge, where State does not change whilst moving motor.. this function must be in Machine State..?
- *
- */
-void transitionToState(InjectorStates toState)
-{
-  if (currentState != toState)
-  {
-    Serial.printf("Changing from %d to %d\n", currentState, toState);
-// on enter actions
-    if (toState == ERROR_STATE)
-    {
-      stepper->stopMove();
-    }
 
-    else if (toState == INIT_HOMED_ENCODER_ZEROED)
-    {
-      doMoveMotor = true;
-      continuousMotorMoveUp(generalFastSpeed); // FIXME this should be...: ?
-      // homeMove(generalFastSpeed, homingSlowSpeed);  // followed by
-      // encoder.setCount(0);  // or this last line should go in machineState..? reset has to occur AFTER homeMove finishes, but not PART of homeMove
-      // transitionToState(InjectorStates::REFILL);  and finally transition to next State
-    }
-    else if (toState == REFILL) // once INIT_HOMED_ENCODER_ZEROED done, REFILL is where plunger at homed offset for plastic filling
-    {
-      doMoveMotor = true;
-      programmedMotorMove(generalFastSpeed, refillOpeningOffsetDistSteps /*,defaultAcceletationNema*/);
-    }
-    else if (toState == COMPRESSION)
-    {
-      // doMoveMotor = true;
-      // compressionFunction();  // FIXME  compression function currently commented out
-    }
-    else if (toState == INJECT)
-    {
-      doMoveMotor = true;
-      programmedMotorMove(fillMouldMoveSpeed, fillMouldMoveDistSteps, fillMouldAccel);
-    }
-    else if (toState == HOLD_INJECTION)
-    {
-      doMoveMotor = true;
-      programmedMotorMove(holdMouldMoveSpeed, holdMouldMoveDistSteps /*, fillMouldAccel*/); // leave as default or as same as fillMouldAccel?
-    }
-    else if (toState == RELEASE)
-    {
-      doMoveMotor = true;
-      programmedMotorMove(releaseMouldMoveSpeed, releaseMouldMoveDistSteps); // common machine action, uses default accel
-    }
-    
-  }
-}
 
 void exitState(InjectorStates state)
 {
@@ -132,7 +80,22 @@ void exitState(InjectorStates state)
 
 void enterState(InjectorStates state)
 {
-  ;
+  switch (state)
+  {
+  case InjectorStates::ERROR_STATE:
+    stepper->stopMove();
+    break;
+  case InjectorStates::REFILL:
+    doMoveMotor = true;
+    programmedMotorMove(generalFastSpeed, refillOpeningOffsetDistSteps /*,defaultAcceletationNema*/);
+    break;
+    case InjectorStates::HOLD_INJECTION:
+    doMoveMotor = true;
+    programmedMotorMove(holdMouldMoveSpeed, holdMouldMoveDistSteps /*, fillMouldAccel*/); // leave as default or as same as fillMouldAccel?
+    break;
+  default:
+    break;
+  }
 }
 
 void machineState() //
@@ -204,7 +167,10 @@ void machineState() //
       // exit INIT_HOT_NOT_HOMED state action
       exitState(fsm_state.currentState);
       // transition action, from INIT_HOT_NOT_HOMED to INIT_HOMED_ENCODER_ZEROED
-
+      doMoveMotor = true;
+      continuousMotorMoveUp(generalFastSpeed); // FIXME this should be...: ?
+      // homeMove(generalFastSpeed, homingSlowSpeed);  // followed by
+      // encoder.setCount(0);  // or this last line should go in machineState..? reset has to occur AFTER homeMove finishes, but not PART of homeMove
       // transition to next state
       fsm_state.currentState = InjectorStates::INIT_HOMED_ENCODER_ZEROED;
       // enter INIT_HOMED_ENCODER_ZEROED state action
@@ -232,7 +198,6 @@ void machineState() //
       // exit INIT_HOMED_ENCODER_ZEROED state action
       exitState(fsm_state.currentState);
       // transition action, from INIT_HOMED_ENCODER_ZEROED to REFILL
-
       // transition to next state
       fsm_state.currentState = InjectorStates::REFILL;
       // enter REFILL state action
@@ -271,6 +236,8 @@ void machineState() //
       // exit REFILL state action
       exitState(fsm_state.currentState);
       // transition action, from REFILL to COMPRESSION
+      // doMoveMotor = true;
+      // compressionFunction();  // FIXME  compression function currently commented out
 
       // transition to next state
       fsm_state.currentState = InjectorStates::COMPRESSION;
@@ -376,6 +343,8 @@ void machineState() //
       // exit ANTIDRIP state action
       exitState(fsm_state.currentState);
       // transition action, from ANTIDRIP to INJECT
+      doMoveMotor = true;
+      programmedMotorMove(fillMouldMoveSpeed, fillMouldMoveDistSteps, fillMouldAccel);
 
       // transition to next state
       fsm_state.currentState = InjectorStates::INJECT;
@@ -412,6 +381,8 @@ void machineState() //
       // exit HOLD_INJECTION state action
       exitState(fsm_state.currentState);
       // transition action, from HOLD_INJECTION to RELEASE
+      doMoveMotor = true;
+      programmedMotorMove(releaseMouldMoveSpeed, releaseMouldMoveDistSteps); // common machine action, uses default accel
 
       // transition to next state
       fsm_state.currentState = InjectorStates::RELEASE;
