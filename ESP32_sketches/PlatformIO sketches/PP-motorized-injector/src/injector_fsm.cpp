@@ -15,6 +15,7 @@ void buttonLEDsColors(uint32_t newSelectLEDcolour, uint32_t newUpLEDcolour, uint
     fsm_outputs.currentSelectLEDcolour = newSelectLEDcolour;
     fsm_outputs.currentUpLEDcolour = newUpLEDcolour;
     fsm_outputs.currentDownLEDcolour = newDownLEDcolour;
+    fsm_outputs.doUpdateLEDs = true;
 }
 
 
@@ -26,9 +27,9 @@ void buttonLEDsColors(uint32_t newSelectLEDcolour, uint32_t newUpLEDcolour, uint
  *
  * @returns InjectorError
  */
-int sanityCheck()
+uint16_t sanityCheck()
 {
-  int error = InjectorError::NO_ERROR;
+  uint16_t error = InjectorError::NO_ERROR;
 
   if (fsm_inputs.nozzleTemperature <= minTempForAnyMove) // and stop machine
   {
@@ -58,20 +59,35 @@ int sanityCheck()
   return error;
 }
 
+void doMotorCommand(MotorCommands command, int speed = 0, int distance = 0, int acceleration = defaultAcceletationNema)
+{
+  if (fsm_outputs.doCommandMotor == true) {
+    // this is an error in the fsm logic, a motor command is already set for this iteration
+    // should we skip this command or overwrite it? raise an error?
+    // after properly testing and debugging the fsm, this should never happen
+    // for now, we will overwrite the command
+  }
+  fsm_outputs.doCommandMotor = true;
+  fsm_outputs.motorCommand = command;
+  fsm_outputs.motorSpeed = speed;
+  fsm_outputs.motorDistance = distance;
+  fsm_outputs.motorAcceleration = acceleration;
+}
 
 void exitState(InjectorStates state)
 {
   switch (state)
   {
   case InjectorStates::PURGE_ZERO:
-    stepper->setCurrentPosition(0);
+    doMotorCommand(MotorCommands::CLEAR_STEPS);
+    // stepper->setCurrentPosition(0);
     break;
   case InjectorStates::INJECT:
-    stepper->stopMove();
-    Serial.println("Motor moved " && stepper->getCurrentPosition() && " steps"); // send via serial the actual steps moved by motor: in the case mould was overfilling, can be useful info for user
+    doMotorCommand(MotorCommands::STOP);
+    Serial.println("Motor moved " && fsm_inputs.actualMOTPosition && " steps"); // send via serial the actual steps moved by motor: in the case mould was overfilling, can be useful info for user
     break;
   case InjectorStates::HOLD_INJECTION:
-    stepper->stopMove();
+    doMotorCommand(MotorCommands::STOP);
     break;
   default:
     break;
@@ -83,15 +99,13 @@ void enterState(InjectorStates state)
   switch (state)
   {
   case InjectorStates::ERROR_STATE:
-    stepper->stopMove();
+    doMotorCommand(MotorCommands::STOP);
     break;
   case InjectorStates::REFILL:
-    doMoveMotor = true;
-    programmedMotorMove(generalFastSpeed, refillOpeningOffsetDistSteps /*,defaultAcceletationNema*/);
+    doMotorCommand(MotorCommands::PROGRAMMED_MOVE, generalFastSpeed, refillOpeningOffsetDistSteps);
     break;
-    case InjectorStates::HOLD_INJECTION:
-    doMoveMotor = true;
-    programmedMotorMove(holdMouldMoveSpeed, holdMouldMoveDistSteps /*, fillMouldAccel*/); // leave as default or as same as fillMouldAccel?
+  case InjectorStates::HOLD_INJECTION:
+    doMotorCommand(MotorCommands::PROGRAMMED_MOVE, fsm_state.mouldParams.holdMouldMoveSpeed, fsm_state.mouldParams.holdMouldMoveDistSteps);
     break;
   default:
     break;
@@ -166,13 +180,15 @@ void machineState() //
     {
       // exit INIT_HOT_NOT_HOMED state action
       exitState(fsm_state.currentState);
+
       // transition action, from INIT_HOT_NOT_HOMED to INIT_HOMED_ENCODER_ZEROED
-      doMoveMotor = true;
-      continuousMotorMoveUp(generalFastSpeed); // FIXME this should be...: ?
+      doMotorCommand(MotorCommands::CONTIUOUS_MOVE_UP); // FIXME this should be...: ?
       // homeMove(generalFastSpeed, homingSlowSpeed);  // followed by
       // encoder.setCount(0);  // or this last line should go in machineState..? reset has to occur AFTER homeMove finishes, but not PART of homeMove
+
       // transition to next state
       fsm_state.currentState = InjectorStates::INIT_HOMED_ENCODER_ZEROED;
+
       // enter INIT_HOMED_ENCODER_ZEROED state action
       enterState(fsm_state.currentState);
     }
@@ -298,14 +314,12 @@ void machineState() //
     buttonLEDsColors(GREEN_RGB, YELLOW_RGB, YELLOW_RGB);
     if (fsm_inputs.upButtonPressed)
     {
-      doMoveMotor = true;
-      continuousMotorMoveUp(purgeSpeed);
+      doMotorCommand(MotorCommands::CONTIUOUS_MOVE_UP, purgeSpeed);
     }
 
     if (fsm_inputs.downButtonPressed)
     {
-      doMoveMotor = true;
-      continuousMotorMoveDown(purgeSpeed);
+      doMotorCommand(MotorCommands::CONTIUOUS_MOVE_DOWN, purgeSpeed);
     }
 
     if (fsm_inputs.selectButtonPressed)
@@ -331,7 +345,7 @@ void machineState() //
       // exit ANTIDRIP state action
       exitState(fsm_state.currentState);
       // transition action, from ANTIDRIP to READY_TO_INJECT
-      stepper->stopMove();
+      doMotorCommand(MotorCommands::STOP);
       // transition to next state
       fsm_state.currentState = READY_TO_INJECT;
       // enter READY_TO_INJECT state action
@@ -343,8 +357,7 @@ void machineState() //
       // exit ANTIDRIP state action
       exitState(fsm_state.currentState);
       // transition action, from ANTIDRIP to INJECT
-      doMoveMotor = true;
-      programmedMotorMove(fillMouldMoveSpeed, fillMouldMoveDistSteps, fillMouldAccel);
+      doMotorCommand(MotorCommands::PROGRAMMED_MOVE, fsm_state.mouldParams.fillMouldMoveSpeed, fsm_state.mouldParams.fillMouldMoveDistSteps, fsm_state.mouldParams.fillMouldAccel);
 
       // transition to next state
       fsm_state.currentState = InjectorStates::INJECT;
@@ -381,8 +394,7 @@ void machineState() //
       // exit HOLD_INJECTION state action
       exitState(fsm_state.currentState);
       // transition action, from HOLD_INJECTION to RELEASE
-      doMoveMotor = true;
-      programmedMotorMove(releaseMouldMoveSpeed, releaseMouldMoveDistSteps); // common machine action, uses default accel
+      doMotorCommand(MotorCommands::PROGRAMMED_MOVE, releaseMouldMoveSpeed, releaseMouldMoveDistSteps); // common machine action, uses default accel
 
       // transition to next state
       fsm_state.currentState = InjectorStates::RELEASE;
@@ -436,7 +448,7 @@ void machineState() //
 
 
 void stateMachineLoop() {
-  error = sanityCheck();
+  uint16_t error = sanityCheck();
   if (error != InjectorError::NO_ERROR) {
       fsm_state.currentState = InjectorStates::ERROR_STATE;
 

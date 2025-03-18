@@ -23,7 +23,6 @@ to see if it has had enough time to melt (avoiding cold injections!) */
 #include "config.h"
 #include "injector_fsm.h"
 
-
 ////////////////////////////////
 // Stepper
 ////////////////////////////////
@@ -96,6 +95,8 @@ void bounceButtonsSetup() {
 ////////////////////////////////
 // END Input block
 ////////////////////////////////
+
+
 void clearLEDs()
 {
   for (int i = 0; i < keypadLedCount; i++)
@@ -109,7 +110,7 @@ void clearLEDs()
 /**
  *
  */
-void outputButtonLEDsColors() // could use case/switch instead? but are different types of defining behaviours..?
+void outputButtonLEDsColors() 
 {
   if (fsm_inputs.selectButtonPressed || fsm_inputs.upButtonPressed || fsm_inputs.downButtonPressed) // set brightness to about 80% on any button press
   {
@@ -127,6 +128,39 @@ void outputButtonLEDsColors() // could use case/switch instead? but are differen
   keypadleds.show();
 
   return;
+}
+
+void commandMotor() {
+
+  if (fsm_outputs.doCommandMotor == true) {
+    fsm_outputs.doCommandMotor = false;
+    switch(fsm_outputs.motorCommand) {
+      case MotorCommands::STOP:
+        stepper->stopMove();
+        break;
+      case MotorCommands::CONTIUOUS_MOVE_UP:
+        stepper->setSpeedInHz(fsm_outputs.motorSpeed);
+        stepper->runForward();
+        break;
+      case MotorCommands::CONTIUOUS_MOVE_DOWN:
+        stepper->setSpeedInHz(fsm_outputs.motorSpeed);
+        stepper->runBackward();
+        break;
+      case MotorCommands::PROGRAMMED_MOVE:
+        stepper->setSpeedInHz(fsm_outputs.motorSpeed);
+        stepper->setAcceleration(fsm_outputs.motorAcceleration);
+        stepper->move(fsm_outputs.motorDistance);
+        break;
+      case MotorCommands::COMPRESS:
+        // FIXME  compression function currently commented out
+        break;
+      case MotorCommands::CLEAR_STEPS:
+        stepper->setCurrentPosition(0);
+        break;
+      default:
+        break;
+    }
+  }
 }
 
 /**
@@ -170,6 +204,7 @@ void getInputs() {
 
 void setOutputs() {
   outputButtonLEDsColors();
+  commandMotor();
 }
 
 
@@ -209,7 +244,7 @@ void setup() {
 
     // keypadLEDs setup
     keypadleds.begin();  // Call this to start up the LED strip.
-    //  clearLEDs();   // This function, defined below, turns all LEDs off...
+    clearLEDs();   // This function, turns all LEDs off...
     keypadleds.show();  // ...but the LEDs don't actually update until you call this.
 
     // Buttons & Endstops Bounce2 setup is very long, so called from the following function

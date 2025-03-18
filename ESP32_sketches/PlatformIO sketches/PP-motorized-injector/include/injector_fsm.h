@@ -4,6 +4,7 @@
 // State machine
 ////////////////////////////////
 #include <Arduino.h>
+#include "mould.h"
 
 enum InjectorError : uint16_t {
     NO_ERROR = 1 << 0,
@@ -34,6 +35,16 @@ enum InjectorError : uint16_t {
                                 // to Refill or READY_TO_INJECT, depending on EndOfDayFlag
   };
 
+  enum MotorCommands : int {
+    STOP,                    // stop motor
+    HOME,                    // move motor until endstop is activated, then set position to 0
+    CONTIUOUS_MOVE_UP,       // move motor continuously up
+    CONTIUOUS_MOVE_DOWN,     // move motor continuously down
+    PROGRAMMED_MOVE,         // move motor a programmed distance
+    COMPRESS,                // move motor to compress the plastic in the barrel, assume some step loss might occur if needed
+    CLEAR_STEPS              // clear the steps counter (clear to zero or adjust to encoder reading? we may need this after a compression)
+  };
+
   typedef struct fsm_inputs {
 
     // buttons 
@@ -58,15 +69,18 @@ enum InjectorError : uint16_t {
   typedef struct fsm_state {
     InjectorStates currentState;
     uint16_t error;
+    actualMouldParams_t mouldParams;
   } fsm_state_t;
   
   typedef struct fsm_outputs {
   // LEDS
+    boolean doUpdateLEDs;
     uint32_t currentSelectLEDcolour;
     uint32_t currentUpLEDcolour;
     uint32_t currentDownLEDcolour;
     // motor
-    boolean doMoveMotor;
+    boolean doCommandMotor;
+    MotorCommands motorCommand;
     int motorSpeed;
     int motorDistance;
     int motorAcceleration;
@@ -79,8 +93,7 @@ enum InjectorError : uint16_t {
 extern fsm_inputs_t fsm_inputs;
 extern fsm_outputs_t fsm_outputs;
 extern fsm_state_t fsm_state;
-//extern InjectorStates currentState;
-//extern uint16_t error;
+
 void stateMachineLoop();
 
 #endif // INJECTOR_FSM_H
