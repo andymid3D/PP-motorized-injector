@@ -1,6 +1,12 @@
 #pragma once
 /// @brief struct to hold ActualMouldParams
 
+/* actual injection variables, will be adjusted each time for each different mould, user will have access
+via panel on display to change these values whilst calibrating a mould, and will then be stored on Display
+ESP32 in Flash as array/struct of values particular to each mould - THIS STRUCT WILL BE SENT FROM ESP32 TO ARDUINO
+(and back) TO SET THE INJECTION PARAMETERS FOR THE CURRENT MOULD
+*/
+
 typedef struct actualMouldParams
 {
   const char *mouldName;          // unique string name for stuct of mould parameters for below variables

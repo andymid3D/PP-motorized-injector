@@ -48,7 +48,7 @@ local and never need changing
 // #define CURRENTSensor1   4      // * as yet to be decided on how to use motor phase current readng
 #define EMERGENCY_STOP_PIN 0 //  *
 // #define CURRENTSensor2   2      // * to be useful for detecting motor current (reaching amc compression/fill)
-#define ENDSTOP_NOZZLE_BLOCK_COMPRESS_OR_PURGE_PIN 15 // also as above, not decided hardware method yet
+#define ENDSTOP_NOZZLE_BLOCK_PIN 15 // also as above, not decided hardware method yet
 #define EndstopMOULDPresentPin                        // do not yet have a way of detecting, possibly pressure sensor under plastic floor on platform..?
 
 //////////////////////////////////
