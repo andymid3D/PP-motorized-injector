@@ -19,10 +19,11 @@ enum InjectorError : uint16_t {
   // StatesMachine, states that the machine may be in at any point in time
   
   enum InjectorStates : int{
-    ERROR_STATE = 0,                // SOME TYPE OF CHECK TRIGGERED
-    INIT_HEATING = 1,               // INITIAL POWER ON STATES
-    INIT_HOT_NOT_HOMED = 2,         // INITIAL POWER ON STATES
-    INIT_HOMED_ENCODER_ZEROED = 3,  // INITIAL POWER ON STATES
+    ERROR_STATE,                // SOME TYPE OF CHECK TRIGGERED
+    INIT_HEATING,               // INITIAL POWER ON STATES
+    INIT_HOT_NOT_HOMED,         // INITIAL POWER ON STATES
+    INIT_HOMING,
+    INIT_HOMED_ENCODER_ZEROED,  // INITIAL POWER ON STATES
     REFILL,                     // DEFAULT WAITING STATES
     COMPRESSION,                // DEFAULT WAITING STATES
     READY_TO_INJECT,            // DEFAULT WAITING STATES
@@ -68,6 +69,8 @@ enum InjectorError : uint16_t {
     int64_t actualENPosition;
     int64_t actualMOTPosition;
     int trackingError;
+
+    bool HomingDone;
   
   } fsm_inputs_t;
   
@@ -79,7 +82,6 @@ enum InjectorError : uint16_t {
   
   typedef struct fsm_outputs {
   // LEDS
-    boolean doUpdateLEDs;
     uint32_t currentSelectLEDcolour;
     uint32_t currentUpLEDcolour;
     uint32_t currentDownLEDcolour;
@@ -93,6 +95,8 @@ enum InjectorError : uint16_t {
     //            but dictates whether machine can move or not once reached minTempForAnyMove
     boolean doHeaterControl;
     int heaterTemperature;
+    // encoder
+    boolean setEncoderZero;
   
   } fsm_outputs_t;
   

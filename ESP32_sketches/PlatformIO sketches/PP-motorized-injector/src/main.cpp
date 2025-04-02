@@ -170,6 +170,11 @@ void commandMotor() {
         stepper->setAcceleration(fsm_outputs.motorAcceleration);
         stepper->move(fsm_outputs.motorDistance);  // +ve is down, -ve is up
         break;
+      case MotorCommands::PROGRAMMED_ABSOLUTE_MOVE:
+        stepper->setSpeedInHz(fsm_outputs.motorSpeed);
+        stepper->setAcceleration(fsm_outputs.motorAcceleration);
+        stepper->moveTo(fsm_outputs.motorDistance);  // +ve is down, -ve is up
+        break;
       case MotorCommands::COMPRESS:
         // FIXME  compression function currently commented out
         break;
@@ -219,11 +224,16 @@ void getInputs() {
   }
 
   fsm_inputs.actualENPosition = encoder.getCount() / 2;
+  fsm_inputs.isRunning = stepper->isRunning(); // check if the motor is running
 }
 
 void setOutputs() {
   outputButtonLEDsColors();
   commandMotor();
+  if (fsm_outputs.setEncoderZero) {
+    fsm_outputs.setEncoderZero = false;
+    encoder.setCount(0);  // set encoder to 0 position
+  }
 }
 
 
@@ -330,7 +340,12 @@ void loop() {
   if (now - fastTaskTime  >= 1) {
     fastTaskTime = now;
     // fast tasks
-  
+    if (compression) {
+      compression_loop();
+    }
+    if (homing) {
+      homing_loop();
+    }
   }
   if (now - mediumTaskTime >= 10) {
     mediumTaskTime = now;

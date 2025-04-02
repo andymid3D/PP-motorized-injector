@@ -166,7 +166,5 @@ const int ringLedCount = 35;  // 35 for LED ring on end of barrel
 #define BLACK_RGB ((uint32_t)0x000000)
 #define WHITE_RGB ((uint32_t)0xFFFFFF)
 
-// Declare external variables
-extern ESP32Encoder encoder;
 
 #endif // CONFIG_H

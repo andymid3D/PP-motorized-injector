@@ -5,24 +5,16 @@ fsm_inputs_t fsm_inputs;
 fsm_outputs_t fsm_outputs;
 fsm_state_t fsm_state;
 
-/** QUESTION: we seem to have 2 versions of this function, one in injector_fsm.cpp and one in injector_ESP32_state_machine_all_in_1.cpp
- * which one should we use..? In any case, this function chooses the colores, but does not actually update the LEDs, that is done in outputButtonLEDsColors
- * doUpateLEDs at the moment just is true, but  doesn't actually do anything..?
- *
- */
+
 void buttonLEDsColors(uint32_t newSelectLEDcolour, uint32_t newUpLEDcolour, uint32_t newDownLEDcolour)
 {
   fsm_outputs.currentSelectLEDcolour = newSelectLEDcolour;
   fsm_outputs.currentUpLEDcolour = newUpLEDcolour;
   fsm_outputs.currentDownLEDcolour = newDownLEDcolour;
-  fsm_outputs.doUpdateLEDs = true; // FIXME, to update LEDs just need to call
 }
 
 ////////////////////
 /**
- * should run in each loop, or at least every 10ms, and if any endstop or emergency stop is triggered, stop machine
- * and report which endstop has been triggered... possible thereafter only allow moves in opposite direction, or back to refill, or
- * other options..?
  *
  * @returns InjectorError
  */
@@ -66,6 +58,11 @@ void doMotorCommand(MotorCommands command, int speed = 0, int distance = 0, int 
     // should we skip this command or overwrite it? raise an error?
     // after properly testing and debugging the fsm, this should never happen
     // for now, we will overwrite the command
+    if (fsm_outputs.motorCommand == MotorCommands::STOP && (command == CONTIUOUS_MOVE_UP || ......))
+    {
+      // a stop command can be overwritten by a movement ...
+    }
+
   }
   fsm_outputs.doCommandMotor = true;
   fsm_outputs.motorCommand = command;
@@ -89,15 +86,8 @@ void exitState(InjectorStates state)
 {
   switch (state)
   {
-  case InjectorStates::INIT_HOT_NOT_HOMED:
-    doMotorCommand(MotorCommands::HOME); // Homing function consists of various motor moves
-    break;
   case InjectorStates::COMPRESSION:
     doMotorCommand(MotorCommands::STOP);
-    break;
-  case InjectorStates::PURGE_ZERO:
-    doMotorCommand(MotorCommands::CLEAR_STEPS);
-    // stepper->setCurrentPosition(0);  // again, why not use directly the library function..?
     break;
   case InjectorStates::ANTIDRIP:
     doMotorCommand(MotorCommands::STOP);
@@ -154,6 +144,24 @@ void enterState(InjectorStates state)
  * QUESTION: do we need to call to exitState and enterState in machineState when there is no actual action
  * or command to be done..? or is it enough to call them when there is a command to be done..?
  * what are the consequences of calling them when there is no State that correspondes in exit or enter..?
+ * 
+ *  State template
+ * 
+ * case InjectorStates::INIT_HEATING: //  FIXME INIT_HEATING this is only for testing, SHOULD NOT EXIST IN REAL SKETCH
+    // state action, runs every loop while the state is active
+    buttonLEDsColors(RED_RGB, RED_RGB, RED_RGB);
+
+    if (fsm_inputs.upButtonPressed)
+    {
+      // exit INIT_HEATING state action
+      exitState(fsm_state.currentState);
+      // transition action, from INIT_HEATING to INIT_HOT_NOT_HOMED
+
+      // transition to next state
+      fsm_state.currentState = InjectorStates::INIT_HOT_NOT_HOMED;
+      // enter INIT_HOT_NOT_HOMED state action
+      enterState(fsm_state.currentState);
+    }
  */
 void machineState() //
 {
@@ -191,9 +199,9 @@ void machineState() //
     if (fsm_inputs.upButtonPressed)
     {
       exitState(fsm_state.currentState);
-      // transition action, doMotorCommand(MotorCommands::HOME)
+      doMotorCommand(MotorCommands::HOME);
        
-      fsm_state.currentState = InjectorStates::INIT_HOMED_ENCODER_ZEROED;
+      fsm_state.currentState = InjectorStates::INIT_HOMING;
 
       enterState(fsm_state.currentState);
       // no INIT_HOMED_ENCODER_ZEROED enter transtion action
@@ -202,20 +210,21 @@ void machineState() //
 
     break;
 
-  case InjectorStates::INIT_HOMED_ENCODER_ZEROED:
+  case InjectorStates::INIT_HOMING: 
+    // state action, runs every loop while the state is active
     buttonLEDsColors(YELLOW_RGB, YELLOW_RGB, YELLOW_RGB);
 
-    encoder.setCount(0);
-
-    exitState(fsm_state.currentState);
-    // no INIT_HOMED_ENCODER_ZEROED exit transtion action
-
-    fsm_state.currentState = InjectorStates::REFILL;
-
-    enterState(fsm_state.currentState);
-    // do motor command Home & ProgrammedMove to RefillOpeningOffsetDistSteps
-
-    break;
+    if (fsm_inputs.HomingDone)
+    {
+      // exit INIT_HEATING state action
+      exitState(fsm_state.currentState);
+      // transition action, from INIT_HEATING to INIT_HOT_NOT_HOMED
+      fsm_outputs.setEncoderZero = true;
+      // transition to next state
+      fsm_state.currentState = InjectorStates::REFILL;
+      // enter INIT_HOT_NOT_HOMED state action
+      enterState(fsm_state.currentState);
+    }
 
   case InjectorStates::REFILL:
     if (endOfDayFlag == 0)
@@ -305,11 +314,16 @@ void machineState() //
       doMotorCommand(MotorCommands::CONTIUOUS_MOVE_DOWN, purgeSpeed);
     }
 
+    if (!fsm_inputs.upButtonPressed && !fsm_inputs.downButtonPressed)
+    {
+      doMotorCommand(MotorCommands::STOP);
+    }
+
     if (fsm_inputs.selectButtonPressed)
     {
       exitState(fsm_state.currentState);
       // clear motor steps, set position to 0
-
+      doMotorCommand(MotorCommands::CLEAR_STEPS);
       fsm_state.currentState = InjectorStates::ANTIDRIP;
 
       enterState(fsm_state.currentState);
@@ -373,7 +387,7 @@ void machineState() //
     {
       exitState(fsm_state.currentState);
       // do motor command STOP
-
+      doMotorCommand(MotorCommands::STOP);
       fsm_state.currentState = InjectorStates::RELEASE;
 
       enterState(fsm_state.currentState);
