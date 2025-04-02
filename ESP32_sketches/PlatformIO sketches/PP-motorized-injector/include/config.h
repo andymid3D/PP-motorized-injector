@@ -43,8 +43,9 @@ performing outside of the decided security limits of movement/accel, distances, 
 revise what is  NOT NEEDED, OR what variables should go inside Functions to make LOCAL*/
 
 const int minTempForAnyMove = 20;              // FIXME 20 during testing, 170 during production
-const int maxSpeedLimit = 2000;                // 2000 corresponds to 5rps NEMA, about 1/4 rps gear, about 18.85/4 = 4.7125cm linear
-                                               // plunger movement, about 25cm3 injected volume, per second MAX speed limited
+const int maxSpeedLimit = 6000;                /* 2000 corresponds to 5rps NEMA, about 1/4 rps gear, about 18.85/4 = 4.7125cm linear
+                                                plunger movement, about 25cm3 injected volume, per second MAX speed limited 
+                                                6000 corresponds to 15rps NEMA, about 3/4 rps gear, about 56.55/4 = 14.1375cm linear */
 const int moveContinuosDistSteps = 5000;       // arbitrary large distance for continuous movements, gets reset to 0 each loop anyway FIXME not needed?
 const int defaultAcceletationNema = 50000;     /* check in reality, maybe large moulds will benefit from slower acceleration together with higher speeds..?
                                            to avoid blocking motor/losing steps with high speed requests with too high accelerrations..
@@ -97,7 +98,7 @@ under certain (testing & calibration?) purposes
 
 // int readyState=0  // states for non-moving ready states  - N/A
 long int purgeSpeed = 80;                  // speed for purge move, continous move until button release  80= 1cm3/s
-long int generalFastSpeed = maxSpeedLimit; // how fast to home, continous move until reaching endstop, also for other general moves..? max /2..?
+long int generalFastSpeed = maxSpeedLimit/2; // how fast to home, continous move until reaching endstop, also for other general moves..? max /2..?
 // homing params moved to Homng Function as not needed elsewhere, except initial fast and slow speeds, as are called from outside Homing function
 long int homingFastSpeed = generalFastSpeed / 2;
 long int homingSlowSpeed = generalFastSpeed / 10;

@@ -1,6 +1,6 @@
 {
   "navigation": {
-    "selectedUserPageObject": "[injector_initial_layout.eez-project]:/userPages/1",
+    "selectedUserPageObject": "[injector_initial_layout.eez-project]:/userPages/0",
     "selectedUserWidgetObject": "[injector_initial_layout.eez-project]:/userWidgets/1",
     "selectedGlobalVariableObject": "[injector_initial_layout.eez-project]:/variables/globalVariables/2",
     "selectedStructureObject": "[injector_initial_layout.eez-project]:/variables/structures/0",
@@ -28,7 +28,6 @@
           },
           {
             "type": "border",
-            "selected": 4,
             "size": 240,
             "location": "right",
             "children": [
@@ -197,29 +196,18 @@
                       "enableClose": false,
                       "icon": "svg:variable"
                     }
-                  ]
+                  ],
+                  "active": true
                 }
               ]
             },
             {
               "type": "tabset",
               "id": "EDITORS",
-              "weight": 46.96706800900507,
-              "selected": 2,
+              "weight": 56.3865789374363,
               "enableDeleteWhenEmpty": false,
               "enableClose": false,
               "children": [
-                {
-                  "type": "tab",
-                  "id": "#a42bd4e5-0d8e-43a6-ac1a-2f090d2661bc",
-                  "name": "common_settings",
-                  "component": "editor",
-                  "config": {
-                    "objectPath": "[injector_initial_layout.eez-project]:/userPages/2",
-                    "permanent": false
-                  },
-                  "icon": "svg:page"
-                },
                 {
                   "type": "tab",
                   "id": "#8724af26-b1a3-4782-8717-76974a65d378",
@@ -269,8 +257,8 @@
             {
               "type": "row",
               "id": "#95a7f866-6f3e-4241-88a6-44fc8e32b5af",
-              "weight": 30.07501119891571,
-              "width": 673,
+              "weight": 20.655500270484477,
+              "width": 211,
               "children": [
                 {
                   "type": "tabset",
@@ -285,8 +273,7 @@
                       "enableClose": false,
                       "icon": "svg:properties"
                     }
-                  ],
-                  "active": true
+                  ]
                 },
                 {
                   "type": "tabset",
@@ -1051,8 +1038,8 @@
       },
       "transform": {
         "translate": {
-          "x": -240,
-          "y": -400
+          "x": -227,
+          "y": -282
         },
         "scale": 1
       },
@@ -1158,8 +1145,8 @@
       "selection": {},
       "transform": {
         "translate": {
-          "x": -240,
-          "y": -400
+          "x": -180,
+          "y": -227
         },
         "scale": 1
       },

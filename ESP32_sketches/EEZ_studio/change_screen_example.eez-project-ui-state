@@ -1,7 +1,6 @@
 {
   "navigation": {
-    "selectedUserPageObject": "[../../../../../Library/Mobile Documents/com~apple~CloudDocs/Documents/Arduino/sketches/ESP32_sketches/EEZ_studio/Change Screen/Change Screen.eez-project]:/userPages/0",
-    "selectedGlobalVariableObject": "[../../../../../Library/Mobile Documents/com~apple~CloudDocs/Documents/Arduino/sketches/ESP32_sketches/EEZ_studio/Change Screen/Change Screen.eez-project]:/variables/globalVariables/0",
+    "selectedUserPageObject": "[change_screen_example.eez-project]:/userPages/3",
     "subnavigationSelectedItems": {
       "variables-tab/sub-navigation/selected-item": "Widgets"
     }
@@ -203,11 +202,11 @@
               "children": [
                 {
                   "type": "tab",
-                  "id": "#1cf3e5ea-bd12-47e1-8891-c64aba97da39",
-                  "name": "Main",
+                  "id": "#7884afb8-6936-4797-a2a7-8e3250068a94",
+                  "name": "Screen_C",
                   "component": "editor",
                   "config": {
-                    "objectPath": "[../../../../../Library/Mobile Documents/com~apple~CloudDocs/Documents/Arduino/sketches/ESP32_sketches/EEZ_studio/Change Screen/Change Screen.eez-project]:/userPages/0",
+                    "objectPath": "[change_screen_example.eez-project]:/userPages/3",
                     "permanent": false
                   },
                   "icon": "svg:page"
@@ -1121,6 +1120,70 @@
       }
     },
     "[../../../../../Library/Mobile Documents/com~apple~CloudDocs/Documents/Arduino/sketches/ESP32_sketches/EEZ_studio/Change Screen/Change Screen.eez-project]:/userPages/3[flow-state]": {
+      "selection": {},
+      "transform": {
+        "translate": {
+          "x": -400,
+          "y": -240
+        },
+        "scale": 0.67
+      },
+      "timeline": {
+        "isEditorActive": false,
+        "position": 0,
+        "secondToPx": 200,
+        "scrollLeft": 0
+      }
+    },
+    "[change_screen_example.eez-project]:/userPages/0[flow-state]": {
+      "selection": {},
+      "transform": {
+        "translate": {
+          "x": -400,
+          "y": -240
+        },
+        "scale": 0.67
+      },
+      "timeline": {
+        "isEditorActive": false,
+        "position": 0,
+        "secondToPx": 200,
+        "scrollLeft": 0
+      }
+    },
+    "[change_screen_example.eez-project]:/userPages/1[flow-state]": {
+      "selection": {},
+      "transform": {
+        "translate": {
+          "x": -400,
+          "y": -240
+        },
+        "scale": 0.67
+      },
+      "timeline": {
+        "isEditorActive": false,
+        "position": 0,
+        "secondToPx": 200,
+        "scrollLeft": 0
+      }
+    },
+    "[change_screen_example.eez-project]:/userPages/2[flow-state]": {
+      "selection": {},
+      "transform": {
+        "translate": {
+          "x": -400,
+          "y": -240
+        },
+        "scale": 0.67
+      },
+      "timeline": {
+        "isEditorActive": false,
+        "position": 0,
+        "secondToPx": 200,
+        "scrollLeft": 0
+      }
+    },
+    "[change_screen_example.eez-project]:/userPages/3[flow-state]": {
       "selection": {},
       "transform": {
         "translate": {

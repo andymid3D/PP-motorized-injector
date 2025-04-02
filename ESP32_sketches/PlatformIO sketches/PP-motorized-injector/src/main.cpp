@@ -138,18 +138,37 @@ void commandMotor() {
       case MotorCommands::STOP:
         stepper->stopMove();
         break;
+      case MotorCommands::HOME:       /** OBSERVATION: better to create a function for all these moves and just call from here? as same for COMPRESSION? */
+        int HomeOffSetDistSteps = 212;             // once first reached HomeEndstop, how much to back off before slower approach, 212 steps ≈ 5mm
+        int HomeOffSetAccel = 10000;               // once first reached HomeEndstop, how much Accel to back off before slower approach 10000 = 1/5th normal
+        int HomeOffsetSpeed = generalFastSpeed / 2;
+        if(fsm_inputs.topEndStopActivated==0)     // if topEndStop is not activated, move up continuously until it is
+        {
+          stepper->setSpeedInHz(homingFastSpeed);
+          stepper->runBackward();
+        }
+        stepper->setSpeedInHz(HomeOffsetSpeed);   // once topEndStop is activated, set slower speed to back off
+        stepper->setAcceleration(HomeOffSetAccel);  // once topEndStop is activated, set slower Accel to back off
+        stepper->move(HomeOffSetDistSteps);  // once topEndStop is activated, move back off distance
+        if(fsm_inputs.topEndStopActivated==0)
+        {
+          stepper->setSpeedInHz(homingSlowSpeed);
+          stepper->runBackward();
+        }
+        stepper->setCurrentPosition(0);  // once back off is completed, set position to 0
+        break;
       case MotorCommands::CONTIUOUS_MOVE_UP:
         stepper->setSpeedInHz(fsm_outputs.motorSpeed);
-        stepper->runForward();
+        stepper->runBackward();
         break;
       case MotorCommands::CONTIUOUS_MOVE_DOWN:
         stepper->setSpeedInHz(fsm_outputs.motorSpeed);
-        stepper->runBackward();
+        stepper->runForward();
         break;
       case MotorCommands::PROGRAMMED_MOVE:
         stepper->setSpeedInHz(fsm_outputs.motorSpeed);
         stepper->setAcceleration(fsm_outputs.motorAcceleration);
-        stepper->move(fsm_outputs.motorDistance);
+        stepper->move(fsm_outputs.motorDistance);  // +ve is down, -ve is up
         break;
       case MotorCommands::COMPRESS:
         // FIXME  compression function currently commented out

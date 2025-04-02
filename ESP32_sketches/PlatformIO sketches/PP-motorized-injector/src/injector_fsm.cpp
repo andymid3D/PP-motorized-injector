@@ -121,12 +121,12 @@ void enterState(InjectorStates state)
   case InjectorStates::ERROR_STATE:
     doMotorCommand(MotorCommands::STOP);
     break;
-  case InjectorStates::COMPRESSION:
-    doMotorCommand(MotorCommands::COMPRESS, initialCompressionSpeed, minCompressionSpeed);
-    break;
   case InjectorStates::REFILL:
     doMotorCommand(MotorCommands::HOME); // Homing function consists of various motor moves
     doMotorCommand(MotorCommands::PROGRAMMED_MOVE, generalFastSpeed, refillOpeningOffsetDistSteps);
+    break;
+  case InjectorStates::COMPRESSION:
+    doMotorCommand(MotorCommands::COMPRESS, initialCompressionSpeed, minCompressionSpeed);
     break;
   case InjectorStates::ANTIDRIP:
     doMotorCommand(MotorCommands::PROGRAMMED_MOVE, antiDripReverseSpeed, antiDripReverseDistSteps);
@@ -167,73 +167,57 @@ void machineState() //
   case InjectorStates::ERROR_STATE: // function that includes stopMove(), flashes LEDs red (maybe with
     // Serial.println("ERROR!! " + error);
 
-    // state action, runs every loop while the state is active
     buttonLEDsColors(RED_RGB, RED_RGB, RED_RGB); // FIXME ERROR_STATE should be all red, with flashing sequence as per Error to Identify
-    // outputButtonLEDsColors();  FIXME should this be called after each buttonLEDsColors call..?
 
-  case InjectorStates::INIT_HEATING: //  FIXME INIT_HEATING this is only for testing, SHOULD NOT EXIST IN REAL SKETCH
-    // state action, runs every loop while the state is active
+  case InjectorStates::INIT_HEATING:
     buttonLEDsColors(RED_RGB, RED_RGB, RED_RGB);
 
     if (fsm_inputs.nozzleTemperature >= minTempForAnyMove)
     {
-      // exit INIT_HEATING state action
       exitState(fsm_state.currentState);
-      // transition action, from INIT_HEATING to INIT_HOT_NOT_HOMED
+      // no INIT_HEATING exit transtion action
 
-      // NOTE Andy - there is NO transition action for this transition
-
-      // transition to next state
       fsm_state.currentState = InjectorStates::INIT_HOT_NOT_HOMED;
-      // enter INIT_HOT_NOT_HOMED state action
+
       enterState(fsm_state.currentState);
-      // NOTE Andy - there is NO state action for this state, only a change of button colors..?
+      // no INIT_HOT_NOT_HOMED enter transtion action
     }
 
     break;
 
   case InjectorStates::INIT_HOT_NOT_HOMED:
-    // state action, runs every loop while the state is active
     buttonLEDsColors(YELLOW_RGB, YELLOW_RGB, YELLOW_RGB);
 
     if (fsm_inputs.upButtonPressed)
     {
-      // exit INIT_HOT_NOT_HOMED state action
       exitState(fsm_state.currentState);
-
-      // transition action, from INIT_HOT_NOT_HOMED to INIT_HOMED_ENCODER_ZEROED
-
-      // transition to next state
+      // transition action, doMotorCommand(MotorCommands::HOME)
+       
       fsm_state.currentState = InjectorStates::INIT_HOMED_ENCODER_ZEROED;
 
-      // enter INIT_HOMED_ENCODER_ZEROED state action
       enterState(fsm_state.currentState);
+      // no INIT_HOMED_ENCODER_ZEROED enter transtion action
+
     }
 
     break;
 
   case InjectorStates::INIT_HOMED_ENCODER_ZEROED:
-    // state action, runs every loop while the state is active
     buttonLEDsColors(YELLOW_RGB, YELLOW_RGB, YELLOW_RGB);
 
     encoder.setCount(0);
 
-    // exit INIT_HOMED_ENCODER_ZEROED state action
     exitState(fsm_state.currentState);
-    // transition action, from INIT_HOMED_ENCODER_ZEROED to REFILL
-    // transition to next state
+    // no INIT_HOMED_ENCODER_ZEROED exit transtion action
+
     fsm_state.currentState = InjectorStates::REFILL;
-    // enter REFILL state action
+
     enterState(fsm_state.currentState);
+    // do motor command Home & ProgrammedMove to RefillOpeningOffsetDistSteps
 
     break;
 
   case InjectorStates::REFILL:
-    // state action, runs every loop while the state is active
-    if (fsm_inputs.upButtonPressed && fsm_inputs.downButtonPressed)
-    {
-      endOfDayFlag = !endOfDayFlag;
-    }
     if (endOfDayFlag == 0)
     {
       buttonLEDsColors(GREEN_RGB, BLACK_RGB, BLACK_RGB);
@@ -243,74 +227,74 @@ void machineState() //
       buttonLEDsColors(GREEN_RGB, BLUE_RGB, BLUE_RGB);
     }
 
+    if (fsm_inputs.upButtonPressed && fsm_inputs.downButtonPressed)
+    {
+      endOfDayFlag = !endOfDayFlag;
+    }
+
     if (fsm_inputs.selectButtonPressed)
     {
-      // exit REFILL state action
       exitState(fsm_state.currentState);
-      // transition action, from REFILL to COMPRESSION
-      // doMoveMotor = true;
-      // compressionFunction();  // FIXME  compression function currently commented out
-      /** QUESTION: refer to question above exitState, is this the best place to order the next state
-       * motor move? or should it be done in enterState of COMPRESSION..?
-       */
+      // no REFILL exit transtion action
 
-      // transition to next state
       fsm_state.currentState = InjectorStates::COMPRESSION;
-      // enter COMPRESSION state action
+
       enterState(fsm_state.currentState);
+      // do motor command COMPRESSION
+
     }
 
     break;
 
   case InjectorStates::COMPRESSION:
-    // state action, runs every loop while the state is active
     buttonLEDsColors(RED_RGB, BLACK_RGB, RED_RGB);
 
     if (fsm_inputs.selectButtonPressed)
     {
-      // exit COMPRESSION state action
       exitState(fsm_state.currentState);
-      // transition action, from COMPRESSION to READY_TO_INJECT
+      // do motor command STOP
 
-      // transition to next state
       fsm_state.currentState = InjectorStates::READY_TO_INJECT;
-      // enter READY_TO_INJECT state action
+
       enterState(fsm_state.currentState);
+      // no READY_TO_INJECT enter transtion action
     }
     break;
+    /** QUESTION: will the state machine stay in this state until COMRESION move is complete..?
+     * possible have to include state change in COMPRESSION motor move.? that seems like bad logic..
+     * otherwise, how to move to next state..?
+     */
 
   case InjectorStates::READY_TO_INJECT:
-    // state action, runs every loop while the state is active
     buttonLEDsColors(GREEN_RGB, YELLOW_RGB, GREEN_RGB);
 
     if (fsm_inputs.selectButtonPressed && fsm_inputs.downButtonPressed)
     {
-      // exit READY_TO_INJECT state action
       exitState(fsm_state.currentState);
-      // transition action, from READY_TO_INJECT to PURGE_ZERO
+      // no READY_TO_INJECT exit transtion action
 
-      // transition to next state
       fsm_state.currentState = InjectorStates::PURGE_ZERO;
-      // enter PURGE_ZERO state action
+
       enterState(fsm_state.currentState);
+      // no PURGE_ZERO enter transtion action
     }
     else if (fsm_inputs.upButtonPressed)
     {
-      // exit READY_TO_INJECT state action
       exitState(fsm_state.currentState);
-      // transition action, from READY_TO_INJECT to REFILL
+      // no READY_TO_INJECT exit transtion action - NOTE: IF THERE WAS, here we have 2 different exit scenes,
+      // possible one may not be appropriate for one of the destination states?
 
-      // transition to next state
       fsm_state.currentState = InjectorStates::REFILL;
-      // enter REFILL state action
+
       enterState(fsm_state.currentState);
-    }
+    // do motor command Home & ProgrammedMove to RefillOpeningOffsetDistSteps
+  }
 
     break;
 
   case InjectorStates::PURGE_ZERO:
-    // state action, runs every loop while the state is active
     buttonLEDsColors(GREEN_RGB, YELLOW_RGB, YELLOW_RGB);
+
     if (fsm_inputs.upButtonPressed)
     {
       doMotorCommand(MotorCommands::CONTIUOUS_MOVE_UP, purgeSpeed);
@@ -323,141 +307,144 @@ void machineState() //
 
     if (fsm_inputs.selectButtonPressed)
     {
-      // exit PURGE_ZERO state action
       exitState(fsm_state.currentState);
-      // transition action, from PURGE_ZERO to ANTIDRIP
+      // clear motor steps, set position to 0
 
-      // transition to next state
       fsm_state.currentState = InjectorStates::ANTIDRIP;
-      // enter ANTIDRIP state action
+
       enterState(fsm_state.currentState);
+      // do motor command PROGRAMMED_MOVE to AntiDripReverseDistSteps
     }
 
     break;
 
-  case InjectorStates::ANTIDRIP:
-    // state action, runs every loop while the state is active
-    buttonLEDsColors(RED_RGB, GREEN_RGB, GREEN_RGB);
+  case InjectorStates::ANTIDRIP:  // see OBSERVATION: in enterState
+
+  buttonLEDsColors(RED_RGB, GREEN_RGB, GREEN_RGB);
 
     if (fsm_inputs.selectButtonPressed)
     {
-      // exit ANTIDRIP state action
       exitState(fsm_state.currentState);
-      // transition action, from ANTIDRIP to READY_TO_INJECT
-      doMotorCommand(MotorCommands::STOP);
-      // transition to next state
+      // do motor command STOP
+
       fsm_state.currentState = READY_TO_INJECT;
-      // enter READY_TO_INJECT state action
+
       enterState(fsm_state.currentState);
+      // no READY_TO_INJECT enter transtion action
     }
 
     if (fsm_inputs.upButtonPressed && fsm_inputs.downButtonPressed)
     {
-      // exit ANTIDRIP state action
       exitState(fsm_state.currentState);
-      // transition action, from ANTIDRIP to INJECT
-      doMotorCommand(MotorCommands::PROGRAMMED_MOVE, fsm_state.mouldParams.fillMouldMoveSpeed, fsm_state.mouldParams.fillMouldMoveDistSteps, fsm_state.mouldParams.fillMouldAccel);
+      // do motor command STOP - as mentioned above, here we have 2 different exit scenes,
+      // is a stop command appropriate for both destination states..?
 
-      // transition to next state
       fsm_state.currentState = InjectorStates::INJECT;
-      // enter INJECT state action
+
       enterState(fsm_state.currentState);
+      // do motor command PROGRAMMED_MOVE to fillMouldMoveDistSteps - ABSOLUTE MOVE, to fill from Purge zeroed motor
+
     }
 
-    /*     else if (!stepper->isRunning())   // ANTIDRIP motor move has finished, but no button press to move to next state
-        {
-          // exit ANTIDRIP state action
-          exitState(fsm_state.currentState);
-          // transition action, from ANTIDRIP to READY_TO_INJECT}
-          // transition to next state
-          fsm_state.currentState = READY_TO_INJECT;
-          // enter READY_TO_INJECT state action
-          enterState(fsm_state.currentState);
-        } */
+  //  else if (!stepper->isRunning())   // ANTIDRIP motor move has finished, but no button press to move to next state
+    else if (!fsm_outputs.doCommandMotor) // here the function will wait for the transitionToState motor move to complete before moving to the next State?? Copilot suggestion ;-)  
+      {
+        exitState(fsm_state.currentState);
+        // do motor command STOP
+
+        fsm_state.currentState = READY_TO_INJECT;
+
+        enterState(fsm_state.currentState);
+        // no READY_TO_INJECT enter transtion action
+      } 
 
     break;
 
+    /** OBSERVATION: for the next 3 states, if they are not interrupted by user cancel, then each state should
+     * finish the motor move before moving to next state anyway..? so no need to do motor stop..?
+     * or better from error handling point of view, to do motor stop in each state..? or at least a motor move check..?
+     */
+
+
   case InjectorStates::INJECT:
-    // state action, runs every loop while the state is active
     buttonLEDsColors(RED_RGB, GREEN_RGB, BLACK_RGB); // middle/UP LED GREEN flashing
 
     if (fsm_inputs.selectButtonPressed)
     {
-      // exit INJECT state action
       exitState(fsm_state.currentState);
-      // transition action, from INJECT to RELEASE
+      // do motor command STOP
 
-      // transition to next state
       fsm_state.currentState = InjectorStates::RELEASE;
-      // enter RELEASE state action
+
       enterState(fsm_state.currentState);
+      // do motor command PROGRAMMED_MOVE to releaseMouldMoveDistSteps
     }
 
     else if (!fsm_outputs.doCommandMotor) // here the function will wait for the transitionToState motor move to complete before moving to the next State?? Copilot suggestion ;-)
+                                          // this could be used in all states, to wait for motor move to complete before moving to next state..?
+                                          // or at least COMPRESSION state where there is no User action to exit state..?
     {
-      // exit INJECT state action
       exitState(fsm_state.currentState);
-      // transition action, from INJECT to HOLD_INJECTION
+      // do motor command STOP
 
-      // transition to next state
       fsm_state.currentState = InjectorStates::HOLD_INJECTION;
-      // enter HOLD_INJECTION state action
+
       enterState(fsm_state.currentState);
+      // do motor command PROGRAMMED_MOVE to holdMouldMoveDistSteps
     }
     break;
 
   case InjectorStates::HOLD_INJECTION:
-    // state action, runs every loop while the state is active
     buttonLEDsColors(RED_RGB, GREEN_RGB, GREEN_RGB); // bottom/DOWN LED GREEN flashing
 
     if (fsm_inputs.selectButtonPressed)
     {
-      // exit HOLD_INJECTION state action
       exitState(fsm_state.currentState);
-      // transition action, from HOLD_INJECTION to RELEASE
-      doMotorCommand(MotorCommands::PROGRAMMED_MOVE, releaseMouldMoveSpeed, releaseMouldMoveDistSteps); // common machine action, uses default accel
+      // do motor command STOP
 
-      // transition to next state
       fsm_state.currentState = InjectorStates::RELEASE;
-      // enter RELEASE state action
+
       enterState(fsm_state.currentState);
+      // do motor command PROGRAMMED_MOVE to releaseMouldMoveDistSteps
     }
 
     else if (!fsm_outputs.doCommandMotor) // here the function will wait for the transitionToState motor move to complete before moving to the next State?? Copilot suggestion ;-)
     {
-      // exit HOLD_INJECTION state action
       exitState(fsm_state.currentState);
-      // transition action, from HOLD_INJECTION to RELEASE
+      // do motor command STOP
 
-      // transition to next state
       fsm_state.currentState = InjectorStates::RELEASE;
-      // enter RELEASE state action
+
       enterState(fsm_state.currentState);
+      // do motor command PROGRAMMED_MOVE to releaseMouldMoveDistSteps
     }
 
     break;
 
   case InjectorStates::RELEASE:
-    // state action, runs every loop while the state is active
     buttonLEDsColors(GREEN_RGB, GREEN_RGB, GREEN_RGB);
+
+    /** no exit/ enter strategy here..? there will be no moves when exiting to CONFIRM_MOULD_REMOVAL
+     * nor when entering to CONFIRM_MOULD_REMOVAL, so no need to do motor stop..?
+     * again, will motor move finishing trigger next state..? or should we have a check that motor has stopped..?
+     */
     break;
 
   case InjectorStates::CONFIRM_MOULD_REMOVAL:
-    // state action, runs every loop while the state is active
     buttonLEDsColors(GREEN_RGB, GREEN_RGB, GREEN_RGB);
 
     if (endOfDayFlag == 0)
     {
       if (fsm_inputs.selectButtonPressed || fsm_inputs.upButtonPressed || fsm_inputs.downButtonPressed)
       {
-        // exit CONFIRM_MOULD_REMOVAL state action
         exitState(fsm_state.currentState);
-        // transition action, from CONFIRM_MOULD_REMOVAL to REFILL
+        // no CONFIRM_MOULD_REMOVAL exit transtion action
 
-        // transition to next state
         fsm_state.currentState = InjectorStates::REFILL;
-        // enter REFILL state action
+
         enterState(fsm_state.currentState);
+        // do motor command Home & ProgrammedMove to RefillOpeningOffsetDistSteps
+
       }
     }
 
@@ -465,14 +452,13 @@ void machineState() //
     {
       if (fsm_inputs.selectButtonPressed || fsm_inputs.upButtonPressed || fsm_inputs.downButtonPressed)
       {
-        // exit CONFIRM_MOULD_REMOVAL state action
         exitState(fsm_state.currentState);
-        // transition action, from CONFIRM_MOULD_REMOVAL to READY_TO_INJECT
+        // no CONFIRM_MOULD_REMOVAL exit transtion action
 
-        // transition to next state
         fsm_state.currentState = InjectorStates::READY_TO_INJECT;
-        // enter READY_TO_INJECT state action
+
         enterState(fsm_state.currentState);
+        // no READY_TO_INJECT enter transtion action
       }
     }
     break;
