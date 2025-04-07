@@ -102,6 +102,10 @@ long int generalFastSpeed = maxSpeedLimit/2; // how fast to home, continous move
 // homing params moved to Homng Function as not needed elsewhere, except initial fast and slow speeds, as are called from outside Homing function
 long int homingFastSpeed = generalFastSpeed / 2;
 long int homingSlowSpeed = generalFastSpeed / 10;
+int HomeOffSetDistSteps = 212;             // once first reached HomeEndstop, how much to back off before slower approach, 212 steps ≈ 5mm
+int HomeOffSetAccel = 10000;               // once first reached HomeEndstop, how much Accel to back off before slower approach 10000 = 1/5th normal
+int HomeOffsetSpeed = generalFastSpeed / 2;
+
 long int initialCompressionSpeed = generalFastSpeed / 2;
 long int minCompressionSpeed = generalFastSpeed / 20;                      // at what speed is compression no longer useful..? REVISE in REALITY
 long int comparisonPercentage = 50;                                        /* EXAMPLE VALUE what % difference between sent motor steps and read encoder steps should a change

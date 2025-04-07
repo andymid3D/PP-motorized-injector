@@ -45,7 +45,8 @@ enum InjectorError : uint16_t {
     HOME,                    // move motor until endstop is activated, then set position to 0
     CONTIUOUS_MOVE_UP,       // move motor continuously up
     CONTIUOUS_MOVE_DOWN,     // move motor continuously down
-    PROGRAMMED_MOVE,         // move motor a programmed distance FIXME: should this be relative or absolute? or dowe need another command for absolute moves?
+    PROGRAMMED_MOVE,         // move motor a programmed distance 
+    PROGRAMMED_ABSOLUTE_MOVE,// move motor to a programmed absolute position
     HOME,                    // function to move motor quickly until endstop is activated, back off slowly, comeback slowly, set position to 0, and offset a certain amount
     COMPRESS,                // move motor to compress the plastic in the barrel, assume some step loss might occur if needed
     CLEAR_STEPS              // clear the steps counter (clear to zero or adjust to encoder reading? we may need this after a compression)
@@ -69,8 +70,9 @@ enum InjectorError : uint16_t {
     int64_t actualENPosition;
     int64_t actualMOTPosition;
     int trackingError;
-
-    bool HomingDone;
+    bool isRunning;
+    bool isHoming; 
+    bool isCompressing; 
   
   } fsm_inputs_t;
   

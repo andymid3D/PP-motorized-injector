@@ -29,6 +29,26 @@ to see if it has had enough time to melt (avoiding cold injections!) */
 FastAccelStepperEngine engine = FastAccelStepperEngine();
 FastAccelStepper *stepper = NULL;
 
+enum HomingSteps {
+  START_MOVEMENT,
+  WAIT_FOR_ENDSTOP,
+  MOVE_AWAY,
+  WAIT_MOVE_AWAY,
+  WAIT_FOR_ENDSTOP_SLOW,
+  SET_MOTOR_ZERO,
+  END_HOMING
+};
+
+enum CompressionSteps {
+  START_MOVEMENT,
+  END_COMPRESSION
+};
+
+bool isHoming = false;
+bool isCompressing = false;
+int homingStep = START_MOVEMENT;
+int compressionStep = START_MOVEMENT;
+
 ////////////////////////////////
 // Encoder
 ////////////////////////////////
@@ -38,6 +58,8 @@ Adafruit_MAX31855 thermocouple(TEMPNozzleVSPI_SCK_CLK, TEMPNozzleVSPI_Dpin_MOSI_
 
 Adafruit_NeoPixel keypadleds = Adafruit_NeoPixel(keypadLedCount, WS2812B_BUTTON_LEDS_PIN);
 Adafruit_NeoPixel ringleds = Adafruit_NeoPixel(ringLedCount, WS2812B_RING_LEDS_PIN);
+
+int64_t trackingError = 0; // difference between encoder and motor position
 
 ////////////////////////////////
 // Input block
@@ -138,24 +160,9 @@ void commandMotor() {
       case MotorCommands::STOP:
         stepper->stopMove();
         break;
-      case MotorCommands::HOME:       /** OBSERVATION: better to create a function for all these moves and just call from here? as same for COMPRESSION? */
-        int HomeOffSetDistSteps = 212;             // once first reached HomeEndstop, how much to back off before slower approach, 212 steps ≈ 5mm
-        int HomeOffSetAccel = 10000;               // once first reached HomeEndstop, how much Accel to back off before slower approach 10000 = 1/5th normal
-        int HomeOffsetSpeed = generalFastSpeed / 2;
-        if(fsm_inputs.topEndStopActivated==0)     // if topEndStop is not activated, move up continuously until it is
-        {
-          stepper->setSpeedInHz(homingFastSpeed);
-          stepper->runBackward();
-        }
-        stepper->setSpeedInHz(HomeOffsetSpeed);   // once topEndStop is activated, set slower speed to back off
-        stepper->setAcceleration(HomeOffSetAccel);  // once topEndStop is activated, set slower Accel to back off
-        stepper->move(HomeOffSetDistSteps);  // once topEndStop is activated, move back off distance
-        if(fsm_inputs.topEndStopActivated==0)
-        {
-          stepper->setSpeedInHz(homingSlowSpeed);
-          stepper->runBackward();
-        }
-        stepper->setCurrentPosition(0);  // once back off is completed, set position to 0
+      case MotorCommands::HOME:
+        isHoming = true;
+        homingStep = START_MOVEMENT;
         break;
       case MotorCommands::CONTIUOUS_MOVE_UP:
         stepper->setSpeedInHz(fsm_outputs.motorSpeed);
@@ -176,7 +183,8 @@ void commandMotor() {
         stepper->moveTo(fsm_outputs.motorDistance);  // +ve is down, -ve is up
         break;
       case MotorCommands::COMPRESS:
-        // FIXME  compression function currently commented out
+        isCompressing = true;
+        compressionStep = START_MOVEMENT;
         break;
       case MotorCommands::CLEAR_STEPS:
         stepper->setCurrentPosition(0);
@@ -186,6 +194,80 @@ void commandMotor() {
     }
   }
 }
+
+void homing_loop() {
+
+  switch (homingStep) {
+    case START_MOVEMENT:
+      stepper->setSpeedInHz(homingFastSpeed);
+      stepper->setAcceleration(defaultAcceletationNema);
+      stepper->runBackward();
+      homingStep = WAIT_FOR_ENDSTOP;
+      break;
+    case WAIT_FOR_ENDSTOP:
+      if (topEndstop.isPressed()) {
+        stepper->stopMove();
+        homingStep = MOVE_AWAY;
+      }
+      break;
+    case MOVE_AWAY:
+      stepper->setSpeedInHz(HomeOffsetSpeed);
+      stepper->setAcceleration(HomeOffSetAccel);
+      stepper->move(HomeOffSetDistSteps);  // move back off distance
+      homingStep = WAIT_MOVE_AWAY;
+      break;
+    case WAIT_MOVE_AWAY:
+      if (!stepper->isRunning()) {
+        stepper->setSpeedInHz(homingSlowSpeed);
+        stepper->setAcceleration(defaultAcceletationNema);
+        stepper->runBackward();  // move back to endstop at slow speed
+        homingStep = WAIT_FOR_ENDSTOP_SLOW;
+      }
+      break;
+    case WAIT_FOR_ENDSTOP_SLOW:
+      if (topEndstop.isPressed()) {
+        stepper->stopMove();
+        homingStep = SET_MOTOR_ZERO;
+      }
+      break;
+    case SET_MOTOR_ZERO:
+      stepper->setCurrentPosition(0);  // set motor to 0 position
+      homingStep = END_HOMING;
+      break;
+    case END_HOMING:
+      isHoming = false;
+      homingStep = START_MOVEMENT;  // reset to start for next time
+      break;
+    default:
+      break;
+  }
+}
+
+
+void compression_loop() {
+
+  switch (compressionStep) {
+    case START_MOVEMENT:
+      // start compression code here
+      break;
+    case END_COMPRESSION:
+      compressionStep = START_MOVEMENT;
+      isCompressing = false;
+      break;
+    default:
+      break;
+  }
+}
+
+void motor_loop() {
+  if (isCompressing) {
+    compression_loop();
+  }
+  else if (isHoming) {
+    homing_loop();
+  }
+
+} 
 
 /**
  * 
@@ -225,6 +307,8 @@ void getInputs() {
 
   fsm_inputs.actualENPosition = encoder.getCount() / 2;
   fsm_inputs.isRunning = stepper->isRunning(); // check if the motor is running
+  fsm_inputs.isHoming = isHoming; 
+  fsm_inputs.isCompressing = isCompressing; 
 }
 
 void setOutputs() {
@@ -335,17 +419,14 @@ void loop() {
   barrelEndstop.update();
   EMERGENCYstop.update();
   
+  // update tracking error
+  trackingError = fsm_inputs.actualENPosition - stepper->getCurrentPosition();
 
   now = millis();
   if (now - fastTaskTime  >= 1) {
     fastTaskTime = now;
     // fast tasks
-    if (compression) {
-      compression_loop();
-    }
-    if (homing) {
-      homing_loop();
-    }
+    motor_loop();
   }
   if (now - mediumTaskTime >= 10) {
     mediumTaskTime = now;

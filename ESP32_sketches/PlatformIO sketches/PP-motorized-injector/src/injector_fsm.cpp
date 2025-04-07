@@ -57,10 +57,14 @@ void doMotorCommand(MotorCommands command, int speed = 0, int distance = 0, int 
     // this is an error in the fsm logic, a motor command is already set for this iteration
     // should we skip this command or overwrite it? raise an error?
     // after properly testing and debugging the fsm, this should never happen
-    // for now, we will overwrite the command
-    if (fsm_outputs.motorCommand == MotorCommands::STOP && (command == CONTIUOUS_MOVE_UP || ......))
+
+    // a stop command can be overwritten by a movement ...
+    bool new_command_overrides_stop = command == CONTIUOUS_MOVE_UP || CONTIUOUS_MOVE_DOWN || PROGRAMMED_MOVE;
+    if (fsm_outputs.motorCommand == MotorCommands::STOP && new_command_overrides_stop)
     {
-      // a stop command can be overwritten by a movement ...
+      // ok, we can overwrite the stop command with a new command
+    } else {
+      // error
     }
 
   }
