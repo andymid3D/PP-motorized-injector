@@ -47,7 +47,6 @@ enum InjectorError : uint16_t {
     CONTIUOUS_MOVE_DOWN,     // move motor continuously down
     PROGRAMMED_MOVE,         // move motor a programmed distance 
     PROGRAMMED_ABSOLUTE_MOVE,// move motor to a programmed absolute position
-    HOME,                    // function to move motor quickly until endstop is activated, back off slowly, comeback slowly, set position to 0, and offset a certain amount
     COMPRESS,                // move motor to compress the plastic in the barrel, assume some step loss might occur if needed
     CLEAR_STEPS              // clear the steps counter (clear to zero or adjust to encoder reading? we may need this after a compression)
   };
