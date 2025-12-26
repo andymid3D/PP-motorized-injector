@@ -1,0 +1,121 @@
+# DebugCommands Integration Status
+
+## Current Status: READY FOR CanBusHandlerV2 MIGRATION
+
+The DebugCommands module has been created and integrated into main.cpp, but is currently **disabled** pending migration of the codebase from old `CanBusHandler` to new `CanBusHandlerV2`.
+
+## What's Been Done
+
+### Files Added:
+- ✅ `include/DebugCommands.h` - Complete class definition
+- ✅ `src/DebugCommands.cpp` - Full implementation with 29 CAN commands
+- ✅ `DEBUGCOMMANDS_REFERENCE.md` - Serial command reference guide
+- ✅ `src/main.cpp` - Integration stubs (commented out, waiting for migration)
+
+### Integration in main.cpp:
+
+**Line 23:** Include added
+```cpp
+#include "DebugCommands.h"
+```
+
+**Line 25-27:** Global debug flag and instance (currently disabled)
+```cpp
+bool debugCommandsEnabled = true;  // Set to false to run normal FSM
+DebugCommands debugCmds;
+```
+
+**Lines 460-465:** Setup initialization (commented out)
+```cpp
+// TODO: Integrate DebugCommands once CanBusHandler migrated to CanBusHandlerV2
+// if (debugCommandsEnabled) {
+//     debugCmds.begin(motor);
+// }
+```
+
+**Lines 476-483:** Loop integration (commented out)
+```cpp
+// TODO: Integrate DebugCommands once CanBusHandler migrated to CanBusHandlerV2
+// if (debugCommandsEnabled) {
+//     debugCmds.loop();
+//     return;  // Skip all FSM code when in debug mode
+// }
+```
+
+## Migration Path
+
+To fully activate DebugCommands:
+
+1. **Migrate CanBusHandler → CanBusHandlerV2**
+   - Update all motor control calls in main.cpp to use CanBusHandlerV2
+   - Replace `CanBusHandler motor;` with `CanBusHandlerV2 motor;`
+   - Update function calls (e.g., `setPosition()` → `setInputPos()`)
+   - Update state reading (e.g., `getAxisState()` from heartbeat)
+
+2. **Uncomment DebugCommands integration** in main.cpp:
+   - Uncomment lines 460-465 (setup)
+   - Uncomment lines 476-483 (loop)
+   - Change `debugCommandsEnabled = true` to activate
+
+3. **Upload and test**:
+   - Arduino IDE on second computer connected to ESP32
+   - Send serial commands like: `set_velocity 5.0`, `controller_modes 2 1`
+   - Watch 1Hz status output with encoder, IQ, voltage data
+   - Use odrivetool on main computer to verify commands applied
+
+## Why It's Disabled Now
+
+DebugCommands uses `CanBusHandlerV2` which has:
+- ✅ Complete parameter structs for all 29 RequestMessageIDs
+- ✅ Parser functions for all 10 CyclicMessageIDs
+- ✅ Type-safe message builders
+- ✅ Comprehensive getter functions for all cyclic data
+
+But main.cpp currently uses old `CanBusHandler` which lacks these features.
+
+## Next Steps
+
+When ready to migrate to CanBusHandlerV2:
+
+1. Backup current working main.cpp
+2. Begin gradual migration of CanBusHandler calls
+3. Test FSM with CanBusHandlerV2 (without debug mode first)
+4. Once FSM working with V2, uncomment debug integration
+5. Test debug commands from Arduino IDE
+
+## DebugCommands Features Ready Now
+
+Even though not yet integrated, DebugCommands module includes:
+
+✅ **29 CAN Commands**
+- Axis state control
+- Controller modes (with param safety)
+- Position/velocity/torque commands
+- Limits, encoder, trajectory, tuning
+- 10 diagnostic requests (RTR)
+- Advanced: anticogging, estop, reboot
+
+✅ **1Hz Status Output**
+```
+Time | Position | Velocity | Iq_Set | Iq_Meas | BusVolt | BusCurr | CtrlMode | InputMode | ADC
+```
+
+✅ **Help System**
+- Type `help` or `?` in serial monitor
+- Lists all 29 commands with syntax
+
+✅ **Complete Documentation**
+- DEBUGCOMMANDS_REFERENCE.md with detailed examples
+- Parameter byte layouts documented
+- Multi-parameter safety enforced
+- Usage workflow explained
+
+## Files Ready for Reference
+
+- **DEBUGCOMMANDS_REFERENCE.md** - Complete serial command guide (use with Arduino IDE)
+- **include/DebugCommands.h** - Class definition with full Doxygen comments
+- **src/DebugCommands.cpp** - Implementation with command parsing
+
+---
+
+**Status**: Framework complete and ready. Waiting for CanBusHandlerV2 migration to activate.

@@ -1,4 +1,109 @@
+# AI PERSONA & BEHAVIOR (STRICT MODE)
+- **Role:** Senior Embedded Firmware Engineer.
+- **Tone:** Professional, concise, deterministic.
+- **Coding Style:** 
+  - NO hallucinated variables. Use ONLY what is defined in `config.h` and headers.
+  - PREFER verbose, safe logic over clever one-liners.
+  - ALWAYS check `SafetyManager` before movement.
+  - NEVER remove safety checks to "fix" a bug; fix the logic instead.
+
+## CRITICAL: Non-Blocking Architecture
+- **NEVER use blocking delays or while loops** in production code
+- **Use state machines for ALL sequential operations** (homing, compression, injection, etc.)
+- State machines allow loop() to run continuously, keeping serial/CAN responsive
+- **SafeString is the central hub** for:
+  - Storing all broadcast ODrive data (position, velocity, state, current, etc.)
+  - Non-blocking serial messaging (use BufferedOutput, not Serial.println)
+  - Debug data aggregation from all modules
+  - One source of truth for machine state
+- **All modules communicate through SafeString central data store**, not direct function calls
+- Use millisDelay for non-blocking timeouts instead of delay()
+
+## SafeString Integration (MANDATORY)
+- **Central Data Repository:** Create SafeString fields for all broadcast values (update via getCyclic* callbacks)
+- **Serial Messaging:** Use BufferedOutput for all Serial output - handles queueing gracefully
+- **Non-blocking Timeouts:** Use millisDelay instead of delay()
+- **Message Aggregation:** Debug modules append their data to SafeString, one central print() call
+
+## Motor Control - CRITICAL GUIDELINES
+- **Input Mode Priority:** PREFER ramped input modes (VEL_RAMP, POS_FILTER, TRAP_TRAJ) over PASSTHROUGH
+  - Ramped modes reduce motor stress, spinouts, and overcurrents
+  - PASSTHROUGH only when no ramped alternative exists
+  - Less current stress = safer long-term motor operation and better plastic consistency
+
+## Configuration & Timing - CRITICAL GUIDELINES
+- **ALWAYS search config.h for existing variables** before hardcoding timeouts, speeds, or timings
+- Homing timing variables exist in config.h (speeds, delays, etc.) - use them consistently
+- Changing timings must be ONE place only - config.h
+- **Source of Truth - Broadcast Data:**
+  - ODrive broadcasts axis state, encoder position, and velocity every ~100ms (encoder data ~10ms)
+  - **NEVER use arbitrary timeouts** - use broadcast state transitions instead
+  - **Wait for state changes** rather than timers (e.g., state 1→7→1 pattern for calibration complete)
+  - **Use velocity/position from cyclic broadcasts** to determine motion completion
+  - Example: Instead of `delay(5000)`, wait for `axisState == IDLE` broadcast
+  - Cyclic data is centralized source of truth - always prefer over calculated estimates
+
+# CRITICAL: ODrive CANSimple Protocol - SOURCES OF TRUTH
+**MUST use these official ODrive documentation sources for ANY CAN-related work:**
+
+1. **CAN Message IDs & Formats**
+   - Official: https://docs.odriverobotics.com/v/0.5.6/can-protocol.html#messages
+   - Tables show: message name, ID, master/axis, parameters, bit layout
+   - **CRITICAL**: Cyclic broadcast IDs have 1 fewer hex digit (e.g., 0x01 not 0x001)
+   - Cyclic broadcasts: https://docs.odriverobotics.com/v/0.5.6/can-protocol.html#cyclic-messages
+
+2. **Axis State Machine**
+   - Official: https://docs.odriverobotics.com/v/0.5.6/fibre_types/com_odriverobotics_ODrive.html#ODrive.Axis.AxisState
+   - States: UNDEFINED(0), IDLE(1), STARTUP(2), FULL_CALIB(3), MOTOR_CALIB(4), ENCODER_INDEX(6), ENCODER_OFFSET(7), CLOSED_LOOP(8), LOCKIN(9), ENCODER_DIR(10), HOMING(11), ENCODER_HALL_POLARITY(12), ENCODER_HALL_PHASE(13)
+
+3. **Control Modes**
+   - Official: https://docs.odriverobotics.com/v/0.5.6/fibre_types/com_odriverobotics_ODrive.html#ODrive.Controller.ControlMode
+   - Modes: VOLTAGE(0), TORQUE(1), VELOCITY(2), POSITION(3)
+
+4. **Input Modes**
+   - Official: https://docs.odriverobotics.com/v/0.5.6/fibre_types/com_odriverobotics_ODrive.html#ODrive.Controller.InputMode
+   - Modes: INACTIVE(0), PASSTHROUGH(1), VEL_RAMP(2), POS_FILTER(3), TRAP_TRAJ(4), TORQUE_RAMP(5)
+   - **Each mode has specific control mode requirements** (documented in ODrive reference)
+
+**Rule: If CAN message IDs or protocol definitions appear wrong, ALWAYS verify against official docs. Never infer from code. Never use github can_simple.hpp without cross-checking docs.**
+
 # AI Coding Assistant Instructions for PP-Motorized-Injector
+
+Project: PP Injector (ESP32 + ODrive 3.6 Protocol)
+Hardware:
+
+- Motor: ODesc 4.2 (Node ID 0), Inverted Direction.
+- Sensors: HX711 (Pressure), AD597 (Temp), Inductive Endstops (Top/Bot/Barrel).
+
+Critical Logic:
+- SafetyManager must be checked every loop.
+- Homing: Retract to Top -> Relax (Idle) -> Backoff -> Zero.
+- Safety: Pressure Limit protects 2D moulds.
+
+# CRITICAL HARDWARE OVERRIDES (PRIORITY 1)
+1. **Motor Direction:** INVERTED. Positive Position = Down (Inject). Negative Position = Up (Retract).
+2. **Homing Sequence (Critical Flow):**
+   - **Step 0:** Clear errors, set context to CTX_MOVING_FREE, wait 500ms
+   - **Step 1:** Check if calibration already done this session (skip step 2 if true)
+   - **Step 2-3:** Calibration (State 7). Runs ONLY once per power cycle. Set `flags.calibrationDone = true` when complete.
+   - **Step 4:** Request Closed Loop (State 8). MUST succeed before moving to step 5. Retry every 500ms if needed.
+   - **Step 5:** Fast retract up until top endstop hit
+   - **Step 6:** Gradual deceleration to prevent spinout (Error 0x200). Wait for velocity < 0.1 or timeout
+   - **Step 7:** Backoff (move down slowly) for 1.5s to relax endstop pressure
+   - **Step 8:** Slow approach back to top endstop
+   - **Step 9:** Wait for motor stop (velocity < 0.05 for 500ms)
+   - **Step 10:** Reset encoder to 0, mark `flags.initialHomingDone = true`, return true to finish
+3. **Safety:** 
+   - Pressure Limit (Torque) is the primary safety for 2D moulds.
+   - 2D Moulds = Low Torque Limit. 3D Moulds = High Torque Limit.
+4. **Buttons:**
+   - Buttons: Upper (25), Center (26), Lower (27).
+   - Logic: Upper+Lower = Purge Entry. Center = Confirm/Exit.
+5. **Motor Control:**
+   - ALWAYS use `setModeAndMove()` wrapper. Never call `motor.setX()` directly.
+   - INJECT/HOLD/RELEASE use Position Control (Mode 3).
+   - COMPRESSION uses Torque Control (Mode 1).
+
 
 ## Project Overview
 This is an ESP32-based controller for a motorized injection molding machine using PlatformIO. The system implements a finite state machine (FSM) to manage the complete injection cycle with integrated safety systems.
@@ -48,16 +153,19 @@ setModeAndMove(3, 1, position_value, "Position Control");  // Mode 3: Position
 ## Critical Developer Workflows
 
 ### Building and Flashing
+⚠️ **CRITICAL:** PlatformIO is NOT in system PATH. Always use full path:
 ```bash
-# Build project
+# Full path to PlatformIO (REQUIRED for AI assistant terminal commands)
+/Users/andy/.platformio/penv/bin/pio run              # Build project
+/Users/andy/.platformio/penv/bin/pio run -t upload    # Upload to ESP32 (/dev/cu.SLAB_USBtoUART, 115200 baud)
+/Users/andy/.platformio/penv/bin/pio device monitor   # Monitor serial output
+
+# Alternative: Create alias in shell (but AI must use full path)
+alias pio=/Users/andy/.platformio/penv/bin/pio
 pio run
-
-# Upload to ESP32 (configured for /dev/cu.SLAB_USBtoUART)
-pio run -t upload
-
-# Monitor serial output (115200 baud)
-pio device monitor
 ```
+
+**For terminal commands in code:** Always use the full path `/Users/andy/.platformio/penv/bin/pio` - do NOT assume `pio` is available.
 
 ### Debugging Process
 - **LED State Indicators**: Check button LEDs and ring LEDs for current state
@@ -99,10 +207,6 @@ INJECT: RED upper, GREEN center, BLACK lower, RED ring
 ```
 
 ### Button Control Logic
-- **Center**: Primary action (start cycle, reset error, confirm)
-- **Upper**: Abort/back/cancel
-- **Lower**: Continue/progress
-- **Combinations**: Special functions (lock, purge, end-of-day toggle)
 
 ## Integration Points
 
@@ -183,7 +287,7 @@ if (temperature < TEMP_CRITICAL) {
 
 ### Debug Output Format
 ```
-State: READY_TO_INJECT | Pos: 45.23 | Vel: 0.00 | Temp: 185°C | Err: 0
+State: READY_TO_INJECT | Pos: 45.23 | Vel: 0.00 | Temp: 185°C | Err: 0 | ODescState: 0 
 ```
 
 Remember: This system controls industrial machinery. Always prioritize safety interlocks and thorough testing of any changes.

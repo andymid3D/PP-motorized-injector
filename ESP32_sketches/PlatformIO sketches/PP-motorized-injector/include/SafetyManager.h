@@ -44,7 +44,12 @@ public:
     bool isTopEndstopHit();     
     bool isBottomEndstopHit();  
     
+    // Bounce2 Accessors (for advanced debouncing control)
+    Bounce2::Button& getTopEndstop() { return dbTop; }
+    Bounce2::Button& getBottomEndstop() { return dbBot; }
+    
     MachineError getLastError() { return _lastError; }
+    SafetyContext getContext() { return _currentContext; }
     long getPressure() { return _currentPressure; }
 
 private:

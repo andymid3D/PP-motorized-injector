@@ -1,7 +1,8 @@
 #include "SafetyManager.h"
-#include "CanBusHandler.h" 
+#include "CanBusHandlerV2.h"
+#include "MessageBuffer.h" 
 
-extern CanBusHandler motor; 
+extern CanBusHandlerV2 motor; 
 
 SafetyManager::SafetyManager() 
     : _lastError(ERR_NONE), _wasMovingDown(false), _currentContext(CTX_IDLE),
@@ -13,15 +14,19 @@ void SafetyManager::begin() {
     // If you didn't add resistors to a specific pin, change to INPUT_PULLUP
     
     dbEStop.attach(PIN_ESTOP, INPUT); 
+    dbEStop.setPressedState(LOW);  // Triggered when sensor reads LOW
     dbEStop.interval(20); // Short debounce, let the counter handle EMI
     
     dbBarrel.attach(PIN_ENDSTOP_BARREL, INPUT); // External 1k Pullup
+    dbBarrel.setPressedState(LOW);  // Triggered when sensor reads LOW
     dbBarrel.interval(20);
 
     dbTop.attach(PIN_ENDSTOP_TOP, INPUT); // External 1k Pullup
+    dbTop.setPressedState(LOW);  // Triggered when sensor reads LOW (plunger NOT at endstop)
     dbTop.interval(20);
 
     dbBot.attach(PIN_ENDSTOP_BOTTOM, INPUT); // External 1k Pullup
+    dbBot.setPressedState(LOW);  // Triggered when sensor reads LOW (plunger NOT at endstop)
     dbBot.interval(20);
 
     // 2. Outputs & Sensors
@@ -67,7 +72,9 @@ void SafetyManager::enableMotorPower(bool enable) {
 
 void SafetyManager::triggerHalt(MachineError err) {
     if (_lastError != err) {
-        Serial.printf("!!! SAFETY HALT: Error Code %d !!!\n", err);
+        char buf[64];
+        snprintf(buf, sizeof(buf), "SAFETY HALT: Error Code %d", err);
+        MessageBuffer::getInstance().sendMessage(buf);
         _lastError = err;
     }
     enableMotorPower(false);

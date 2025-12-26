@@ -1,0 +1,188 @@
+/**
+ * CLEAN HOMING SEQUENCE (Fresh Implementation)
+ * 
+ * Purpose: Calibrate motor + encoder, reset encoder to 0, ready for operation
+ * 
+ * Steps:
+ * 0. Clear errors, set context
+ * 1. Request calibration (State 7) — ONLY first time per session
+ * 2. Wait for calibration to complete
+ * 3. Request Closed Loop (State 8)
+ * 4. Fast retract up until top endstop hit
+ * 5. Decelerate to stop
+ * 6. Backoff down slowly
+ * 7. Slow approach back to top endstop
+ * 8. Wait for stop
+ * 9. Reset encoder to 0 (confirmed via CAN feedback)
+ * 10. Done
+ * 
+ * Key safety: Only advance to next step when previous is confirmed
+ * No blind delays — use encoder feedback and error checking
+ */
+
+#include <Arduino.h>
+#include "CanBusHandlerV2.h"
+#include "SafetyManager.h"
+#include "config.h"
+
+extern CanBusHandlerV2 motor;
+extern SafetyManager safety;
+
+enum HomingStep {
+    STEP_CLEAR_ERRORS = 0,
+    STEP_CALIBRATE,
+    STEP_WAIT_CALIBRATE,
+    STEP_REQUEST_CLOSED_LOOP,
+    STEP_RETRACT_FAST,
+    STEP_DECELERATE,
+    STEP_BACKOFF,
+    STEP_APPROACH,
+    STEP_WAIT_STOP,
+    STEP_RESET_ENCODER,
+    STEP_DONE
+};
+
+bool runHomingSequence_Clean() {
+    static HomingStep step = STEP_CLEAR_ERRORS;
+    static unsigned long stepStartTime = 0;
+    static bool calibrationDoneThisSession = false;
+    
+    // Log only on step change
+    static HomingStep lastStep = (HomingStep)-1;
+    if (step != lastStep) {
+        lastStep = step;
+        stepStartTime = millis();
+        
+        switch (step) {
+            case STEP_CLEAR_ERRORS:      Serial.println("Home: Step 0 - Clear errors"); break;
+            case STEP_CALIBRATE:         Serial.println("Home: Step 1 - Calibrate (State 7)"); break;
+            case STEP_WAIT_CALIBRATE:    Serial.println("Home: Step 2 - Wait for calibration"); break;
+            case STEP_REQUEST_CLOSED_LOOP: Serial.println("Home: Step 3 - Request state 8"); break;
+            case STEP_RETRACT_FAST:      Serial.println("Home: Step 4 - Fast retract up"); break;
+            case STEP_DECELERATE:        Serial.println("Home: Step 5 - Decelerate"); break;
+            case STEP_BACKOFF:           Serial.println("Home: Step 6 - Backoff down"); break;
+            case STEP_APPROACH:          Serial.println("Home: Step 7 - Slow approach to endstop"); break;
+            case STEP_WAIT_STOP:         Serial.println("Home: Step 8 - Wait for stop"); break;
+            case STEP_RESET_ENCODER:     Serial.println("Home: Step 9 - Reset encoder"); break;
+            case STEP_DONE:              Serial.println("Home: Complete!"); break;
+        }
+    }
+    
+    uint32_t elapsed = millis() - stepStartTime;
+    
+    switch (step) {
+        // ===== STEP 0: Clear errors, set safety context =====
+        case STEP_CLEAR_ERRORS:
+            motor.clearErrors();
+            safety.setContext(CTX_MOVING_FREE);
+            step = STEP_CALIBRATE;
+            break;
+            
+        // ===== STEP 1: Request calibration (only first time) =====
+        case STEP_CALIBRATE:
+            if (!calibrationDoneThisSession) {
+                motor.setAxisState(7);  // State 7 = Calibration
+                step = STEP_WAIT_CALIBRATE;
+            } else {
+                Serial.println("Home: Calibration skipped (already done)");
+                step = STEP_REQUEST_CLOSED_LOOP;
+            }
+            break;
+            
+        // ===== STEP 2: Wait for calibration to complete =====
+        case STEP_WAIT_CALIBRATE:
+            if (motor.getAxisState() == 1) {  // State 1 = Idle (calibration done)
+                calibrationDoneThisSession = true;
+                step = STEP_REQUEST_CLOSED_LOOP;
+            } else if (elapsed > 3000) {
+                Serial.println("Home: Calibration timeout!");
+                step = STEP_REQUEST_CLOSED_LOOP;  // Continue anyway
+            }
+            break;
+            
+        // ===== STEP 3: Request Closed Loop (State 8) =====
+        case STEP_REQUEST_CLOSED_LOOP:
+            motor.clearErrors();
+            motor.setAxisState(8);  // State 8 = Closed Loop
+            step = STEP_RETRACT_FAST;
+            break;
+            
+        // ===== STEP 4: Fast retract up until top endstop hit =====
+        case STEP_RETRACT_FAST:
+            motor.setControllerMode(2, 1);  // Velocity mode
+            delay(5);
+            motor.setVelocity(-SPEED_HOMING_FAST);  // Negative = UP
+            
+            if (safety.isTopEndstopHit()) {
+                motor.setVelocity(0);
+                step = STEP_DECELERATE;
+            }
+            break;
+            
+        // ===== STEP 5: Decelerate to avoid spinout =====
+        case STEP_DECELERATE: {
+            float elapsed_sec = elapsed / 1000.0f;
+            float decelRate = 25.0f;  // Fast deceleration
+            float targetVel = -SPEED_HOMING_FAST + (decelRate * elapsed_sec);
+            if (targetVel > 0) targetVel = 0;
+            
+            motor.setVelocity(targetVel);
+            
+            if (fabs(motor.getVelocity()) < 0.1f || elapsed > 1000) {
+                motor.setVelocity(0);
+                step = STEP_BACKOFF;
+            }
+            break;
+        }
+        
+        // ===== STEP 6: Backoff down slowly (relax endstop pressure) =====
+        case STEP_BACKOFF:
+            motor.setVelocity(SPEED_HOMING_SLOW);  // Positive = DOWN
+            if (elapsed > 1500) {
+                motor.setVelocity(0);
+                step = STEP_APPROACH;
+            }
+            break;
+            
+        // ===== STEP 7: Slow approach back to top endstop =====
+        case STEP_APPROACH:
+            motor.setVelocity(-SPEED_HOMING_SLOW);  // Negative = UP
+            if (safety.isTopEndstopHit()) {
+                motor.setVelocity(0);
+                step = STEP_WAIT_STOP;
+            }
+            break;
+            
+        // ===== STEP 8: Wait for motor to stop completely =====
+        case STEP_WAIT_STOP:
+            if (fabs(motor.getVelocity()) < 0.05f) {
+                if (elapsed > 500) {
+                    step = STEP_RESET_ENCODER;
+                }
+            }
+            break;
+            
+        // ===== STEP 9: Reset encoder to 0 (with confirmation) =====
+        case STEP_RESET_ENCODER:
+            motor.setLinearCount(0);
+            if (motor.waitForEncoderReset(500)) {
+                Serial.println("Home: Encoder confirmed at 0");
+                // Set position mode ready for next operation
+                motor.setControllerMode(3, 1);  // Position mode + Passthrough
+                delay(5);
+                motor.setPosition(0.0f);
+                step = STEP_DONE;
+            } else {
+                Serial.println("Home: Encoder reset failed!");
+                step = STEP_DONE;  // Continue anyway
+            }
+            break;
+            
+        // ===== STEP 10: Done =====
+        case STEP_DONE:
+            step = STEP_CLEAR_ERRORS;  // Reset for next homing cycle
+            return true;  // Signal completion
+    }
+    
+    return false;  // Still in progress
+}

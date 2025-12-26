@@ -58,7 +58,7 @@
 #define VEL_LIMIT_INJECT        25.0f  
 
 // --- MOTOR DIRECTION SETTING ---
-#define INVERT_MOTOR_DIR        false   // Encoder A & B swapped: +47 = down (inject)
+#define INVERT_MOTOR_DIR        true    // <--- FIXED: Inverted
 #define IGNORE_NOZZLE_BLOCK     true    // <--- NEW: Disables Error 3 for testing
 
 
@@ -81,12 +81,6 @@
 #define DIST_RELEASE_MOULD      -2.5f  
 #define DIST_ANTIDRIP_REV       -5.3f  
 
-// Homing Sequence Parameters
-#define HOMING_VELOCITY_STOP_THRESHOLD  0.05f   // Turns/sec - stop detection threshold
-#define HOMING_BACKOFF_VELOCITY         SPEED_HOMING_SLOW  // Down velocity during backoff
-#define HOMING_BACKOFF_DURATION         1500    // Milliseconds for backoff move
-#define HOMING_APPROACH_VELOCITY        -SPEED_HOMING_SLOW  // Slow approach up (negative)  
-
 // Torque / Pressure 
 #define TORQUE_COMPRESSION_HOLD 5.0f   
 #define PRESSURE_BLOCK_MIN      50000  
@@ -101,12 +95,6 @@
 // Timing Constants (Milliseconds)
 #define TIME_ANTIDRIP_TIMEOUT   15000   // 15 seconds to decompression
 #define TIME_AUTO_COMPRESS      30000   // Auto-compress after 30s idle
-
-// CAN Bus Command Timing
-// Minimum gap between consecutive CAN commands to ODrive
-// Allows ODrive to process mode changes before receiving move commands
-// Tuning: Reduce until inconsistency observed, then set to 2x that value
-#define CAN_COMMAND_GAP_MS      50      // Milliseconds between CAN commands
 
 // ==========================================
 // 5. DATA STRUCTURES
