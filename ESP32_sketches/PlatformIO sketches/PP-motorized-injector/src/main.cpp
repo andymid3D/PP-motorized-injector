@@ -15,6 +15,15 @@
 #include "SerialMessaging.h"
 #include "MessageBuffer.h"
 
+// ===== MODULAR STATE MACHINES (Phase 1 Integration) =====
+#include "Refill.h"
+#include "Compression.h"
+#include "Injection.h"
+#include "AntiDrip.h"
+#include "PurgeZero.h"
+#include "ReadyToInject.h"
+// ===== END MODULE INCLUDES =====
+
 // --- FSM Global Variables ---
 fsm_inputs_t fsm_inputs;
 fsm_outputs_t fsm_outputs;
@@ -669,7 +678,10 @@ void loop() {
             break;
         }
 
+
         case InjectorStates::REFILL:
+            /*
+            ===== COMMENTED OUT: Old FSM Logic (replaced by modular pattern) =====
             if (stateEntry) {
                 char logBuf[80];
                 snprintf(logBuf, sizeof(logBuf), "Refill: Move to %.1f turns", OFFSET_REFILL_GAP);
@@ -683,9 +695,30 @@ void loop() {
             safety.setContext(CTX_IDLE); 
             if (!ignoreButtons && btnUpper.read() == LOW && btnLower.read() == LOW) { flags.endOfDay = !flags.endOfDay; delay(500); }
             else if (!ignoreButtons && !buttonLock && btnCenter.released()) { fsm_state.currentState = InjectorStates::COMPRESSION; }
+            ===== END COMMENTED REFILL =====
+            */
+            // ===== NEW: Modular Refill =====
+            if (stateEntry) {
+                Refill::begin();
+                stateEntry = false;
+            }
+            if (Refill::update(motor)) {
+                // Transition on completion
+                fsm_state.currentState = InjectorStates::COMPRESSION;
+            }
+            if (!ignoreButtons && btnUpper.read() == LOW && btnLower.read() == LOW) { 
+                flags.endOfDay = !flags.endOfDay; 
+                delay(500); 
+            }
+            if (Refill::hasError()) {
+                fsm_state.currentState = InjectorStates::ERROR_STATE;
+                fsm_state.error = 0xFE;  // Refill error
+            }
             break;
 
         case InjectorStates::COMPRESSION:
+            /*
+            ===== COMMENTED OUT: Old FSM Logic (replaced by modular pattern) =====
             if (!ignoreButtons && !buttonLock && btnUpper.released()) { 
                 logMessage("Compression: User aborted, returning to Refill");
                 motor.setInputVel(0);  // CRITICAL: Stop motor immediately
@@ -706,9 +739,31 @@ void loop() {
                 fsm_state.currentState = InjectorStates::READY_TO_INJECT; 
                 lastAutoCompress = millis(); 
             }
+            ===== END COMMENTED COMPRESSION =====
+            */
+            // ===== NEW: Modular Compression =====
+            if (stateEntry) {
+                Compression::begin(Compression::MODE_1_TRAVEL);  // Full travel mode post-refill
+                stateEntry = false;
+            }
+            if (Compression::update(motor)) {
+                fsm_state.currentState = InjectorStates::READY_TO_INJECT;
+                lastAutoCompress = millis();
+            }
+            if (!ignoreButtons && !buttonLock && btnUpper.released()) { 
+                logMessage("Compression: User aborted, returning to Refill");
+                fsm_state.currentState = InjectorStates::REFILL;
+                Compression::reset();
+            }
+            if (Compression::hasError()) {
+                fsm_state.currentState = InjectorStates::ERROR_STATE;
+                fsm_state.error = 0xFD;  // Compression error
+            }
             break;
 
         case InjectorStates::READY_TO_INJECT:
+            /*
+            ===== COMMENTED OUT: Old FSM Logic (replaced by modular pattern) =====
             safety.setContext(CTX_IDLE); 
             if (millis() - lastAutoCompress > TIME_AUTO_COMPRESS) fsm_state.currentState = InjectorStates::COMPRESSION; 
             if (!ignoreButtons && btnUpper.read() == LOW && btnLower.read() == LOW) { fsm_state.currentState = InjectorStates::PURGE_ZERO; }
@@ -718,9 +773,35 @@ void loop() {
                 lastMotorCmdTime = millis();
                 fsm_state.currentState = InjectorStates::REFILL; 
             }
+            ===== END COMMENTED READY_TO_INJECT =====
+            */
+            // ===== NEW: Modular ReadyToInject =====
+            if (stateEntry) {
+                ReadyToInject::begin();
+                stateEntry = false;
+            }
+            if (ReadyToInject::update(motor)) {
+                // ReadyToInject runs indefinitely, check for user input to proceed
+            }
+            if (!ignoreButtons && btnUpper.read() == LOW && btnLower.read() == LOW) { 
+                logMessage("Ready: User confirms, moving to Purge");
+                fsm_state.currentState = InjectorStates::PURGE_ZERO;
+                ReadyToInject::reset();
+            }
+            else if (!ignoreButtons && !buttonLock && btnCenter.released()) { 
+                logMessage("Ready: User abort, returning to Refill");
+                fsm_state.currentState = InjectorStates::REFILL;
+                ReadyToInject::reset();
+            }
+            if (ReadyToInject::hasError()) {
+                fsm_state.currentState = InjectorStates::ERROR_STATE;
+                fsm_state.error = 0xFC;  // ReadyToInject error
+            }
             break;
 
         case InjectorStates::PURGE_ZERO:
+            /*
+            ===== COMMENTED OUT: Old FSM Logic (replaced by modular pattern) =====
             safety.setContext(CTX_PURGE); 
             static bool buttonsReleased = false;
             if (stateEntry) buttonsReleased = false;
@@ -735,9 +816,27 @@ void loop() {
                     antiDripTimer = millis(); 
                 }
             }
+            ===== END COMMENTED PURGE_ZERO =====
+            */
+            // ===== NEW: Modular PurgeZero =====
+            if (stateEntry) {
+                PurgeZero::begin();
+                stateEntry = false;
+            }
+            if (PurgeZero::update(motor, btnUpper.read(), btnLower.read(), btnCenter.pressed())) {
+                logMessage("PurgeZero: Complete, moving to AntiDrip");
+                fsm_state.currentState = InjectorStates::ANTIDRIP;
+                PurgeZero::reset();
+            }
+            if (PurgeZero::hasError()) {
+                fsm_state.currentState = InjectorStates::ERROR_STATE;
+                fsm_state.error = 0xFB;  // PurgeZero error
+            }
             break;
 
         case InjectorStates::ANTIDRIP:
+            /*
+            ===== COMMENTED OUT: Old FSM Logic (replaced by modular pattern) =====
             {
                 safety.setContext(CTX_MOVING_FREE); 
                 if (stateEntry) {
@@ -770,9 +869,35 @@ void loop() {
                     fsm_state.currentState = InjectorStates::READY_TO_INJECT; 
                 }
             }
+            ===== END COMMENTED ANTIDRIP =====
+            */
+            // ===== NEW: Modular AntiDrip =====
+            if (stateEntry) {
+                AntiDrip::begin();
+                stateEntry = false;
+            }
+            if (AntiDrip::update(motor)) {
+                // AntiDrip complete, handle user button responses
+            }
+            if (!ignoreButtons && btnCenter.read() == LOW && btnLower.read() == LOW) { 
+                logMessage("AntiDrip: User confirmed, moving to Inject");
+                fsm_state.currentState = InjectorStates::INJECT;
+                AntiDrip::reset();
+            }
+            else if (!ignoreButtons && !buttonLock && btnUpper.released()) { 
+                logMessage("AntiDrip: User abort, returning to Ready");
+                fsm_state.currentState = InjectorStates::READY_TO_INJECT;
+                AntiDrip::reset();
+            }
+            if (AntiDrip::hasError()) {
+                fsm_state.currentState = InjectorStates::ERROR_STATE;
+                fsm_state.error = 0xFA;  // AntiDrip error (usually timeout)
+            }
             break;
 
         case InjectorStates::INJECT:
+            /*
+            ===== COMMENTED OUT: Old FSM Logic (replaced by modular pattern) =====
             {
                 safety.setContext(CTX_BLOCKED); 
                 if (stateEntry) {
@@ -799,9 +924,32 @@ void loop() {
                     fsm_state.currentState = InjectorStates::HOLD_INJECTION; 
                 }
             }
+            ===== END COMMENTED INJECT =====
+            */
+            // ===== NEW: Modular Injection (FILLING phase) =====
+            if (stateEntry) {
+                Injection::begin(currentMould);
+                stateEntry = false;
+            }
+            if (Injection::update(motor)) {
+                // Auto-transition to HOLD_INJECTION
+                fsm_state.currentState = InjectorStates::HOLD_INJECTION;
+                Injection::reset();
+            }
+            if (!ignoreButtons && !buttonLock && btnUpper.released()) { 
+                logMessage("Inject: User abort, releasing mould");
+                fsm_state.currentState = InjectorStates::RELEASE;
+                Injection::reset();
+            }
+            if (Injection::hasError()) {
+                fsm_state.currentState = InjectorStates::ERROR_STATE;
+                fsm_state.error = 0xF9;  // Injection error
+            }
             break;
 
         case InjectorStates::HOLD_INJECTION:
+            /*
+            ===== COMMENTED OUT: Old FSM Logic (replaced by modular pattern) =====
             {
                 if (stateEntry) {
                     packStartPos = motor.getPosition(); // Capture pack start position
@@ -828,9 +976,24 @@ void loop() {
                     fsm_state.currentState = InjectorStates::RELEASE;
                 }
             }
+            ===== END COMMENTED HOLD_INJECTION =====
+            */
+            // ===== NEW: Modular Injection (PACKING phase, handled by same module) =====
+            if (Injection::isComplete()) {
+                logMessage("Hold: Pack time complete, releasing mould");
+                fsm_state.currentState = InjectorStates::RELEASE;
+                Injection::reset();
+            }
+            if (!ignoreButtons && !buttonLock && btnUpper.released()) { 
+                logMessage("Pack: User abort, releasing mould");
+                fsm_state.currentState = InjectorStates::RELEASE;
+                Injection::reset();
+            }
             break;
 
         case InjectorStates::RELEASE: 
+            /*
+            ===== COMMENTED OUT: Old FSM Logic (replaced by modular pattern) =====
             {
                 if (stateEntry) {
                     motor.setLimits(VEL_LIMIT_INJECT, 30.0f);
@@ -847,14 +1010,46 @@ void loop() {
                     fsm_state.currentState = InjectorStates::CONFIRM_MOULD_REMOVAL; 
                 }
             }
+            ===== END COMMENTED RELEASE =====
+            */
+            // ===== NEW: Release (simple auto-transition) =====
+            if (stateEntry) {
+                logMessage("Release: Unloading mould");
+                motor.setControllerModes(ODriveCANProtocol::ControlMode::POSITION_CONTROL, 
+                                        ODriveCANProtocol::InputMode::TRAP_TRAJ);
+                float releaseTarget = motor.getPosition() - DIST_RELEASE_MOULD;  // NEGATIVE = UP
+                motor.setInputPos(releaseTarget);
+                lastMotorCmdTime = millis();
+                stateEntry = false;
+            }
+            if (millis() - stateTimer > 2000) { 
+                logMessage("Release: Complete, confirming mould removal");
+                fsm_state.currentState = InjectorStates::CONFIRM_MOULD_REMOVAL; 
+            }
             break;
 
         case InjectorStates::CONFIRM_MOULD_REMOVAL:
+             /*
+             ===== COMMENTED OUT: Old FSM Logic (replaced by modular pattern) =====
              if (!ignoreButtons && !buttonLock && (btnCenter.released() || btnUpper.released() || btnLower.released())) { 
                  if(flags.endOfDay) fsm_state.currentState = InjectorStates::READY_TO_INJECT; 
                  else fsm_state.currentState = InjectorStates::REFILL; 
              }
+             ===== END COMMENTED CONFIRM =====
+             */
+             // ===== NEW: Confirm (button-driven state return) =====
+             if (!ignoreButtons && !buttonLock && (btnCenter.released() || btnUpper.released() || btnLower.released())) { 
+                 if(flags.endOfDay) {
+                     logMessage("Confirm: Returning to ReadyToInject");
+                     fsm_state.currentState = InjectorStates::READY_TO_INJECT; 
+                 }
+                 else {
+                     logMessage("Confirm: Returning to Refill");
+                     fsm_state.currentState = InjectorStates::REFILL; 
+                 }
+             }
              break;
+
     }
     updateLeds();
     if (millis() - lastDebugTime > 1000) { 
