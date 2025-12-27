@@ -36,7 +36,7 @@ namespace Refill {
                 delay(CAN_COMMAND_GAP_MS + 5);
                 
                 // Execute position move with TRAP_TRAJ
-                MotorWrapper::setModeAndMove(motor, 3, 4, OFFSET_REFILL_GAP, "Pos Refill");
+                MotorWrapper::setModeAndMove(motor, 3, 5, OFFSET_REFILL_GAP, "Pos Refill");
                 stateEntry = false;
             }
             

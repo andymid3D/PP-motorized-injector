@@ -75,6 +75,9 @@ namespace MotorWrapper {
             motor.setControllerModes((ODriveCANProtocol::ControlMode)ctrlMode, 
                                      (ODriveCANProtocol::InputMode)inputMode);
             
+            // Wait for CAN command gap before sending setpoint
+            delay(CAN_COMMAND_GAP_MS);
+            
             // Send appropriate setpoint based on control mode
             if (ctrlMode == 1) motor.setInputTorque(value);      // Torque mode
             else if (ctrlMode == 2) motor.setInputVel(value);    // Velocity mode

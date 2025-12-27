@@ -75,7 +75,7 @@ namespace Injection {
             delay(CAN_COMMAND_GAP_MS + 5);
             
             // Execute position move
-            MotorWrapper::setModeAndMove(motor, 3, 4, targetInjectPos, "Pos Inject");
+            MotorWrapper::setModeAndMove(motor, 3, 5, targetInjectPos, "Pos Inject");
             lastCommandTime = now;
             
             stateEntry = false;
@@ -85,7 +85,7 @@ namespace Injection {
         if (phase == FILLING) {
             // Resend position command periodically to ensure motor keeps moving
             if (now - lastCommandTime >= CAN_COMMAND_GAP_MS * 2) {
-                MotorWrapper::setModeAndMove(motor, 3, 4, targetInjectPos, "Pos Inject Resend");
+                MotorWrapper::setModeAndMove(motor, 3, 5, targetInjectPos, "Pos Inject Resend");
                 lastCommandTime = now;
             }
             
@@ -118,7 +118,7 @@ namespace Injection {
                 delay(CAN_COMMAND_GAP_MS + 5);
                 
                 // Set lower pressure for packing
-                MotorWrapper::setModeAndMove(motor, 3, 4, targetPackPos, "Pos Pack");
+                MotorWrapper::setModeAndMove(motor, 3, 5, targetPackPos, "Pos Pack");
                 lastCommandTime = now;
                 
                 return false;  // Still running
@@ -139,7 +139,7 @@ namespace Injection {
         if (phase == PACKING) {
             // Resend position command periodically
             if (now - lastCommandTime >= CAN_COMMAND_GAP_MS * 2) {
-                MotorWrapper::setModeAndMove(motor, 3, 4, targetPackPos, "Pos Pack Resend");
+                MotorWrapper::setModeAndMove(motor, 3, 5, targetPackPos, "Pos Pack Resend");
                 lastCommandTime = now;
             }
             
