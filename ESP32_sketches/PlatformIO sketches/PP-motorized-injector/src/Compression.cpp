@@ -73,15 +73,15 @@ namespace Compression {
         // ===== STEP 1: TRAVEL DOWN until plastic contact (MODE 1 only) =====
         if (step == TRAVEL_DOWN) {
             if (stateEntry) {
-                // Set velocity control for travel
-                motor.setControllerModes(ODriveCANProtocol::ControlMode::VELOCITY_CONTROL,
-                                        ODriveCANProtocol::InputMode::PASSTHROUGH);
+                // Set motor limits for velocity travel
+                MotorWrapper::setMotorLimits(motor, VEL_LIMIT_COMPRESSION, CURRENT_LIMIT_COMPRESSION_INITIAL, "Compress Travel");
+                delay(CAN_COMMAND_GAP_MS + 5);
                 stateEntry = false;
             }
             
             // Send velocity command to travel down
             if (now - lastCommandTime >= CAN_COMMAND_GAP_MS) {
-                motor.setInputVel(SPEED_COMPRESS_INIT);  // Positive = down (inject direction)
+                MotorWrapper::setModeAndMove(motor, 2, 2, SPEED_COMPRESS_INIT, "Compress Travel Down");  // Positive = down (inject direction)
                 lastCommandTime = now;
             }
             
@@ -92,8 +92,13 @@ namespace Compression {
             bool stallDetected = stepElapsed > 500 && motor.getAxisError() != 0;
             
             if (contactDetected || stallDetected) {
-                motor.setInputVel(0);  // Stop travel
+                MotorWrapper::setModeAndMove(motor, 2, 2, 0, "Compress Stop");  // Stop travel
                 lastCommandTime = now;
+                
+                // Increase current limit for compression after contact
+                MotorWrapper::adjustMotorLimits(motor, CURRENT_LIMIT_COMPRESSION_CONTACT, "Contact Detected");
+                delay(CAN_COMMAND_GAP_MS + 5);
+                
                 step = TORQUE_RAMP;
                 stepTimer = now;
                 return false;
@@ -103,7 +108,7 @@ namespace Compression {
             if (stepElapsed > MAX_TRAVEL_TIME_MS) {
                 isTimeoutFlag = true;
                 complete = true;
-                motor.setInputVel(0);
+                MotorWrapper::setModeAndMove(motor, 2, 2, 0, "Compress Timeout");
                 lastCommandTime = now;
                 return true;
             }
@@ -120,9 +125,13 @@ namespace Compression {
         // ===== STEP 2: TORQUE RAMP (MODE 1 & MODE 2) =====
         if (step == TORQUE_RAMP) {
             if (stateEntry) {
-                // Set torque control for compression
-                motor.setControllerModes(ODriveCANProtocol::ControlMode::TORQUE_CONTROL,
-                                        ODriveCANProtocol::InputMode::PASSTHROUGH);
+                // Set motor limits for torque control
+                // For MODE 2, set initial compression limits
+                if (currentMode == MODE_2_MICRO) {
+                    MotorWrapper::setMotorLimits(motor, VEL_LIMIT_COMPRESSION, CURRENT_LIMIT_COMPRESSION_INITIAL, "Micro Torque");
+                    delay(CAN_COMMAND_GAP_MS + 5);
+                }
+                // For MODE 1, limits already adjusted in contact detection
                 stateEntry = false;
             }
             
@@ -136,7 +145,7 @@ namespace Compression {
             
             // Send command if enough time has elapsed
             if (now - lastCommandTime >= CAN_COMMAND_GAP_MS) {
-                motor.setInputTorque(targetTorque);
+                MotorWrapper::setModeAndMove(motor, 1, 6, targetTorque, "Compress Torque");
                 lastCommandTime = now;
             }
             
@@ -146,7 +155,7 @@ namespace Compression {
             bool timeoutOnTorque = stepElapsed > 15000;  // 15 seconds max for torque ramp
             
             if ((reachedTorqueTarget && stepElapsed > 500) || stallDetected || timeoutOnTorque) {
-                motor.setInputTorque(0);
+                MotorWrapper::setModeAndMove(motor, 1, 6, 0, "Compress Release");
                 lastCommandTime = now;
                 complete = true;
                 return true;

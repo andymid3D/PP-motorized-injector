@@ -1,7 +1,6 @@
 #include "Refill.h"
 #include "config.h"
 #include "MotorWrapper.h"
-#include "MotorWrapper.h"
 
 namespace Refill {
     // ===== STATIC STATE VARIABLES =====
@@ -28,11 +27,16 @@ namespace Refill {
         // ===== STEP 0: Move to OFFSET_REFILL_GAP =====
         if (step == MOVING_TO_HOME) {
             if (stateEntry) {
-                // Set position control mode (once at entry)
-                motor.setControllerModes(ODriveCANProtocol::ControlMode::POSITION_CONTROL,
-                                        ODriveCANProtocol::InputMode::PASSTHROUGH);
-                delay(CAN_COMMAND_GAP_MS / 2);  // Small delay to avoid command collision
-                motor.setInputPos(OFFSET_REFILL_GAP);
+                // Set motor limits for refill move
+                MotorWrapper::setMotorLimits(motor, VEL_LIMIT_REFILL, CURRENT_LIMIT_REFILL, "Refill");
+                delay(CAN_COMMAND_GAP_MS + 5);
+                
+                // Configure TRAP_TRAJ for smooth move
+                MotorWrapper::setTrapTrajParams(motor, VEL_LIMIT_REFILL, TRAP_ACCEL_NORMAL, TRAP_DECEL_NORMAL, "Refill Traj");
+                delay(CAN_COMMAND_GAP_MS + 5);
+                
+                // Execute position move with TRAP_TRAJ
+                MotorWrapper::setModeAndMove(motor, 3, 4, OFFSET_REFILL_GAP, "Pos Refill");
                 stateEntry = false;
             }
             

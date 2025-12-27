@@ -25,9 +25,9 @@ namespace PurgeZero {
         
         // ===== DEBOUNCE: Wait for buttons to release at entry =====
         if (stateEntry) {
-            // Set velocity control mode (once at entry)
-            motor.setControllerModes(ODriveCANProtocol::ControlMode::VELOCITY_CONTROL,
-                                    ODriveCANProtocol::InputMode::PASSTHROUGH);
+            // Set motor limits for manual control
+            MotorWrapper::setMotorLimits(motor, VEL_LIMIT_PURGE, CURRENT_LIMIT_REFILL, "PurgeZero");
+            delay(CAN_COMMAND_GAP_MS + 5);
             lastCommandTime = now;
             stateEntry = false;
         }
@@ -45,15 +45,15 @@ namespace PurgeZero {
         if (now - lastCommandTime >= CAN_COMMAND_GAP_MS) {
             if (buttonUp == LOW) {
                 // Upper button pressed: retract (up) = negative velocity
-                motor.setInputVel(-SPEED_PURGE);
+                MotorWrapper::setModeAndMove(motor, 2, 1, -SPEED_PURGE, "Purge Up");
                 lastCommandTime = now;
             } else if (buttonDown == LOW) {
                 // Lower button pressed: push plastic out (down) = positive velocity
-                motor.setInputVel(SPEED_PURGE);
+                MotorWrapper::setModeAndMove(motor, 2, 1, SPEED_PURGE, "Purge Down");
                 lastCommandTime = now;
             } else {
                 // Neither button pressed: stop
-                motor.setInputVel(0);
+                MotorWrapper::setModeAndMove(motor, 2, 1, 0, "Purge Stop");
                 lastCommandTime = now;
             }
         }
@@ -61,7 +61,7 @@ namespace PurgeZero {
         // ===== CENTER BUTTON: Confirm zero point =====
         if (buttonCenter == LOW) {
             // User pressed center: confirm current position as zero point for injection
-            motor.setInputVel(0);  // Stop motor
+            MotorWrapper::setModeAndMove(motor, 2, 1, 0, "Purge Confirm");  // Stop motor
             lastCommandTime = now;
             complete = true;
             return true;

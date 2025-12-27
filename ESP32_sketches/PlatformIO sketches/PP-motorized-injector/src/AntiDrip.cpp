@@ -32,8 +32,8 @@ namespace AntiDrip {
         
         // ===== ENTRY: Set velocity control mode =====
         if (stateEntry) {
-            motor.setControllerModes(ODriveCANProtocol::ControlMode::VELOCITY_CONTROL,
-                                    ODriveCANProtocol::InputMode::PASSTHROUGH);
+            MotorWrapper::setMotorLimits(motor, VEL_LIMIT_ANTIDRIP, CURRENT_LIMIT_REFILL, "AntiDrip");
+            delay(CAN_COMMAND_GAP_MS + 5);
             lastCommandTime = now;
             stateEntry = false;
         }
@@ -49,7 +49,7 @@ namespace AntiDrip {
         
         // ===== CONTINUOUS COMMAND: Send slow upward velocity =====
         if (now - lastCommandTime >= CAN_COMMAND_GAP_MS) {
-            motor.setInputVel(-SPEED_ANTIDRIP);  // Negative = up, slow retract to prevent drip
+            MotorWrapper::setModeAndMove(motor, 2, 1, -SPEED_ANTIDRIP, "AntiDrip Up");  // Negative = up, slow retract to prevent drip
             lastCommandTime = now;
         }
         
@@ -57,7 +57,7 @@ namespace AntiDrip {
         if (elapsed > TIME_ANTIDRIP_TIMEOUT) {
             isTimeoutFlag = true;
             complete = true;
-            motor.setInputVel(0);  // Stop motor
+            MotorWrapper::setModeAndMove(motor, 2, 1, 0, "AntiDrip Stop");  // Stop motor
             return true;
         }
         

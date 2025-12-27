@@ -30,7 +30,10 @@ namespace ReadyToInject {
         
         // ===== ENTRY: Set velocity control (idle) =====
         if (stateEntry) {
-            motor.setInputVel(0);  // Stop motor, idle
+            // Set motor limits for idle state
+            MotorWrapper::setMotorLimits(motor, VEL_LIMIT_REFILL, CURRENT_LIMIT_REFILL, "ReadyIdle");
+            delay(CAN_COMMAND_GAP_MS + 5);
+            MotorWrapper::setModeAndMove(motor, 2, 1, 0, "Idle Stop");  // Stop motor, idle
             stateEntry = false;
         }
         
@@ -42,9 +45,9 @@ namespace ReadyToInject {
             microCompressing = true;
             compressionStartTime = now;
             
-            // Set torque control mode for compression
-            motor.setControllerModes(ODriveCANProtocol::ControlMode::TORQUE_CONTROL,
-                                    ODriveCANProtocol::InputMode::PASSTHROUGH);
+            // Set motor limits for torque control (micro-compression)
+            MotorWrapper::setMotorLimits(motor, VEL_LIMIT_COMPRESSION, CURRENT_LIMIT_COMPRESSION_INITIAL, "MicroCompress");
+            delay(CAN_COMMAND_GAP_MS + 5);
             lastCommandTime = now;
         }
         
@@ -64,7 +67,7 @@ namespace ReadyToInject {
             
             // Send command if enough time has elapsed
             if (now - lastCommandTime >= CAN_COMMAND_GAP_MS) {
-                motor.setInputTorque(targetTorque);
+                MotorWrapper::setModeAndMove(motor, 1, 6, targetTorque, "MicroCompress Torque");
                 lastCommandTime = now;
             }
             
@@ -77,10 +80,8 @@ namespace ReadyToInject {
                 microCompressing = false;
                 lastAutoCompressionTime = now;  // Reset timer for next compression
                 
-                // Return to velocity control (idle)
-                motor.setControllerModes(ODriveCANProtocol::ControlMode::VELOCITY_CONTROL,
-                                        ODriveCANProtocol::InputMode::PASSTHROUGH);
-                motor.setInputVel(0);
+                // Ramp torque back to zero smoothly
+                MotorWrapper::setModeAndMove(motor, 1, 6, 0, "MicroCompress Release");
                 lastCommandTime = now;
             }
         }
