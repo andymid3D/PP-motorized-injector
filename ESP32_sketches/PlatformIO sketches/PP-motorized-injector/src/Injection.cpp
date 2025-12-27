@@ -1,5 +1,6 @@
 #include "Injection.h"
 #include "config.h"
+#include "MotorWrapper.h"
 
 namespace Injection {
     // ===== STATIC STATE VARIABLES =====

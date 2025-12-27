@@ -1,5 +1,6 @@
 #include "Compression.h"
 #include "config.h"
+#include "MotorWrapper.h"
 
 namespace Compression {
     // ===== STATIC STATE VARIABLES =====

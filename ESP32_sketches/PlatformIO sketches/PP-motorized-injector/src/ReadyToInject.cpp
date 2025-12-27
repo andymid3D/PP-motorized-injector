@@ -1,5 +1,6 @@
 #include "ReadyToInject.h"
 #include "config.h"
+#include "MotorWrapper.h"
 
 namespace ReadyToInject {
     // ===== STATIC STATE VARIABLES =====

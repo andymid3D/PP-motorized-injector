@@ -1,5 +1,6 @@
 #include "AntiDrip.h"
 #include "config.h"
+#include "MotorWrapper.h"
 
 namespace AntiDrip {
     // ===== STATIC STATE VARIABLES =====

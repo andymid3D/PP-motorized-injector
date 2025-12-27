@@ -106,7 +106,47 @@
 // Minimum gap between consecutive CAN commands to ODrive
 // Allows ODrive to process mode changes before receiving move commands
 // Tuning: Reduce until inconsistency observed, then set to 2x that value
-#define CAN_COMMAND_GAP_MS      50      // Milliseconds between CAN commands
+#define CAN_COMMAND_GAP_MS      50      // Milliseconds between CAN commands (reduce to 20ms for faster response)
+
+// ==========================================
+// 4.5 MOTOR CONTROL LIMITS & TRAP_TRAJ PARAMETERS
+// ==========================================
+
+// --- VELOCITY LIMITS BY STATE (turns/sec) ---
+#define VEL_LIMIT_REFILL        15.0f    // Refill: moderate speed, safe return to rest
+#define VEL_LIMIT_COMPRESSION   12.0f    // Compression: half max, controlled approach to contact
+#define VEL_LIMIT_INJECTION     15.0f    // Injection: moderate fill speed
+#define VEL_LIMIT_RELEASE       20.0f    // Release: faster unload
+#define VEL_LIMIT_PURGE         5.0f     // Purge: manual control, slower for safety
+#define VEL_LIMIT_ANTIDRIP      2.0f     // AntiDrip: very slow decompression
+
+// --- CURRENT LIMITS BY STATE (Amps) ---
+#define CURRENT_LIMIT_REFILL    5.0f     // Refill: low current, no load expected
+#define CURRENT_LIMIT_COMPRESSION_INITIAL  7.0f  // Compression: double friction (3.4A * 2), contact detection
+#define CURRENT_LIMIT_COMPRESSION_CONTACT  25.0f // Compression: full force after contact detected
+#define CURRENT_LIMIT_INJECTION_FILL       10.0f // Injection fill: moderate pressure
+#define CURRENT_LIMIT_INJECTION_PACK       15.0f // Injection pack: higher pressure to maintain
+#define CURRENT_LIMIT_RELEASE   10.0f    // Release: moderate force for unload
+#define CURRENT_LIMIT_PURGE     8.0f     // Purge: moderate for manual control
+#define CURRENT_LIMIT_ANTIDRIP  5.0f     // AntiDrip: low force, gentle decompression
+
+// --- TRAP_TRAJ PARAMETERS (turns/sec²) ---
+#define TRAP_ACCEL_NORMAL       20.0f    // Normal acceleration for most moves
+#define TRAP_DECEL_NORMAL       20.0f    // Normal deceleration for most moves
+#define TRAP_ACCEL_SLOW         10.0f    // Careful/slow acceleration
+#define TRAP_DECEL_SLOW         10.0f    // Careful/slow deceleration
+#define TRAP_ACCEL_FAST         40.0f    // Fast acceleration (e.g., release)
+#define TRAP_DECEL_FAST         40.0f    // Fast deceleration (e.g., release)
+
+// --- CONTACT DETECTION (Current Monitoring) ---
+#define CURRENT_FRICTION_BASELINE   3.4f    // Motor friction current (idle, no load)
+#define CURRENT_CONTACT_THRESHOLD   5.0f    // Current spike indicating contact (empirical, adjust after testing)
+#define CURRENT_MONITOR_INTERVAL_MS 100     // How often to check current (matches IQ broadcast rate)
+
+// --- STATE TIMEOUTS ---
+#define TIMEOUT_COMPRESSION_EMPTY_MS    5000    // Compression timeout with empty barrel (no plastic)
+#define TIMEOUT_COMPRESSION_LOADED_MS   10000   // Compression timeout with plastic (if contact not detected)
+#define TIMEOUT_ANTIDRIP_MS             15000   // AntiDrip user timeout (time to place mould)
 
 // ==========================================
 // 5. DATA STRUCTURES

@@ -17,4 +17,10 @@ typedef struct actualMouldParams {
   // --- PHASE 3: COOLING ---
   float coolingTime;       // (Seconds) Time to wait before release.
   
+  // --- TRAP_TRAJ PARAMETERS (Fine-tuning for injection cycle) ---
+  float fillTrapAccel;     // (Turns/Sec²) Acceleration during fill phase (default: TRAP_ACCEL_NORMAL)
+  float fillTrapDecel;     // (Turns/Sec²) Deceleration during fill phase (default: TRAP_DECEL_NORMAL)
+  float packTrapAccel;     // (Turns/Sec²) Acceleration during pack phase (default: TRAP_ACCEL_SLOW)
+  float packTrapDecel;     // (Turns/Sec²) Deceleration during pack phase (default: TRAP_DECEL_SLOW)
+  
 } actualMouldParams_t;

@@ -14,6 +14,7 @@
 #include "BroadcastDataStore.h"
 #include "SerialMessaging.h"
 #include "MessageBuffer.h"
+#include "MotorWrapper.h"  // Centralized motor control
 
 // ===== MODULAR STATE MACHINES (Phase 1 Integration) =====
 #include "Refill.h"
@@ -75,11 +76,9 @@ bool buttonLock = false;
 // State Management
 int lastFsmState = -1;
 bool stateEntry = false;
-String lastCmdStr = "None";
+// Motor control state tracking moved to MotorWrapper namespace
 float injectStartPos = 0.0f; // Track injection start position
 float packStartPos = 0.0f;   // Track pack start position
-int lastControlMode = -1;    // Track last sent control mode (0=Voltage, 1=Torque, 2=Velocity, 3=Position)
-int lastInputMode = -1;      // Track last sent input mode (0=Inactive, 1=Passthrough, 2=VelRamp, 3=PosFilter, 4=TrapTraj, 5=TorqueRamp)
 
 // --- Parameters ---
 actualMouldParams_t currentMould = {
@@ -91,7 +90,11 @@ actualMouldParams_t currentMould = {
     2.0f,   // Pack Speed (RPS)
     10.0f,  // Pack Pressure (Amps)
     2.0f,   // Pack Time (Sec)
-    5.0f    // Cooling Time (Sec)
+    5.0f,   // Cooling Time (Sec)
+    TRAP_ACCEL_NORMAL,  // Fill Trap Accel (default)
+    TRAP_DECEL_NORMAL,  // Fill Trap Decel (default)
+    TRAP_ACCEL_SLOW,    // Pack Trap Accel (slower, more controlled)
+    TRAP_DECEL_SLOW     // Pack Trap Decel (slower, more controlled)
 };
 
 // --- Helper: Log ---
@@ -168,20 +171,9 @@ void updateLeds() {
     for(int i=0; i<LED_COUNT_RING; i++) ledsRing.setPixelColor(i, colRing); ledsRing.show();
 }
 
-// --- SAFETY WRAPPER ---
-void setModeAndMove(int ctrlMode, int inputMode, float value, String cmdName) {
-    if ((millis() - lastMotorCmdTime > 20)) {
-        motor.setControllerModes((ODriveCANProtocol::ControlMode)ctrlMode, 
-                                 (ODriveCANProtocol::InputMode)inputMode);
-        if (ctrlMode == 1) motor.setInputTorque(value);      
-        else if (ctrlMode == 2) motor.setInputVel(value); 
-        else if (ctrlMode == 3) motor.setInputPos(value); 
-        lastMotorCmdTime = millis();
-        lastCmdStr = cmdName;
-        lastControlMode = ctrlMode;  // Track the mode sent
-        lastInputMode = inputMode;    // Track the mode sent
-    }
-}
+// --- MOTOR CONTROL WRAPPERS ---
+// All motor commands now go through MotorWrapper namespace (see MotorWrapper.h/cpp)
+// This section intentionally empty - functions moved to shared MotorWrapper for module access
 // NOTE: InputMode mapping for ODrive 0.5.6:
 // 0 = INACTIVE (no control)
 // 1 = PASSTHROUGH (direct setpoint, no ramp)
@@ -423,7 +415,7 @@ bool runHomingSequence() {
             
         // ===== 9: Wait for complete stop =====
         case 9:
-            setModeAndMove(2, 1, 0, "Vel 0");
+            MotorWrapper::setModeAndMove(motor, 2, 1, 0, "Vel 0");
             if (fabs(motor.getVelocity()) < 0.05f && elapsed > 500) {
                 step++;
             } else if (elapsed > 3000) {
@@ -476,28 +468,37 @@ bool runCompressionCycle() {
     float targetTorque = (TORQUE_COMPRESSION_HOLD / 2.0f) * elapsed;
     if (targetTorque > TORQUE_COMPRESSION_HOLD) targetTorque = TORQUE_COMPRESSION_HOLD;
     
-    setModeAndMove(1, 1, targetTorque, "TorqueMode");
+    MotorWrapper::setModeAndMove(motor, 1, 1, targetTorque, "TorqueMode");
 
-    if (elapsed > 15.0f) { logMessage("Compression: Timeout"); setModeAndMove(2, 1, 0, "Stop"); return true; }
-    if (elapsed > 1.0f && abs(motor.getVelocity()) < 0.5f) { logMessage("Compression: Stall Detected"); setModeAndMove(2, 1, 0, "Stop"); return true; }
+    if (elapsed > 15.0f) { logMessage("Compression: Timeout"); MotorWrapper::setModeAndMove(motor, 2, 1, 0, "Stop"); return true; }
+    if (elapsed > 1.0f && abs(motor.getVelocity()) < 0.5f) { logMessage("Compression: Stall Detected"); MotorWrapper::setModeAndMove(motor, 2, 1, 0, "Stop"); return true; }
     return false;
 }
 
 // --- Debug Report ---
 void printDebugReport() {
-    char buf[180];
+    char buf[256];
     long pDisp = safety.getPressure();
     if (pDisp > 999999) pDisp = 999999; if (pDisp < -999999) pDisp = -999999;
+    
+    // Get current measurements for contact detection
+    const ODriveCANProtocol::CyclicIq& iq_data = motor.getIq();
+    float iq_setpoint = iq_data.Iq_setpoint;
+    float iq_measured = iq_data.Iq_measured;
     
     // Mode name helpers
     const char* ctrlModeName[] = {"Voltage", "Torque", "Velocity", "Position"};
     const char* inputModeName[] = {"Inactive", "Passthrough", "VelRamp", "PosFilter", "TrapTraj", "TorqueRamp"};
+    int lastControlMode = MotorWrapper::getLastControlMode();
+    int lastInputMode = MotorWrapper::getLastInputMode();
+    String lastCmdStr = MotorWrapper::getLastCommand();
     const char* ctrlStr = (lastControlMode >= 0 && lastControlMode < 4) ? ctrlModeName[lastControlMode] : "None";
     const char* inputStr = (lastInputMode >= 0 && lastInputMode < 6) ? inputModeName[lastInputMode] : "None";
     
-    snprintf(buf, sizeof(buf), "[%-16s] T:%-3d P:%-7ld | OD:%d Err:0x%-2X | P:%-5.1f V:%-4.1f | Ctrl:%s Input:%s | Cmd:%s",
+    snprintf(buf, sizeof(buf), "[%-16s] T:%-3d P:%-7ld | OD:%d Err:0x%-2X | Pos:%-5.1f Vel:%-4.1f | IqS:%-4.1f IqM:%-4.1f | Ctrl:%s Input:%s | Cmd:%s",
         getStateName(fsm_state.currentState), fsm_inputs.nozzleTemperature, pDisp,
         motor.getAxisState(), motor.getAxisError(), motor.getPosition(), motor.getVelocity(), 
+        iq_setpoint, iq_measured,
         ctrlStr, inputStr, lastCmdStr.c_str());
     MessageBuffer::getInstance().set1HzMessage(buf);
 }
@@ -508,6 +509,7 @@ void setup() {
     MessageBuffer::getInstance().sendMessage("SYSTEM START");
     SafeString::setOutput(Serial); 
     SerialMessaging::begin();  // Initialize non-blocking serial messaging
+    MotorWrapper::init();  // Initialize motor wrapper tracking variables
     
     if (debugCommandsEnabled) {
         // DEBUG MODE: Skip FSM initialization, only init DebugCommands
@@ -531,6 +533,12 @@ void setup() {
 }
 
 void loop() {
+    // ===== LOOP TIMING INSTRUMENTATION =====
+    unsigned long loopStart = millis();
+    static unsigned long lastLoopReportTime = 0;
+    static unsigned long maxLoopTime = 0;
+    static unsigned long loopCount = 0;
+    
     motor.loop(); safety.updateInputs(); fsm_inputs.nozzleTemperature = readThermocouple();
     btnCenter.update(); btnUpper.update(); btnLower.update();
     // Bus voltage is received via cyclic broadcast (0x17), no need to poll
@@ -632,7 +640,7 @@ void loop() {
 
     switch (fsm_state.currentState) {
         case InjectorStates::ERROR_STATE:
-            setModeAndMove(2, 1, 0, "Stop");
+            MotorWrapper::setModeAndMove(motor, 2, 1, 0, "Stop");
             if (stateEntry) { 
                 char errBuf[64];
                 snprintf(errBuf, sizeof(errBuf), "ERROR STATE ENTERED: 0x%X", fsm_state.error);
@@ -669,7 +677,7 @@ void loop() {
             // Check for completion or error
             if (Homing::isComplete()) {
                 delay(500);
-                setModeAndMove(3, 1, OFFSET_REFILL_GAP, "Pos Refill");
+                MotorWrapper::setModeAndMove(motor, 3, 1, OFFSET_REFILL_GAP, "Pos Refill");
                 fsm_state.currentState = InjectorStates::REFILL;
             } else if (Homing::hasError()) {
                 fsm_state.currentState = InjectorStates::ERROR_STATE;
@@ -807,9 +815,9 @@ void loop() {
             if (stateEntry) buttonsReleased = false;
             if (!buttonsReleased) { if (btnUpper.read() == HIGH && btnLower.read() == HIGH) { buttonsReleased = true; logMessage("Purge: Buttons Released."); } } 
             else {
-                if (btnUpper.read() == LOW) setModeAndMove(2, 1, -SPEED_PURGE, "Purge Up");
-                else if (btnLower.read() == LOW) setModeAndMove(2, 1, SPEED_PURGE, "Purge Down");
-                else setModeAndMove(2, 1, 0, "Stop");
+                if (btnUpper.read() == LOW) MotorWrapper::setModeAndMove(motor, 2, 1, -SPEED_PURGE, "Purge Up");
+                else if (btnLower.read() == LOW) MotorWrapper::setModeAndMove(motor, 2, 1, SPEED_PURGE, "Purge Down");
+                else MotorWrapper::setModeAndMove(motor, 2, 1, 0, "Stop");
                 if (btnCenter.pressed()) { 
                     logMessage("Purge: Entering AntiDrip");
                     fsm_state.currentState = InjectorStates::ANTIDRIP; 
@@ -846,7 +854,7 @@ void loop() {
                     lastMotorCmdTime = 0;              // Force immediate command
                 }
                 // Move UP (negative velocity) to decompress
-                setModeAndMove(2, 1, -SPEED_ANTIDRIP, "AntiDrip Vel");
+                MotorWrapper::setModeAndMove(motor, 2, 1, -SPEED_ANTIDRIP, "AntiDrip Vel");
                 
                 // Check buttons FIRST - allow interrupt at any time
                 if (!ignoreButtons && btnCenter.read() == LOW && btnLower.read() == LOW) { 
@@ -1015,11 +1023,19 @@ void loop() {
             // ===== NEW: Release (simple auto-transition) =====
             if (stateEntry) {
                 logMessage("Release: Unloading mould");
-                motor.setControllerModes(ODriveCANProtocol::ControlMode::POSITION_CONTROL, 
-                                        ODriveCANProtocol::InputMode::TRAP_TRAJ);
+                
+                // Step 1: Set motor limits for release
+                MotorWrapper::setMotorLimits(motor, VEL_LIMIT_RELEASE, CURRENT_LIMIT_RELEASE, "RELEASE");
+                delay(CAN_COMMAND_GAP_MS + 5);
+                
+                // Step 2: Configure TRAP_TRAJ for smooth fast unload
+                MotorWrapper::setTrapTrajParams(motor, VEL_LIMIT_RELEASE, TRAP_ACCEL_FAST, TRAP_DECEL_FAST, "RELEASE_TRAJ");
+                delay(CAN_COMMAND_GAP_MS + 5);
+                
+                // Step 3: Send position command with TRAP_TRAJ input mode
                 float releaseTarget = motor.getPosition() - DIST_RELEASE_MOULD;  // NEGATIVE = UP
-                motor.setInputPos(releaseTarget);
-                lastMotorCmdTime = millis();
+                MotorWrapper::setModeAndMove(motor, 3, 4, releaseTarget, "Pos Release");  // Mode 3 (Position), InputMode 4 (TRAP_TRAJ)
+                
                 stateEntry = false;
             }
             if (millis() - stateTimer > 2000) { 
@@ -1052,6 +1068,24 @@ void loop() {
 
     }
     updateLeds();
+    
+    // ===== LOOP TIMING MEASUREMENT =====
+    unsigned long loopEnd = millis();
+    unsigned long loopTime = loopEnd - loopStart;
+    loopCount++;
+    if (loopTime > maxLoopTime) maxLoopTime = loopTime;
+    
+    // Report timing every 100 iterations or 10Hz (whichever comes first)
+    if (loopCount % 100 == 0 || (millis() - lastLoopReportTime) > 100) {
+        char timingBuf[128];
+        snprintf(timingBuf, sizeof(timingBuf), 
+            "LOOP_TIME: current=%lums max=%lums count=%lu",
+            loopTime, maxLoopTime, loopCount);
+        MessageBuffer::getInstance().sendMessage(timingBuf);
+        lastLoopReportTime = millis();
+        maxLoopTime = 0;  // Reset max after reporting
+    }
+    
     if (millis() - lastDebugTime > 1000) { 
         lastDebugTime = millis(); 
         printDebugReport();

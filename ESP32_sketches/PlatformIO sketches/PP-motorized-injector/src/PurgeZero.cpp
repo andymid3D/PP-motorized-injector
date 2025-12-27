@@ -1,5 +1,6 @@
 #include "PurgeZero.h"
 #include "config.h"
+#include "MotorWrapper.h"
 
 namespace PurgeZero {
     // ===== STATIC STATE VARIABLES =====
