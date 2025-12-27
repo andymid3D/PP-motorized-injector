@@ -554,3 +554,310 @@ REFILL (Refill::update)
 6. **AntiDrip:** Slow upward move, verify timeout and button interrupt
 7. **Injection:** Full cycle with mould, verify auto-transition from FILLING to PACKING
 8. **Integration:** Complete cycle from REFILL → COMPRESSION → READY → PURGE → ANTIDRIP → INJECT → HOLD → RELEASE
+
+---
+
+## MAIN.CPP REFACTORING PLAN (PHASED APPROACH - OPTION B)
+
+### **OVERVIEW: Modular Integration Strategy**
+
+**Objective:** Replace old monolithic FSM with 7 independent modular state machines, one phase at a time, with compilation and testing at each stage.
+
+**Key principles:**
+- Comment out old code (don't delete) to avoid confusion
+- Phase-by-phase incremental integration
+- Each phase represents a complete, testable subset
+- Prepare for future Safety interrupts and Display communications
+
+---
+
+## **PHASE 1: REFACTORING SKELETON** (Est. 1-2 hours)
+**Status:** NOT STARTED  
+**Goal:** Replace old FSM logic with new module calls; no motor tests
+
+### **Tasks:**
+1. Add module `#include` statements at top of main.cpp
+   ```cpp
+   #include "Homing.h"
+   #include "Refill.h"
+   #include "Compression.h"
+   #include "Injection.h"
+   #include "AntiDrip.h"
+   #include "PurgeZero.h"
+   #include "ReadyToInject.h"
+   ```
+
+2. **Keep these states unchanged:**
+   - ERROR_STATE (safety critical)
+   - INIT_HEATING (temperature gate, no motor)
+   - INIT_HOT_NOT_HOMED (user waiting, no motor)
+   - INIT_HOMING (already uses Homing module, tested ✅)
+
+3. **Comment out all old state cases (preserve for reference):**
+   - REFILL → HOLD_INJECTION → RELEASE → CONFIRM_MOULD_REMOVAL
+   - Add comment block: `// ===== COMMENTED OUT: Old FSM Logic (replaced by modular pattern) =====`
+
+4. **Add skeleton state cases for each module:**
+   ```cpp
+   case InjectorStates::REFILL:
+       if (stateEntry) Refill::begin();
+       if (Refill::update(motor)) {
+           // Transition logic (check buttons / auto-advance)
+       }
+       // Button handlers
+       break;
+   ```
+
+5. **Keep main loop infrastructure:**
+   - Button debouncing
+   - Safety checks
+   - Temperature monitoring
+   - LED updates
+   - Debug output
+
+### **Success Criteria:**
+- ✅ Code compiles without errors
+- ✅ State routing works (manual state transitions via buttons)
+- ✅ No motor movement (modules not fully integrated yet)
+- ✅ Serial output shows state changes
+- ✅ LED colors update correctly
+
+### **Commit Message:**
+```
+refactor: Skeleton refactoring - replace old FSM with modular pattern
+
+- Add module #includes
+- Comment out old state cases (preserved for reference)
+- Add skeleton module cases with begin()/update() calls
+- Preserve INIT_HEATING, INIT_HOT_NOT_HOMED, INIT_HOMING (already working)
+- Preserve ERROR_STATE and safety checks
+- Code compiles but modules not yet motor-tested
+```
+
+---
+
+## **PHASE 2: PRE-INJECTION PREP** (Est. 2-3 hours)
+**Status:** NOT STARTED  
+**Prerequisite:** Phase 1 complete and compiles  
+**Goal:** Test basic motor movements without moulds/blocks
+
+### **States to Enable:**
+1. **Refill** (Refill::update) 
+   - Simple position move to OFFSET_REFILL_GAP
+   - Button: Center = proceed to COMPRESSION
+   - No pressure check needed
+
+2. **Compression Mode 1** (Compression::update with MODE_1_TRAVEL)
+   - Travel down with velocity ramp
+   - Contact detection (velocity drop + optional pressure spike)
+   - Switch to torque ramp on contact
+   - Buttons: Upper = abort → REFILL, Lower = complete → READY_TO_INJECT
+
+3. **ReadyToInject** (ReadyToInject::update)
+   - Idle waiting state
+   - Micro-compression every 30s (silent, background)
+   - Buttons: Upper+Lower = proceed to PURGE_ZERO, Center = abort to REFILL
+
+### **Testing Approach:**
+- Set `IGNORE_NOZZLE_BLOCK = true` (disable pressure sensor errors)
+- Test with empty barrel (no plastic required)
+- Verify state transitions via buttons
+- Monitor serial output for module state progress
+- Validate 30s micro-compression timer in READY_TO_INJECT
+
+### **Key Focus:**
+- Velocity ramp down (contact detection without pressure sensor)
+- Torque ramp engagement (mode switching)
+- Timer accuracy for micro-compression
+
+### **Success Criteria:**
+- ✅ Refill moves plunger up to home
+- ✅ Compression travels down smoothly
+- ✅ Contact detection works (velocity drops, transitions to torque)
+- ✅ ReadyToInject idle works, micro-compression triggers every 30s
+- ✅ All button transitions work correctly
+- ✅ No blocking delays, non-blocking architecture maintained
+
+### **Commit Message:**
+```
+feat: Phase 2 - Pre-injection prep (Refill + Compression + Ready)
+
+- Integrate Refill module with position control
+- Integrate Compression Mode 1 with contact detection
+- Integrate ReadyToInject with micro-compression timer
+- Tested with empty barrel, IGNORE_NOZZLE_BLOCK = true
+- All button transitions verified
+- No motor movement issues detected
+```
+
+---
+
+## **PHASE 3: INJECTION SEQUENCE** (Est. 3-4 hours)
+**Status:** NOT STARTED  
+**Prerequisite:** Phase 2 complete and tested  
+**Goal:** Full injection cycle with mould (careful setup required)
+
+### **States to Enable (in order):**
+1. **PurgeZero** (PurgeZero::update)
+   - Manual button-controlled movement
+   - Upper button = retract (up)
+   - Lower button = push out (down)
+   - Center button = confirm zero point
+   - Low risk, minimal safety concerns
+
+2. **AntiDrip** (AntiDrip::update)
+   - Slow upward retract to prevent drip
+   - 15-second timeout
+   - Buttons: Center+Lower = proceed to INJECT, Upper = abort to READY_TO_INJECT
+   - Tests timeout logic and button interrupt
+
+3. **Injection + Hold** (Injection::update)
+   - FILLING phase: position control to fillVolume
+   - Auto-transition to PACKING phase on velocity threshold
+   - PACKING phase: position hold for packTime seconds
+   - Auto-transition to RELEASE on timeout
+   - Tests auto-transition logic (critical coupling)
+
+4. **Release** (simple position move)
+   - Quick upward unload movement
+   - Auto-transition to CONFIRM_MOULD_REMOVAL
+
+5. **Confirm_Mould_Removal** (button press → return state)
+   - Any button press returns to READY_TO_INJECT or REFILL (based on endOfDay flag)
+
+### **Testing Approach:**
+- Requires actual mould and NozzleBlock in place
+- Enable pressure sensor checks (critical for INJECT)
+- Test with actualMouldParams from config.h (default values)
+- Full cycle: REFILL → COMPRESSION → READY → PURGE → ANTIDRIP → INJECT → HOLD → RELEASE → CONFIRM
+
+### **Key Focus:**
+- Pressure sensor validation (weak signal at start, spike on contact)
+- Auto-transition from INJECT → HOLD (velocity threshold detection)
+- Timeout logic in ANTIDRIP and HOLD phases
+- Button interrupt handling (especially AntiDrip timeout vs Center+Lower button)
+
+### **Success Criteria:**
+- ✅ PurgeZero: Smooth manual control, no pressure check errors
+- ✅ AntiDrip: Slow retract works, timeout triggers correctly, button interrupt works
+- ✅ Injection: Auto-transition from FILL → PACK on velocity threshold
+- ✅ Hold: Maintains pressure for packTime duration
+- ✅ Release: Unloads mould quickly
+- ✅ Confirm: Returns to correct state based on endOfDay flag
+- ✅ Full cycle completes without errors
+- ✅ Pressure sensor detects mould blockage before injection starts
+
+### **Commit Message:**
+```
+feat: Phase 3 - Injection sequence complete (Purge + AntiDrip + Inject + Hold)
+
+- Integrate PurgeZero with manual button control
+- Integrate AntiDrip with timeout and button interrupt logic
+- Integrate Injection module with auto-transition (FILL→PACK)
+- Integrate Release and Confirm states
+- Full cycle tested: REFILL → COMPRESSION → PURGE → ANTIDRIP → INJECT → HOLD → RELEASE
+- Pressure sensor validation complete
+- All state transitions and auto-completion working
+- Production-ready for full injection cycles
+```
+
+---
+
+## **PHASE 4: SAFETY INTERRUPT PREPARATION** (Future, after Phases 1-3)
+**Status:** NOT STARTED  
+**Prerequisites:** Phases 1-3 complete  
+**Goal:** Design interrupt-safe handlers for E-stop, temperature, endstops
+
+### **Tasks:**
+- Add `safety.check()` calls to each module's `update()`
+- Implement context-aware safety responses
+- Test emergency abort from any state
+- Validate temperature gate blocking movement
+- Endstop interrupt handling (barrel, top, bottom)
+
+### **Note:** This phase requires careful state cleanup (safe shutdown of motors)
+
+---
+
+## **PHASE 5: DISPLAY COMMUNICATIONS** (Future, parallel with Phase 4)
+**Status:** NOT STARTED  
+**Prerequisites:** Phases 1-3 complete  
+**Goal:** Non-blocking serial protocol for Display sync
+
+### **Required Broadcasts (ESP32 → Display):**
+
+1. **Encoder Position Update** (100ms interval)
+   ```
+   Format: "POS|<position_turns>|<velocity_turns_per_sec>\n"
+   Example: "POS|45.23|-2.51\n"
+   Purpose: Display updates plunger position graphics in real-time
+   ```
+
+2. **State Change Notification** (on state transition)
+   ```
+   Format: "STATE|<state_name>|<timestamp_ms>\n"
+   Example: "STATE|INJECT|1234567890\n"
+   Purpose: Display updates UI, RefillBlocks utility tracks melt time
+   ```
+
+3. **Compression Phase Completion** (on Compression finish)
+   ```
+   Format: "COMPRESS_COMPLETE|<final_position>|<timestamp>\n"
+   Purpose: Display calculates RefillBlock volume (new plastic added)
+   ```
+
+### **Required Parsing (Display → ESP32):**
+
+1. **Mould Parameter Update** (when user selects mould in Display library)
+   ```
+   Format: "MOULD|<fill_vol>|<fill_speed>|<fill_pressure>|<pack_vol>|<pack_speed>|<pack_pressure>|<pack_time>\n"
+   Example: "MOULD|35.0|25.0|20.0|5.0|2.0|10.0|2.0\n"
+   Purpose: Update `currentMould` / `actualMouldParams`
+   Action: Store locally, use for next injection
+   ```
+
+### **Architecture Notes:**
+- Use MessageBuffer pattern (already implemented)
+- Separate queue for Display messages vs debug output
+- Non-blocking parsing (no wait loops)
+- Broadcast position every 100ms (sufficient for 10Hz Display update)
+- Broadcast state changes immediately (< 10ms latency)
+
+### **Display-Side Responsibility:**
+- RefillBlocks utility (tracks melt time per plastic block)
+- MeltTimeMin validation before allowing injection
+- Graphical plunger position display
+- Mould library management and parameter selection
+- User confirmation UI for moulds
+
+---
+
+## **STRATEGY NOTES FOR FUTURE SESSIONS**
+
+### **Preparation for Safety Interrupts:**
+- Each module already accepts `safety.setContext()`
+- Each module's update() should return immediately on safety violation
+- Error states propagate to main.cpp via `.hasError()` calls
+- E-stop is global (can interrupt any state at any time)
+
+### **Preparation for Display Comms:**
+- `actualMouldParams` is global struct (easily updated from serial)
+- All modules read from `currentMould` via parameter passing
+- Position/velocity available from `motor.getPosition()`, `motor.getVelocity()`
+- State name available via `getStateName()` helper function
+- Timestamp easily generated via `millis()`
+
+### **Critical Avoidances:**
+- ❌ Do NOT block on Display serial reads (use non-blocking message queue)
+- ❌ Do NOT update `actualMouldParams` during active injection (INJECT/HOLD states only)
+- ❌ Do NOT change safety context during movement (set context at state entry only)
+- ❌ Do NOT assume pressure sensor is always available (make it optional with flag)
+
+### **Testing Sequence (when Phases 1-3 complete):**
+1. Test full cycle with default mould parameters
+2. Test mould parameter updates (Display → ESP32) between cycles
+3. Test state broadcasts are received by Display
+4. Test position updates at 100ms interval
+5. Validate RefillBlocks utility correctly calculates melt time
+6. Test Safety interrupts don't break state transitions
+7. Full integration test: Display UI fully synchronized with machine state
