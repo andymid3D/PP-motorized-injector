@@ -106,49 +106,108 @@ Critical Logic:
 
 
 ## Project Overview
-This is an ESP32-based controller for a motorized injection molding machine using PlatformIO. The system implements a finite state machine (FSM) to manage the complete injection cycle with integrated safety systems.
+This is an ESP32-based controller for a motorized injection molding machine using PlatformIO. The system implements a modular non-blocking state machine architecture to manage the complete injection cycle with integrated safety systems.
 
-## Architecture Overview
+## Architecture Overview - MODULAR STATE MACHINE (v2 Design)
 
 ### Core Components
-- **Main FSM** (`injector_fsm.h`, `main.cpp`): 13-state machine controlling injection process (heating → homing → refill → compression → injection → release)
-- **CanBusHandler** (`CanBusHandler.h/.cpp`): CAN bus communication with ODrive motor controller
+- **Main FSM Orchestrator** (`main.cpp`): High-level state router, button handling, LED feedback
+- **Modular State Machines** (individual `.h/.cpp` files):
+  - `Homing.cpp` ✅ LOCKED - Non-blocking 12-state homing sequence
+  - `Refill.cpp` - Move plunger to rest position (position control with trap trajectory)
+  - `Compression.cpp` - Velocity ramp with contact detection, then torque ramp (Modes 1 & 2)
+  - `PurgeZero.cpp` - Manual nozzle purge with button-controlled velocity
+  - `AntiDrip.cpp` - Slow upward decompression with timeout logic
+  - `Injection.cpp` - Position control with auto-transition from fill → pack phases
+  - `ReadyToInject.cpp` - Idle waiting with autonomous micro-compression every 30s
+- **CAN Bus** (`CanBusHandlerV2.cpp`): Non-blocking CAN communication with 50ms command gap enforcement
+- **Broadcast Data Store** (`BroadcastDataStore.cpp`): Central data aggregation from ODrive cyclic messages
 - **SafetyManager** (`SafetyManager.h/.cpp`): Safety interlocks, endstops, E-stop, temperature monitoring
-- **Hardware Integration**: Buttons, LED rings, temperature sensor, load cell (HX711)
+- **Hardware Integration**: Buttons (debounced), LED rings (NeoPixel), temperature sensor (AD597), pressure sensor (HX711)
 
 ### Key Design Patterns
 
-#### State Machine Implementation
+#### Non-Blocking State Machine Template (All Modules)
 ```cpp
-// States are enums in injector_fsm.h
-enum InjectorStates {
-    ERROR_STATE, INIT_HEATING, INIT_HOMING, REFILL,
-    COMPRESSION, READY_TO_INJECT, INJECT, HOLD_INJECTION, RELEASE
-};
-
-// State transitions in main.cpp loop()
-switch (fsm_state.currentState) {
-    case InjectorStates::INIT_HEATING:
-        if (temperature >= TEMP_CRITICAL) 
-            fsm_state.currentState = INIT_HOT_NOT_HOMED;
-        break;
-    // ... more states
+// Each module uses identical pattern for consistency
+namespace ModuleName {
+    static enum { STEP_1, STEP_2, ... } step = DONE;
+    static unsigned long stepTimer = 0;
+    static bool stateEntry = false;
+    static bool complete = false;
+    static bool error = false;
+    
+    void begin() {
+        step = STEP_1;
+        stateEntry = true;
+        complete = false;
+        error = false;
+    }
+    
+    bool update(CanBusHandlerV2& motor) {
+        unsigned long now = millis();
+        unsigned long elapsed = now - stepTimer;
+        
+        if (stateEntry) { /* initialization */ stateEntry = false; }
+        
+        switch(step) {
+            // Non-blocking handlers: NO delays, NO while loops
+            // Return: true = complete, false = still running
+        }
+        return complete;
+    }
+    
+    bool isComplete() { return complete && !error; }
+    bool hasError() { return error; }
+    void reset() { stateEntry = true; complete = false; error = false; }
 }
 ```
 
-#### Safety Context System
+#### CAN Command Timing (CRITICAL - 50ms Gap Enforcement)
+- `CAN_COMMAND_GAP_MS = 50` enforced globally in CanBusHandlerV2
+- Every CAN command must wait 50ms after the previous command was SENT (not queued)
+- Allows ODrive firmware time to process mode changes before new setpoints arrive
+- **Implementation:** CanBusHandlerV2.loop() checks `(now - lastCommandSentTime_) >= CAN_COMMAND_GAP_MS`
+- All modules respect this gap; no exceptions except E-stop
+
+#### Motor Control Modes by State (SPECIFICATION)
+| State | Control Mode | Input Mode | Direction | Pressure Check | Key Details |
+|-------|--------------|-----------|-----------|---|---|
+| **Refill** | Position (3) | TRAP_TRAJ (4) | Up | NO | Safe ramp to OFFSET_REFILL_GAP |
+| **Compression Mode 1** | Velocity→Torque | VEL_RAMP (2)→TORQUE_RAMP (6) | Down | YES (weak→spike) | Travel until contact, then ramp |
+| **Compression Mode 2 (Micro)** | Torque | TORQUE_RAMP (6) | Down | YES | Light ramp, ~2 sec, silent |
+| **PurgeZero** | Velocity | PASSTHROUGH (1) | Up/Down | TBD | Manual plunger, button-controlled |
+| **AntiDrip** | Velocity | PASSTHROUGH (1) | Up | NO | Slow retract to prevent drip |
+| **Inject** | Position | TRAP_TRAJ (4) | Down | YES | Torque limit detects mould full |
+| **Hold/Pack** | TBD (Torque or Pos) | TBD | Down | NO | Maintain constant packing pressure |
+| **Release** | Position | TRAP_TRAJ (4) | Up | NO | Quick unload relief |
+
+**Input Mode Reference (ODrive 0.5.6):**
+- INACTIVE (0): No control
+- PASSTHROUGH (1): Direct setpoint, immediate response (manual control)
+- VEL_RAMP (2): Velocity with acceleration limiting (contact detection)
+- POS_FILTER (3): Position with filtering
+- TRAP_TRAJ (4): Trapezoidal trajectory (smooth ramps, safe, PREFERRED for position)
+- TORQUE_RAMP (5/6): Torque with ramping (safe compression)
+
+#### Safety Context System (Module-Aware)
 ```cpp
 enum SafetyContext { CTX_IDLE, CTX_MOVING_FREE, CTX_BLOCKED, CTX_PURGE };
-safety.setContext(CTX_BLOCKED);  // During injection, movement is restricted
+// CTX_IDLE: Normal idle, full movement allowed
+// CTX_MOVING_FREE: Homing/AntiDrip, careful movement monitoring
+// CTX_BLOCKED: Injection/Hold, no reversal allowed, strict pressure/force limits
+// CTX_PURGE: Manual purge, user-controlled movement, no safety restrictions
+safety.setContext(CTX_BLOCKED);  // Set during injection states
 ```
 
-#### Motor Control Abstraction
-```cpp
-// Three control modes with safety wrapper
-setModeAndMove(1, 1, torque_value, "Torque Control");     // Mode 1: Torque
-setModeAndMove(2, 1, velocity_value, "Velocity Control"); // Mode 2: Velocity  
-setModeAndMove(3, 1, position_value, "Position Control");  // Mode 3: Position
-```
+#### Pressure Sensor (HX711) Strategy
+- **Activated on:** Compression (both modes), Inject, ReadyToInject micro
+- **Not used on:** Refill, PurgeZero, AntiDrip, Release
+- **Signal characteristics:**
+  - Weak initial signal (when block/mould starts contact)
+  - Sudden spike when plunger contacts plastic
+  - Difficulty: Distinguish "no block present" from "block present but no plastic"
+- **Implementation note:** Contact detection = velocity drop + pressure spike (both confirm)
 
 ## Critical Developer Workflows
 
@@ -187,26 +246,44 @@ if (safety.isEStopPressed()) {
 ### Motor Units and Directions
 - **Position**: Turns (not linear units)
 - **Velocity**: Turns/second
-- **Direction**: `INVERT_MOTOR_DIR = true` (positive = down/inject)
+- **Direction**: `INVERT_MOTOR_DIR = false` (positive position = down/inject, negative = up/retract)
 - **Conversion**: `volToTurns(cm3) = cm3 * TURNS_PER_CM3_VOL`
 
 ### Safety-First Design
 - **Temperature Gates**: Movement blocked below `TEMP_MIN_MOVE` (16°C)
-- **Context Restrictions**: Different safety rules for idle vs. moving vs. blocked states
+- **Context Restrictions**: Different safety rules by context:
+  - CTX_IDLE: Normal idle, full movement allowed
+  - CTX_MOVING_FREE: Homing/AntiDrip, careful monitoring
+  - CTX_BLOCKED: Injection/Hold, no reversal, strict pressure/force limits
+  - CTX_PURGE: Manual purge, user-controlled, minimal restrictions
 - **Button Lock**: Upper+Lower buttons pressed simultaneously locks controls
-- **End-of-Day Mode**: Upper+Lower buttons toggle `flags.endOfDay` for different return states
+- **End-of-Day Mode**: `flags.endOfDay` determines return state after cycle (READY_TO_INJECT if true, REFILL if false)
 
 ### LED State Encoding
 ```cpp
 // Color-coded state feedback
-ERROR_STATE: RED everywhere
+ERROR_STATE: RED everywhere (flashing)
 INIT_HEATING: SOLID RED
-COMPRESSION: RED upper/lower, RED ring
+INIT_HOT_NOT_HOMED: SOLID YELLOW
+INIT_HOMING: YELLOW upper/ring (flashing)
+REFILL: CENTER=GREEN, UPPER/LOWER=BLACK (or BLUE if endOfDay), RING=GREEN
+COMPRESSION: RED upper/lower, BLACK center, RED ring
 READY_TO_INJECT: GREEN upper/lower, YELLOW center, GREEN ring
+PURGE_ZERO: YELLOW upper/lower, GREEN center, YELLOW ring
+ANTIDRIP: RED upper, GREEN center/lower, RED ring
 INJECT: RED upper, GREEN center, BLACK lower, RED ring
+HOLD_INJECTION: RED upper, GREEN center/lower, RED ring
+RELEASE: GREEN everywhere
+CONFIRM_MOULD_REMOVAL: GREEN everywhere
 ```
 
 ### Button Control Logic
+- **Upper button (25):** Abort most operations, return to safe state
+- **Center button (26):** Confirm actions, proceed to next state
+- **Lower button (27):** Same as center in most contexts
+- **Upper+Lower combo:** Toggle `flags.endOfDay` (REFILL state only)
+- **Button debounce:** 10ms per button, handled by Bounce2 library
+- **Double-press detection:** Check released() for button release events
 
 ## Integration Points
 
@@ -240,10 +317,32 @@ INJECT: RED upper, GREEN center, BLACK lower, RED ring
 2. Consider impact on all `SafetyContext` modes
 3. Test with hardware interlocks
 
-### Motor Control Changes
-1. Use `setModeAndMove()` wrapper for safety timing
-2. Respect 20ms minimum between commands
-3. Check axis state before issuing commands
+### Motor Control Changes (MODULAR PATTERN)
+All motor control now goes through individual state machine modules, NOT direct motor calls:
+```cpp
+// OLD (deprecated): Direct motor calls in main.cpp
+motor.setControllerModes(...);
+motor.setInputPos(...);
+
+// NEW (required): Module handles all motor control
+Compression::begin();
+Compression::update(motor);
+if (Compression::isComplete()) { /* transition */ }
+```
+
+### Adding New Modular States
+1. Create `YourModule.h` with namespace, public functions (begin, update, isComplete, hasError, reset)
+2. Create `YourModule.cpp` following non-blocking state machine template
+3. Add to main.cpp switch statement:
+   ```cpp
+   case YOUR_STATE:
+       if (stateEntry) YourModule::begin();
+       if (YourModule::update(motor)) { /* next state */ }
+       if (!ignoreButtons && /* button check */) { YourModule::handleButton(); }
+       break;
+   ```
+4. Update `updateLeds()` with LED feedback
+5. Test non-blocking behavior (no delays, no blocking calls)
 
 ### Configuration Changes
 - Update constants in `config.h`
@@ -291,3 +390,167 @@ State: READY_TO_INJECT | Pos: 45.23 | Vel: 0.00 | Temp: 185°C | Err: 0 | ODescS
 ```
 
 Remember: This system controls industrial machinery. Always prioritize safety interlocks and thorough testing of any changes.
+
+---
+
+## MODULAR STATE MACHINE ARCHITECTURE (v2 - COMPLETE)
+
+### File Structure
+```
+include/
+  Homing.h              ✅ LOCKED
+  Refill.h
+  Compression.h
+  Injection.h
+  AntiDrip.h
+  PurgeZero.h
+  ReadyToInject.h
+
+src/
+  Homing.cpp            ✅ LOCKED
+  Refill.cpp
+  Compression.cpp
+  Injection.cpp
+  AntiDrip.cpp
+  PurgeZero.cpp
+  ReadyToInject.cpp
+  main.cpp (refactored orchestrator)
+```
+
+### State Flow Diagram
+```
+INIT_HEATING
+    ↓
+INIT_HOT_NOT_HOMED
+    ↓ (Upper button)
+INIT_HOMING (Homing::update)
+    ↓ (auto-complete)
+REFILL (Refill::update)
+    ├─ Upper+Lower: Toggle endOfDay
+    └─ Center: proceed
+        ↓
+    COMPRESSION (Compression::update - Mode 1)
+        ├─ Upper: abort → REFILL
+        └─ Lower: complete → READY_TO_INJECT
+            ↓
+        READY_TO_INJECT (ReadyToInject::update)
+            ├─ Auto micro-compression every 30s
+            ├─ Upper+Lower: proceed → PURGE_ZERO
+            └─ Center: abort → REFILL
+                ↓
+            PURGE_ZERO (PurgeZero::update)
+                └─ Center: confirm → ANTIDRIP
+                    ↓
+                ANTIDRIP (AntiDrip::update)
+                    ├─ Center+Lower: confirm → INJECT
+                    └─ Upper OR timeout → READY_TO_INJECT
+                        ↓
+                    INJECT (Injection::update - FILLING phase)
+                        ↓ (auto-transition)
+                    HOLD_INJECTION (Injection::update - PACKING phase)
+                        ├─ Upper: abort → RELEASE
+                        └─ Auto-complete → RELEASE
+                            ↓
+                        RELEASE
+                            ↓ (auto-complete)
+                        CONFIRM_MOULD_REMOVAL
+                            └─ Any button: endOfDay ? READY_TO_INJECT : REFILL
+```
+
+### Detailed Module Specifications
+
+#### Refill.cpp
+- **Purpose:** Move plunger to rest position (OFFSET_REFILL_GAP)
+- **Control:** Position control with TRAP_TRAJ (safe ramps)
+- **Direction:** Up (negative position)
+- **Pressure Check:** NO
+- **Buttons:** Upper+Lower = toggle endOfDay; Center = proceed
+- **Context:** CTX_IDLE
+- **Research:** Check for drift accumulation (optional homing-zero on each refill)
+
+#### Compression.cpp
+- **Purpose:** Compress plastic in barrel (two modes)
+  - **Mode 1:** Travel down from OFFSET_REFILL_GAP until contact, then torque ramp
+  - **Mode 2:** Skip travel, go straight to torque ramp (micro-compression only)
+- **Control:** VEL_RAMP (travel) → TORQUE_RAMP (compress)
+- **Direction:** Down (positive)
+- **Pressure Check:** YES - weak signal at start, spike on contact
+- **Contact Detection:** Velocity drop + pressure spike
+- **Buttons (Mode 1):** Upper = abort → REFILL; Lower = complete → READY_TO_INJECT
+- **Context:** CTX_BLOCKED
+- **Timeout:** ~10 seconds (no plastic = return to REFILL)
+- **Future Enhancement:** Velocity ramp to medium speed with low torque check, then switch to torque mode
+
+#### ReadyToInject.cpp
+- **Purpose:** Idle waiting with autonomous micro-compression
+- **Micro-Compression:** Runs silently every 30 seconds, ~2 second duration
+- **Control:** Torque TORQUE_RAMP for compression
+- **Direction:** Down during compression only
+- **Pressure Check:** YES (during micro-compression)
+- **LED Feedback:** Optional center button LED flash during compression
+- **Buttons:** Upper+Lower = proceed to PURGE_ZERO; Center = abort to REFILL
+- **Context:** CTX_IDLE
+- **Auto-Abort:** If user presses button during micro-compression, stop and proceed
+
+#### PurgeZero.cpp
+- **Purpose:** Manual plunger movement to purge nozzle and establish injection zero point
+- **Control:** Velocity PASSTHROUGH (direct, immediate response)
+- **Direction:** Up (Upper button) or Down (Lower button)
+- **Pressure Check:** TBD (investigate signal strength)
+- **Button Debounce:** Wait for Upper+Lower release before accepting commands
+- **Buttons:** Upper = retract up; Lower = push out; Center = confirm zero
+- **Context:** CTX_PURGE
+- **Note:** Allows user to manually remove cold plastic from nozzle
+
+#### AntiDrip.cpp
+- **Purpose:** Slow upward retract to prevent plastic drip while user places mould
+- **Control:** Velocity PASSTHROUGH (direct)
+- **Direction:** Up (negative)
+- **Speed:** SPEED_ANTIDRIP (2.0 turns/sec)
+- **Pressure Check:** NO (already confirmed in previous states)
+- **Timeout:** TIME_ANTIDRIP_TIMEOUT (15 seconds)
+- **Button Responses:**
+  - Center+Lower = confirm mould placed → INJECT
+  - Upper released = user abort → READY_TO_INJECT
+  - Timeout = return to READY_TO_INJECT
+- **Context:** CTX_MOVING_FREE
+- **Interruptible:** YES, immediately via buttons
+
+#### Injection.cpp (Inject + Hold together)
+- **Purpose:** Execute injection cycle with automatic FILLING → PACKING transition
+- **FILLING Phase:**
+  - Position control with TRAP_TRAJ
+  - Target = startPos + fillVolume
+  - Auto-transition on velocity < 0.1 for >500ms
+- **PACKING Phase:**
+  - Position control with TRAP_TRAJ
+  - Target = packStartPos + packVolume
+  - Duration = packTime (from actualMouldParams)
+  - Auto-transition on timeout
+- **Control:** Position (Mode 3) with TRAP_TRAJ
+- **Direction:** Down (positive)
+- **Pressure Check:** YES (first ms to confirm mould blocked)
+- **Torque Limit:** Detects if mould full before reaching position target
+- **Buttons:** Upper = abort → RELEASE (only available in some phases)
+- **Context:** CTX_BLOCKED
+- **Note:** Both phases use actualMouldParams (fillVolume, fillSpeed, fillPressure, packVolume, packSpeed, packPressure, packTime)
+
+### Module Integration Checklist
+- [ ] All modules use non-blocking state machines (no delays, no while loops)
+- [ ] All modules respect CAN_COMMAND_GAP_MS (50ms between commands)
+- [ ] All modules set safety context (CTX_IDLE, CTX_MOVING_FREE, CTX_BLOCKED, CTX_PURGE)
+- [ ] All modules check pressure sensor where specified
+- [ ] All modules have clear button handlers with proper debouncing
+- [ ] All modules return bool from update() (true = complete, false = running)
+- [ ] main.cpp only handles state routing, not control logic
+- [ ] LEDs updated centrally in updateLeds() based on current state
+
+### Testing Each Module
+1. **Homing:** Run full sequence, verify position resets to 0
+2. **Refill:** Move to OFFSET_REFILL_GAP, check velocity smoothness
+3. **Compression Mode 1:** Manual plastic block, verify contact detection and torque ramp
+4. **ReadyToInject:** Verify 30s timer, observe micro-compression (no button LED change)
+5. **PurgeZero:** Manual plunger control, smooth response to buttons
+6. **AntiDrip:** Slow upward move, verify timeout and button interrupt
+7. **Injection:** Full cycle with mould, verify auto-transition from FILLING to PACKING
+8. **Integration:** Complete cycle from REFILL → COMPRESSION → READY → PURGE → ANTIDRIP → INJECT → HOLD → RELEASE
