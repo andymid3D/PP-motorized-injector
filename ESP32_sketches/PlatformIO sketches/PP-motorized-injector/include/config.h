@@ -4,6 +4,24 @@
 #include <Arduino.h>
 
 // ==========================================
+// 0. DEBUG CONFIGURATION (SET TO 0 FOR PRODUCTION)
+// ==========================================
+// When DEBUG_ENABLED = 1: All debug messages compiled and sent to Serial
+// When DEBUG_ENABLED = 0: All debug messages compiled out (zero overhead)
+// Change to 0 for production builds to eliminate serial message overhead
+#define DEBUG_ENABLED 1
+
+#if DEBUG_ENABLED
+  #define DEBUG_PRINT(...) Serial.print(__VA_ARGS__)
+  #define DEBUG_PRINTLN(...) Serial.println(__VA_ARGS__)
+  #define DEBUG_PRINTF(...) Serial.printf(__VA_ARGS__)
+#else
+  #define DEBUG_PRINT(...)
+  #define DEBUG_PRINTLN(...)
+  #define DEBUG_PRINTF(...)
+#endif
+
+// ==========================================
 // 1. PIN DEFINITIONS (HAL)
 // ==========================================
 #define PIN_CAN_RX              22  
@@ -18,6 +36,11 @@
 #define PIN_HX711_CLK           4
 #define PIN_UART_TX             17
 #define PIN_UART_RX             16
+
+// Display Communications (UART2)
+#define DISPLAY_BROADCAST_INTERVAL_MS  100     // Encoder position broadcast interval (ms)
+#define DISPLAY_BAUD_RATE              115200  // UART2 baud rate (Display ↔ Controller)
+
 #define PIN_BTN_UPPER           25
 #define PIN_BTN_CENTER          26
 #define PIN_BTN_LOWER           27

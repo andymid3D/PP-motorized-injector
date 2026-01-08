@@ -101,11 +101,6 @@ actualMouldParams_t currentMould = {
     10.0f     // Pack Trap Decel (slower, more controlled)
 };
 
-// --- Helper: Log ---
-void logMessage(const char* msg) { 
-    MessageBuffer::getInstance().sendMessage(msg); 
-}
-
 // --- Helper: Volume to Turns ---
 float volToTurns(float cm3) {
     return cm3 * TURNS_PER_CM3_VOL;

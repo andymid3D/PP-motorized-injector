@@ -166,6 +166,22 @@ bool SafetyManager::check(float current_velocity, bool is_moving_down) {
         return false;
     }
 
+    // ===== ENDSTOP COLLISION DETECTION =====
+    // Prevent unexpected endstop collisions during movement (except during homing/antidrip)
+    if (_currentContext != CTX_MOVING_FREE) {
+        // Bottom endstop collision (moving down)
+        if (isBottomEndstopHit() && is_moving_down && abs(current_velocity) > 0.1f) {
+            triggerHalt(ERR_BOTTOM_ENDSTOP_COLLISION);
+            return false;
+        }
+        
+        // Top endstop collision (moving up)
+        if (isTopEndstopHit() && !is_moving_down && abs(current_velocity) > 0.1f) {
+            triggerHalt(ERR_TOP_ENDSTOP_COLLISION);
+            return false;
+        }
+    }
+
     // Pressure Logic
     if (is_moving_down && abs(current_velocity) > 0.1f) {
         if (!_wasMovingDown) {

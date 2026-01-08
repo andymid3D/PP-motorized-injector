@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <SafeString.h>
+#include "config.h"  // For DEBUG_ENABLED
 
 /**
  * SerialMessaging - Non-Blocking Serial Output Management
@@ -12,12 +13,14 @@
  *   - Queue status messages from all modules without blocking
  *   - Centralized 1Hz debug output to avoid message collisions
  *   - Graceful handling of slow serial (115200 baud on ESP32)
+ *   - Compile-time debug control (DEBUG_ENABLED in config.h)
  * 
  * Design:
  *   - Each module appends to a SafeString accumulator
  *   - Dispatcher prints once per loop (or periodically)
  *   - No Serial.println() calls outside this module
  *   - Uses SafeString's non-blocking capabilities
+ *   - When DEBUG_ENABLED=0, all functions compile to no-ops (zero overhead)
  */
 
 class SerialMessaging {
@@ -68,5 +71,16 @@ private:
     static uint32_t lastPrintMs_;
     static uint32_t printIntervalMs_;
 };
+
+// ===== CONVENIENCE WRAPPER: logMessage() =====
+// Drop-in replacement for existing logMessage() calls throughout codebase
+// Compiles to no-op when DEBUG_ENABLED=0 (zero overhead)
+#if DEBUG_ENABLED
+  inline void logMessage(const char* msg) {
+      SerialMessaging::printInfo(msg);
+  }
+#else
+  inline void logMessage(const char* msg) { /* no-op */ }
+#endif
 
 #endif // SERIAL_MESSAGING_H

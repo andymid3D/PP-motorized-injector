@@ -1,4 +1,5 @@
 #include "ErrorManager.h"
+#include "config.h"  // For DEBUG macros
 #include <Arduino.h>
 
 // ===== GLOBAL ERROR HISTORY =====
@@ -33,26 +34,26 @@ void logError(uint32_t axis, uint32_t motor, uint32_t encoder, uint32_t controll
 }
 
 void printErrorHistory() {
-    Serial.println("===== ERROR HISTORY =====");
+    DEBUG_PRINTLN("===== ERROR HISTORY =====");
     for (int i = 0; i < ERROR_HISTORY_SIZE; i++) {
         int idx = (errorHistoryIndex + i) % ERROR_HISTORY_SIZE;
         if (errorHistory[idx].timestamp == 0) continue;  // Skip empty entries
         
-        Serial.print(i + 1);
-        Serial.print(". State: ");
-        Serial.print(static_cast<int>(errorHistory[idx].stateWhenOccurred));
-        Serial.print(" | AX:0x");
-        Serial.print(errorHistory[idx].axisError, HEX);
-        Serial.print(" MX:0x");
-        Serial.print(errorHistory[idx].motorError, HEX);
-        Serial.print(" EX:0x");
-        Serial.print(errorHistory[idx].encoderError, HEX);
-        Serial.print(" CX:0x");
-        Serial.print(errorHistory[idx].controllerError, HEX);
-        Serial.print(" | Time: ");
-        Serial.println(errorHistory[idx].timestamp);
+        DEBUG_PRINT(i + 1);
+        DEBUG_PRINT(". State: ");
+        DEBUG_PRINT(static_cast<int>(errorHistory[idx].stateWhenOccurred));
+        DEBUG_PRINT(" | AX:0x");
+        DEBUG_PRINT(errorHistory[idx].axisError, HEX);
+        DEBUG_PRINT(" MX:0x");
+        DEBUG_PRINT(errorHistory[idx].motorError, HEX);
+        DEBUG_PRINT(" EX:0x");
+        DEBUG_PRINT(errorHistory[idx].encoderError, HEX);
+        DEBUG_PRINT(" CX:0x");
+        DEBUG_PRINT(errorHistory[idx].controllerError, HEX);
+        DEBUG_PRINT(" | Time: ");
+        DEBUG_PRINTLN(errorHistory[idx].timestamp);
     }
-    Serial.println("========================");
+    DEBUG_PRINTLN("========================");
 }
 
 void clearErrorHistory() {
@@ -65,7 +66,7 @@ void clearErrorHistory() {
         errorHistory[i].timestamp = 0;
     }
     errorHistoryIndex = 0;
-    Serial.println("Error history cleared");
+    DEBUG_PRINTLN("Error history cleared");
 }
 
 // ===== ERROR CLASSIFICATION =====
@@ -150,63 +151,63 @@ const char* getControllerErrorName(uint32_t code) {
 
 // ===== ERROR DESCRIPTION PRINTING =====
 void printAxisError(uint32_t code) {
-    Serial.print("AXIS ERROR 0x");
-    Serial.print(code, HEX);
-    Serial.print(": ");
+    DEBUG_PRINT("AXIS ERROR 0x");
+    DEBUG_PRINT(code, HEX);
+    DEBUG_PRINT(": ");
     for (int i = 0; i < AXIS_ERROR_COUNT; i++) {
         if (code & AXIS_ERRORS[i].code) {
-            Serial.print(AXIS_ERRORS[i].name);
-            Serial.print(" (");
-            Serial.print(AXIS_ERRORS[i].description);
-            Serial.print(") ");
+            DEBUG_PRINT(AXIS_ERRORS[i].name);
+            DEBUG_PRINT(" (");
+            DEBUG_PRINT(AXIS_ERRORS[i].description);
+            DEBUG_PRINT(") ");
         }
     }
-    Serial.println();
+    DEBUG_PRINTLN();
 }
 
 void printMotorError(uint32_t code) {
-    Serial.print("MOTOR ERROR 0x");
-    Serial.print(code, HEX);
-    Serial.print(": ");
+    DEBUG_PRINT("MOTOR ERROR 0x");
+    DEBUG_PRINT(code, HEX);
+    DEBUG_PRINT(": ");
     for (int i = 0; i < MOTOR_ERROR_COUNT; i++) {
         if (code & MOTOR_ERRORS[i].code) {
-            Serial.print(MOTOR_ERRORS[i].name);
-            Serial.print(" (");
-            Serial.print(MOTOR_ERRORS[i].description);
-            Serial.print(") ");
+            DEBUG_PRINT(MOTOR_ERRORS[i].name);
+            DEBUG_PRINT(" (");
+            DEBUG_PRINT(MOTOR_ERRORS[i].description);
+            DEBUG_PRINT(") ");
         }
     }
-    Serial.println();
+    DEBUG_PRINTLN();
 }
 
 void printEncoderError(uint32_t code) {
-    Serial.print("ENCODER ERROR 0x");
-    Serial.print(code, HEX);
-    Serial.print(": ");
+    DEBUG_PRINT("ENCODER ERROR 0x");
+    DEBUG_PRINT(code, HEX);
+    DEBUG_PRINT(": ");
     for (int i = 0; i < ENCODER_ERROR_COUNT; i++) {
         if (code & ENCODER_ERRORS[i].code) {
-            Serial.print(ENCODER_ERRORS[i].name);
-            Serial.print(" (");
-            Serial.print(ENCODER_ERRORS[i].description);
-            Serial.print(") ");
+            DEBUG_PRINT(ENCODER_ERRORS[i].name);
+            DEBUG_PRINT(" (");
+            DEBUG_PRINT(ENCODER_ERRORS[i].description);
+            DEBUG_PRINT(") ");
         }
     }
-    Serial.println();
+    DEBUG_PRINTLN();
 }
 
 void printControllerError(uint32_t code) {
-    Serial.print("CONTROLLER ERROR 0x");
-    Serial.print(code, HEX);
-    Serial.print(": ");
+    DEBUG_PRINT("CONTROLLER ERROR 0x");
+    DEBUG_PRINT(code, HEX);
+    DEBUG_PRINT(": ");
     for (int i = 0; i < CONTROLLER_ERROR_COUNT; i++) {
         if (code & CONTROLLER_ERRORS[i].code) {
-            Serial.print(CONTROLLER_ERRORS[i].name);
-            Serial.print(" (");
-            Serial.print(CONTROLLER_ERRORS[i].description);
-            Serial.print(") ");
+            DEBUG_PRINT(CONTROLLER_ERRORS[i].name);
+            DEBUG_PRINT(" (");
+            DEBUG_PRINT(CONTROLLER_ERRORS[i].description);
+            DEBUG_PRINT(") ");
         }
     }
-    Serial.println();
+    DEBUG_PRINTLN();
 }
 
 // ===== ERROR CHECKING =====

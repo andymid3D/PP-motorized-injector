@@ -13,7 +13,9 @@ enum MachineError {
     ERR_NOZZLE_NOT_BLOCKED = 3,   
     ERR_OVER_TEMP = 4,
     ERR_HARD_LIMIT = 5,
-    ERR_UNDER_TEMP = 6
+    ERR_UNDER_TEMP = 6,
+    ERR_BOTTOM_ENDSTOP_COLLISION = 7,  // Plunger hit bottom endstop during downward movement
+    ERR_TOP_ENDSTOP_COLLISION = 8      // Plunger hit top endstop during upward movement
 };
 
 enum SafetyContext {

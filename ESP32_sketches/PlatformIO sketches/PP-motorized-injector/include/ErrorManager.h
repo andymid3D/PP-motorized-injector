@@ -2,6 +2,7 @@
 #define ERROR_MANAGER_H
 
 #include <Arduino.h>
+#include "config.h"  // For DEBUG macros
 #include "injector_fsm.h"
 
 // ===== ERROR SEVERITY CLASSIFICATION =====

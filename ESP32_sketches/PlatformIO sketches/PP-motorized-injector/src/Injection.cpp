@@ -1,4 +1,5 @@
 #include "Injection.h"
+#include "SerialMessaging.h"  // For logMessage()
 #include "config.h"
 #include "MotorWrapper.h"
 
