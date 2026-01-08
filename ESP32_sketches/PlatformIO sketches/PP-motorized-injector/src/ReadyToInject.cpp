@@ -31,22 +31,22 @@ namespace ReadyToInject {
         // ===== ENTRY: Set velocity control (idle) =====
         if (stateEntry) {
             // Set motor limits for idle state
-            MotorWrapper::setMotorLimits(motor, VEL_LIMIT_REFILL, CURRENT_LIMIT_REFILL, "ReadyIdle");
+            MotorWrapper::setMotorLimits(motor, REFILL_CONTROLLER_VEL_LIMIT, REFILL_CURRENT_LIMIT, "ReadyIdle");
             delay(CAN_COMMAND_GAP_MS + 5);
-            MotorWrapper::setModeAndMove(motor, 2, 1, 0, "Idle Stop");  // Stop motor, idle
+            MotorWrapper::setModeAndMove(motor, 1, 6, 0, "Idle Stop");  // Stop motor, idle
             stateEntry = false;
         }
         
         // ===== MICRO-COMPRESSION TIMER =====
         unsigned long timeSinceLastCompress = now - lastAutoCompressionTime;
         
-        if (timeSinceLastCompress >= TIME_AUTO_COMPRESS && !microCompressing) {
+        if (timeSinceLastCompress >= READY_MICRO_INTERVAL_MS && !microCompressing) {
             // Time to start micro-compression
             microCompressing = true;
             compressionStartTime = now;
             
             // Set motor limits for torque control (micro-compression)
-            MotorWrapper::setMotorLimits(motor, VEL_LIMIT_COMPRESSION, CURRENT_LIMIT_COMPRESSION_INITIAL, "MicroCompress");
+            MotorWrapper::setMotorLimits(motor, COMPRESS_MICRO_VEL_LIMIT, COMPRESS_MICRO_CURRENT, "MicroCompress");
             delay(CAN_COMMAND_GAP_MS + 5);
             lastCommandTime = now;
         }
@@ -59,15 +59,15 @@ namespace ReadyToInject {
             float rampDuration = MICRO_COMPRESSION_DURATION / 1000.0f;  // Convert to seconds
             float elapsedSec = compressionElapsed / 1000.0f;
             
-            // Linear torque ramp: 0 → TORQUE_COMPRESSION_HOLD
-            float targetTorque = (TORQUE_COMPRESSION_HOLD / rampDuration) * elapsedSec;
-            if (targetTorque > TORQUE_COMPRESSION_HOLD) {
-                targetTorque = TORQUE_COMPRESSION_HOLD;
+            // Linear torque ramp: 0 → COMPRESS_RAMP_TARGET
+            float targetTorque = (COMPRESS_RAMP_TARGET / rampDuration) * elapsedSec;
+            if (targetTorque > COMPRESS_RAMP_TARGET) {
+                targetTorque = COMPRESS_RAMP_TARGET;
             }
             
-            // Send command if enough time has elapsed
+            // Send torque setpoint updates (mode already set in entry)
             if (now - lastCommandTime >= CAN_COMMAND_GAP_MS) {
-                MotorWrapper::setModeAndMove(motor, 1, 6, targetTorque, "MicroCompress Torque");
+                motor.setInputTorque(targetTorque);  // Only update setpoint, not mode
                 lastCommandTime = now;
             }
             

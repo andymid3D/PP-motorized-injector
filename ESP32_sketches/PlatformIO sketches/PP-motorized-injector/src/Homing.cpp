@@ -18,8 +18,7 @@ uint8_t Homing::lastSeenState_ = 0;
 
 uint8_t Homing::lastControlModeSent_ = 255;
 uint8_t Homing::lastInputModeSent_ = 255;
-uint32_t Homing::modeCommandSentAtMs_ = 0;
-
+uint32_t Homing::modeCommandSentAtMs_ = 0;bool Homing::backoffVelCmdSent_ = false;
 
 // ===== PUBLIC INTERFACE =====
 
@@ -34,6 +33,8 @@ void Homing::begin(CanBusHandlerV2& motor, SafetyManager& safety) {
     stateEnteredMs_ = millis();
     calibrationComplete_ = false;
     lastSeenState_ = 0;
+    modeCommandSentAtMs_ = 0;
+    backoffVelCmdSent_ = false;  // Reset backoff flag
 }
 
 void Homing::update(CanBusHandlerV2& motor, SafetyManager& safety) {
@@ -103,6 +104,7 @@ void Homing::nextState(HomingState newState) {
         currentState_ = newState;
         stateEnteredMs_ = millis();
         modeCommandSentAtMs_ = 0;  // Reset timestamp for new state
+        backoffVelCmdSent_ = false;  // Reset backoff flag for new state
         // State changes logged via main.cpp [HOMING_DEBUG] every loop iteration
     }
 }
@@ -135,6 +137,16 @@ void Homing::handleCalibrate(CanBusHandlerV2& motor, SafetyManager& safety) {
 void Homing::handleWaitCalibrate(CanBusHandlerV2& motor, SafetyManager& safety) {
     BroadcastDataStore& broadcast = BroadcastDataStore::getInstance();
     uint8_t state = broadcast.getAxisState();
+    uint32_t encoderErr = broadcast.getEncoderError();
+    
+    // Check for encoder calibration error (0x100 = CPR_POLEPAIRS_MISMATCH)
+    if (encoderErr == 0x100) {
+        MessageBuffer::getInstance().sendMessage("Calibration: Encoder error 0x100 detected, clearing and retrying");
+        motor.clearErrors();
+        calibrationComplete_ = false;
+        nextState(HomingState::CALIBRATE);  // Retry calibration
+        return;
+    }
     
     // Detect state pattern: 1 → 7 → 1 (calibration complete)
     if (state == 7) {
@@ -163,6 +175,17 @@ void Homing::handleRequestCL(CanBusHandlerV2& motor, SafetyManager& safety) {
 
 void Homing::handleWaitCL(CanBusHandlerV2& motor, SafetyManager& safety) {
     BroadcastDataStore& broadcast = BroadcastDataStore::getInstance();
+    uint32_t motorErr = broadcast.getMotorError();
+    
+    // Check for phase estimate error (0x40 = UNKNOWN_PHASE_ESTIMATE)
+    if (motorErr == 0x40) {
+        MessageBuffer::getInstance().sendMessage("CL: Phase estimate error 0x40 detected, clearing and recalibrating");
+        motor.clearErrors();
+        calibrationDone_ = false;  // Force recalibration
+        calibrationComplete_ = false;
+        nextState(HomingState::CALIBRATE);
+        return;
+    }
     
     if (broadcast.getAxisState() == 8) {
         nextState(HomingState::RETRACT_FAST);
@@ -190,7 +213,7 @@ void Homing::handleRetractFast(CanBusHandlerV2& motor, SafetyManager& safety) {
     
     // Send velocity only after CAN_COMMAND_GAP_MS delay to allow ODrive to process mode change
     if (modeCommandSentAtMs_ > 0 && millis() - modeCommandSentAtMs_ >= CAN_COMMAND_GAP_MS) {
-        motor.setInputVel(-SPEED_HOMING_FAST);  // Negative = up
+        motor.setInputVel(HOMING_FAST_VEL);  // Negative = up (already in config)
     }
     
     // Check for endstop or timeout
@@ -203,7 +226,7 @@ void Homing::handleRetractFast(CanBusHandlerV2& motor, SafetyManager& safety) {
     
     // Timeout (barrel length safety)
     float barrelLength = OFFSET_REFILL_GAP + OFFSET_COLD_ZONE + STROKE_HEATED_ZONE;
-    float retractTimeMs = (barrelLength / SPEED_HOMING_FAST) * 1000.0f + 2000;
+    float retractTimeMs = (barrelLength / fabs(HOMING_FAST_VEL)) * 1000.0f + 2000;
     if (millis() - stateEnteredMs_ > (uint32_t)retractTimeMs) {
         nextState(HomingState::ERROR_STATE);
     }
@@ -213,7 +236,7 @@ void Homing::handleDecelerate(CanBusHandlerV2& motor, SafetyManager& safety) {
     BroadcastDataStore& broadcast = BroadcastDataStore::getInstance();
     
     // Check if velocity is below threshold
-    if (broadcast.isVelocityBelowThreshold(HOMING_VELOCITY_STOP_THRESHOLD)) {
+    if (broadcast.isVelocityBelowThreshold(HOMING_STOP_THRESHOLD)) {
         nextState(HomingState::BACKOFF);
         return;
     }
@@ -232,17 +255,33 @@ void Homing::handleBackoff(CanBusHandlerV2& motor, SafetyManager& safety) {
         lastControlModeSent_ = (uint8_t)ODriveCANProtocol::ControlMode::VELOCITY_CONTROL;
         lastInputModeSent_ = (uint8_t)ODriveCANProtocol::InputMode::VEL_RAMP;
         modeCommandSentAtMs_ = millis();  // Timestamp mode command sent
+        
+        char buf[64];
+        snprintf(buf, sizeof(buf), "BACKOFF: Mode cmd sent at %lums", modeCommandSentAtMs_);
+        MessageBuffer::getInstance().sendMessage(buf);
     }
     
     // Send velocity only after CAN_COMMAND_GAP_MS delay to allow ODrive to process mode change
     if (modeCommandSentAtMs_ > 0 && millis() - modeCommandSentAtMs_ >= CAN_COMMAND_GAP_MS) {
-        motor.setInputVel(HOMING_BACKOFF_VELOCITY);  // Positive = down/forward
+        if (!backoffVelCmdSent_) {
+            motor.setInputVel(HOMING_BACKOFF_VEL);  // Positive = down/forward
+            char buf[80];
+            snprintf(buf, sizeof(buf), "BACKOFF: Vel cmd sent at %lums (vel=%.1f rps)", 
+                     millis(), HOMING_BACKOFF_VEL);
+            MessageBuffer::getInstance().sendMessage(buf);
+            backoffVelCmdSent_ = true;
+        }
     }
     
     // Move forward for HOMING_BACKOFF_DURATION regardless of endstop state
     // This allows the plunger to relax the endstop pressure
-    if (millis() - stateEnteredMs_ >= HOMING_BACKOFF_DURATION) {
+    unsigned long elapsed = millis() - stateEnteredMs_;
+    if (elapsed >= HOMING_BACKOFF_DURATION) {
         motor.setInputVel(0.0f);
+        char buf[80];
+        snprintf(buf, sizeof(buf), "BACKOFF: Complete at %lums (elapsed=%lums, config=%dms)", 
+                 millis(), elapsed, HOMING_BACKOFF_DURATION);
+        MessageBuffer::getInstance().sendMessage(buf);
         nextState(HomingState::APPROACH);
         return;
     }
@@ -266,7 +305,7 @@ void Homing::handleApproach(CanBusHandlerV2& motor, SafetyManager& safety) {
     
     // Send velocity only after CAN_COMMAND_GAP_MS delay to allow ODrive to process mode change
     if (modeCommandSentAtMs_ > 0 && millis() - modeCommandSentAtMs_ >= CAN_COMMAND_GAP_MS) {
-        motor.setInputVel(HOMING_APPROACH_VELOCITY);  // Negative = up, slow
+        motor.setInputVel(HOMING_APPROACH_VEL);  // Negative = up, slow
     }
     
     // Check for endstop
@@ -290,7 +329,7 @@ void Homing::handleWaitStop(CanBusHandlerV2& motor, SafetyManager& safety) {
     // Count how long velocity is below threshold
     static uint32_t stoppedSinceMs_ = 0;
     
-    if (broadcast.isVelocityBelowThreshold(HOMING_VELOCITY_STOP_THRESHOLD)) {
+    if (broadcast.isVelocityBelowThreshold(HOMING_STOP_THRESHOLD)) {
         if (stoppedSinceMs_ == 0) {
             stoppedSinceMs_ = millis();
         }
@@ -322,7 +361,13 @@ void Homing::handleResetEncoder(CanBusHandlerV2& motor, SafetyManager& safety) {
     if (previousState_ != HomingState::RESET_ENCODER) {
         motor.setLinearCount(0);
         encoderZeroed_ = true;
-        delay(20);  // Small delay for command processing
+        MessageBuffer::getInstance().sendMessage("Encoder zeroed to position 0");
+        
+        // Wait for command to be sent
+        unsigned long waitStart = millis();
+        while (millis() - waitStart < 100) {
+            motor.loop();  // Process queue during wait
+        }
     }
     
     nextState(HomingState::DONE);

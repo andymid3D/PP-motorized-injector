@@ -109,6 +109,7 @@ private:
     
     // Critical: Timestamp when mode command was sent (for 50ms gap before velocity command)
     static uint32_t modeCommandSentAtMs_;
+    static bool backoffVelCmdSent_;  // Track if velocity command sent during backoff
     
     // Transition to next state
     static void nextState(HomingState newState);

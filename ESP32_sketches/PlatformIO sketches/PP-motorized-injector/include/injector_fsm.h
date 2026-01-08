@@ -107,4 +107,8 @@ extern fsm_state_t fsm_state;
 
 void stateMachineLoop();
 
+// Helper functions (defined in main.cpp)
+void logMessage(const char* msg);
+float volToTurns(float cm3);
+
 #endif // INJECTOR_FSM_H

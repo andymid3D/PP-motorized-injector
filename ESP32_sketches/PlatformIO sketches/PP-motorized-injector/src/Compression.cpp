@@ -24,7 +24,7 @@ namespace Compression {
     // ===== TIMEOUT CALCULATION =====
     // Maximum time to reach plastic contact: distance / speed + margin
     // Travel distance is roughly 5-10cm (50-100 turns), max 40+ cm before bottom
-    static constexpr float MAX_TRAVEL_TIME_MS = 10000;  // 10 seconds for full travel if no plastic
+    static constexpr float MAX_TRAVEL_TIME_CONST = 10000;  // 10 seconds for full travel if no plastic
     
     // ===== BEGIN: Initialize with mode selection =====
     void begin(CompressionMode mode) {
@@ -66,6 +66,7 @@ namespace Compression {
             if (stepElapsed > 50) {
                 step = TRAVEL_DOWN;
                 stepTimer = now;
+                stateEntry = true;  // CRITICAL: Reset stateEntry for next step
             }
             return false;
         }
@@ -73,43 +74,52 @@ namespace Compression {
         // ===== STEP 1: TRAVEL DOWN until plastic contact (MODE 1 only) =====
         if (step == TRAVEL_DOWN) {
             if (stateEntry) {
-                // Set motor limits for velocity travel
-                MotorWrapper::setMotorLimits(motor, VEL_LIMIT_COMPRESSION, CURRENT_LIMIT_COMPRESSION_INITIAL, "Compress Travel");
-                delay(CAN_COMMAND_GAP_MS + 5);
+                // Set motor limits for torque travel (12.5 rps vel_limit, 15A current from config)
+                MotorWrapper::setMotorLimits(motor, COMPRESS_TRAVEL_VEL_LIMIT, REFILL_CURRENT_LIMIT, "Compress Travel");
+                
+                // Wait for command to be sent
+                unsigned long waitStart = millis();
+                while (millis() - waitStart < (CAN_COMMAND_GAP_MS + 5)) {
+                    motor.loop();
+                }
+                
+                // Send torque command to travel down (10A = tested working value)
+                MotorWrapper::setModeAndMove(motor, 1, 6, 10.0f, "Compress Travel Down Torque");  // Mode 1=Torque, Input 6=TORQUE_RAMP, 10A (torque_constant=1)
+                lastCommandTime = millis();
                 stateEntry = false;
             }
             
-            // Send velocity command to travel down
-            if (now - lastCommandTime >= CAN_COMMAND_GAP_MS) {
-                MotorWrapper::setModeAndMove(motor, 2, 2, SPEED_COMPRESS_INIT, "Compress Travel Down");  // Positive = down (inject direction)
-                lastCommandTime = now;
-            }
-            
             // Check for plastic contact:
-            // - Velocity drops to near zero (plunger hits resistance)
-            // - Or motor stalls (pressure/force too high)
-            bool contactDetected = stepElapsed > 500 && fabs(motor.getVelocity()) < 0.5f;
-            bool stallDetected = stepElapsed > 500 && motor.getAxisError() != 0;
+            // - Motor stalls (torque exceeds input_torque limit)
+            // - Axis error indicates problem
+            // Note: Velocity near-zero is NORMAL for torque mode without resistance
+            bool stallDetected = motor.getAxisError() != 0;
+            bool torqueExceeded = stepElapsed > 500 && fabs(motor.getVelocity()) < 0.1f && motor.getIqReadings().Iq_measured > 8.0f;  // High current + stopped = blocked
             
-            if (contactDetected || stallDetected) {
+            if (stallDetected || torqueExceeded) {
                 MotorWrapper::setModeAndMove(motor, 2, 2, 0, "Compress Stop");  // Stop travel
                 lastCommandTime = now;
                 
                 // Increase current limit for compression after contact
-                MotorWrapper::adjustMotorLimits(motor, CURRENT_LIMIT_COMPRESSION_CONTACT, "Contact Detected");
-                delay(CAN_COMMAND_GAP_MS + 5);
+                MotorWrapper::adjustMotorLimits(motor, COMPRESS_CONTACT_CURRENT, "Contact Detected");
+                
+                // Wait for command to be sent
+                unsigned long waitStart = millis();
+                while (millis() - waitStart < (CAN_COMMAND_GAP_MS + 5)) {
+                    motor.loop();
+                }
                 
                 step = TORQUE_RAMP;
                 stepTimer = now;
+                stateEntry = true;  // CRITICAL: Reset stateEntry for next step
                 return false;
             }
             
             // Timeout: no plastic in barrel (reached max distance or endstop)
-            if (stepElapsed > MAX_TRAVEL_TIME_MS) {
+            if (stepElapsed > COMPRESS_TRAVEL_TIMEOUT_MS) {
                 isTimeoutFlag = true;
                 complete = true;
-                MotorWrapper::setModeAndMove(motor, 2, 2, 0, "Compress Timeout");
-                lastCommandTime = now;
+                // No mode change - let state transition handle cleanup
                 return true;
             }
             
@@ -128,29 +138,42 @@ namespace Compression {
                 // Set motor limits for torque control
                 // For MODE 2, set initial compression limits
                 if (currentMode == MODE_2_MICRO) {
-                    MotorWrapper::setMotorLimits(motor, VEL_LIMIT_COMPRESSION, CURRENT_LIMIT_COMPRESSION_INITIAL, "Micro Torque");
-                    delay(CAN_COMMAND_GAP_MS + 5);
+                    MotorWrapper::setMotorLimits(motor, COMPRESS_MICRO_VEL_LIMIT, COMPRESS_MICRO_CURRENT, "Micro Torque");
+                    
+                    // Wait for command to be sent
+                    unsigned long waitStart = millis();
+                    while (millis() - waitStart < (CAN_COMMAND_GAP_MS + 5)) {
+                        motor.loop();
+                    }
+                    
+                    // Set mode to torque control (MODE 2 only)
+                    motor.setControllerModes(ODriveCANProtocol::ControlMode::TORQUE_CONTROL, 
+                                           ODriveCANProtocol::InputMode::TORQUE_RAMP);
+                    waitStart = millis();
+                    while (millis() - waitStart < (CAN_COMMAND_GAP_MS + 5)) {
+                        motor.loop();
+                    }
                 }
-                // For MODE 1, limits already adjusted in contact detection
+                // For MODE 1, already in torque mode from TRAVEL_DOWN
                 stateEntry = false;
             }
             
             // Calculate torque ramp
             float rampDuration = 2.0f;  // Seconds to reach target torque
             float elapsedSec = stepElapsed / 1000.0f;
-            float targetTorque = (TORQUE_COMPRESSION_HOLD / rampDuration) * elapsedSec;
-            if (targetTorque > TORQUE_COMPRESSION_HOLD) {
-                targetTorque = TORQUE_COMPRESSION_HOLD;
+            float targetTorque = (COMPRESS_RAMP_TARGET / rampDuration) * elapsedSec;
+            if (targetTorque > COMPRESS_RAMP_TARGET) {
+                targetTorque = COMPRESS_RAMP_TARGET;
             }
             
-            // Send command if enough time has elapsed
+            // Send torque setpoint updates (mode already set in stateEntry or TRAVEL_DOWN)
             if (now - lastCommandTime >= CAN_COMMAND_GAP_MS) {
-                MotorWrapper::setModeAndMove(motor, 1, 6, targetTorque, "Compress Torque");
+                motor.setInputTorque(targetTorque);  // Only update setpoint, not mode
                 lastCommandTime = now;
             }
             
             // Completion conditions
-            bool reachedTorqueTarget = (targetTorque >= TORQUE_COMPRESSION_HOLD);
+            bool reachedTorqueTarget = (targetTorque >= COMPRESS_RAMP_TARGET);
             bool stallDetected = stepElapsed > 500 && motor.getAxisError() != 0;
             bool timeoutOnTorque = stepElapsed > 15000;  // 15 seconds max for torque ramp
             

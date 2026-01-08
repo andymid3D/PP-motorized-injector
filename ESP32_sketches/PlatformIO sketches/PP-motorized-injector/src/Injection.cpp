@@ -63,18 +63,33 @@ namespace Injection {
                 targetInjectPos = POS_BOTTOM_MAX;
             }
             
-            // Set motor limits for filling
-            MotorWrapper::setMotorLimits(motor, VEL_LIMIT_INJECTION, CURRENT_LIMIT_INJECTION_FILL, "Inject Fill");
-            delay(CAN_COMMAND_GAP_MS + 5);
+            // Log injection details
+            char logBuf[128];
+            snprintf(logBuf, sizeof(logBuf), "Inject: Start=%.1f Target=%.1f MoveAmt=%.1f turns (%.1fcm3)",
+                     injectStartPos, targetInjectPos, 
+                     volToTurns(currentMould.fillVolume), currentMould.fillVolume);
+            logMessage(logBuf);
             
-            // Configure TRAP_TRAJ with mould-specific accel/decel for fill
-            MotorWrapper::setTrapTrajParams(motor, VEL_LIMIT_INJECTION, 
+            // Set motor limits for filling (controller limit = machine max for TRAP_TRAJ authority)
+            MotorWrapper::setMotorLimits(motor, INJECT_FILL_CONTROLLER_VEL_LIMIT, INJECT_FILL_CURRENT, "Inject Fill");
+            
+            unsigned long waitStart = millis();
+            while (millis() - waitStart < (CAN_COMMAND_GAP_MS + 5)) {
+                motor.loop();
+            }
+            
+            // Configure TRAP_TRAJ with mould-specific accel/decel for fill (trajectory limit - actual movement speed)
+            MotorWrapper::setTrapTrajParams(motor, INJECT_FILL_TRAP_VEL_LIMIT, 
                                            currentMould.fillTrapAccel, 
                                            currentMould.fillTrapDecel, 
                                            "Fill Traj");
-            delay(CAN_COMMAND_GAP_MS + 5);
             
-            // Execute position move
+            waitStart = millis();
+            while (millis() - waitStart < (CAN_COMMAND_GAP_MS + 5)) {
+                motor.loop();
+            }
+            
+            // Execute position move ONCE - TRAP_TRAJ maintains trajectory
             MotorWrapper::setModeAndMove(motor, 3, 5, targetInjectPos, "Pos Inject");
             lastCommandTime = now;
             
@@ -83,11 +98,8 @@ namespace Injection {
         
         // ===== FILLING PHASE =====
         if (phase == FILLING) {
-            // Resend position command periodically to ensure motor keeps moving
-            if (now - lastCommandTime >= CAN_COMMAND_GAP_MS * 2) {
-                MotorWrapper::setModeAndMove(motor, 3, 5, targetInjectPos, "Pos Inject Resend");
-                lastCommandTime = now;
-            }
+            // TRAP_TRAJ mode maintains position target automatically
+            // No need to resend commands unless motor appears stuck
             
             // Check for completion: velocity drops to near-zero and stays stable
             bool velocityLow = fabs(motor.getVelocity()) < 0.1f;
@@ -106,18 +118,26 @@ namespace Injection {
                     targetPackPos = POS_BOTTOM_MAX;
                 }
                 
-                // Set motor limits for packing (higher pressure)
-                MotorWrapper::setMotorLimits(motor, VEL_LIMIT_INJECTION, CURRENT_LIMIT_INJECTION_PACK, "Inject Pack");
-                delay(CAN_COMMAND_GAP_MS + 5);
+                // Set motor limits for packing (higher pressure, controller limit = machine max for TRAP_TRAJ authority)
+                MotorWrapper::setMotorLimits(motor, INJECT_PACK_CONTROLLER_VEL_LIMIT, INJECT_PACK_CURRENT, "Inject Pack");
                 
-                // Configure TRAP_TRAJ with mould-specific accel/decel for pack (slower, controlled)
-                MotorWrapper::setTrapTrajParams(motor, VEL_LIMIT_INJECTION,
+                unsigned long waitStart = millis();
+                while (millis() - waitStart < (CAN_COMMAND_GAP_MS + 5)) {
+                    motor.loop();
+                }
+                
+                // Configure TRAP_TRAJ with mould-specific accel/decel for pack (trajectory limit - slower, controlled)
+                MotorWrapper::setTrapTrajParams(motor, INJECT_PACK_TRAP_VEL_LIMIT,
                                                currentMould.packTrapAccel,
                                                currentMould.packTrapDecel,
                                                "Pack Traj");
-                delay(CAN_COMMAND_GAP_MS + 5);
                 
-                // Set lower pressure for packing
+                waitStart = millis();
+                while (millis() - waitStart < (CAN_COMMAND_GAP_MS + 5)) {
+                    motor.loop();
+                }
+                
+                // Set lower pressure for packing - send ONCE
                 MotorWrapper::setModeAndMove(motor, 3, 5, targetPackPos, "Pos Pack");
                 lastCommandTime = now;
                 
@@ -137,11 +157,8 @@ namespace Injection {
         
         // ===== PACKING PHASE =====
         if (phase == PACKING) {
-            // Resend position command periodically
-            if (now - lastCommandTime >= CAN_COMMAND_GAP_MS * 2) {
-                MotorWrapper::setModeAndMove(motor, 3, 5, targetPackPos, "Pos Pack Resend");
-                lastCommandTime = now;
-            }
+            // TRAP_TRAJ mode maintains position target automatically
+            // No need to resend commands
             
             // Packing time in milliseconds
             unsigned long packTimeMs = (unsigned long)(currentMould.packTime * 1000);
@@ -150,7 +167,7 @@ namespace Injection {
             if (phaseElapsed >= packTimeMs) {
                 phase = DONE;
                 complete = true;
-                MotorWrapper::setModeAndMove(motor, 2, 1, 0, "Pack Complete Stop");
+                // No mode change - let state transition handle cleanup
                 return true;
             }
             

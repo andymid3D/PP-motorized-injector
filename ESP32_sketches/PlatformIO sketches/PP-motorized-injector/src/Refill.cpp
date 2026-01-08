@@ -27,13 +27,23 @@ namespace Refill {
         // ===== STEP 0: Move to OFFSET_REFILL_GAP =====
         if (step == MOVING_TO_HOME) {
             if (stateEntry) {
-                // Set motor limits for refill move
-                MotorWrapper::setMotorLimits(motor, VEL_LIMIT_REFILL, CURRENT_LIMIT_REFILL, "Refill");
-                delay(CAN_COMMAND_GAP_MS + 5);
+                // Set motor limits for refill move (controller limit = machine max for TRAP_TRAJ authority)
+                MotorWrapper::setMotorLimits(motor, REFILL_CONTROLLER_VEL_LIMIT, REFILL_CURRENT_LIMIT, "Refill");
                 
-                // Configure TRAP_TRAJ for smooth move
-                MotorWrapper::setTrapTrajParams(motor, VEL_LIMIT_REFILL, TRAP_ACCEL_NORMAL, TRAP_DECEL_NORMAL, "Refill Traj");
-                delay(CAN_COMMAND_GAP_MS + 5);
+                // Wait for command to be sent via loop()
+                unsigned long waitStart = millis();
+                while (millis() - waitStart < (CAN_COMMAND_GAP_MS + 5)) {
+                    motor.loop();  // Process CAN queue during wait
+                }
+                
+                // Configure TRAP_TRAJ for smooth move (trajectory limit - actual movement speed)
+                MotorWrapper::setTrapTrajParams(motor, REFILL_TRAP_VEL_LIMIT, REFILL_ACCEL, REFILL_DECEL, "Refill Traj");
+                
+                // Wait for commands to be sent
+                waitStart = millis();
+                while (millis() - waitStart < (CAN_COMMAND_GAP_MS + 5)) {
+                    motor.loop();  // Process CAN queue during wait
+                }
                 
                 // Execute position move with TRAP_TRAJ
                 MotorWrapper::setModeAndMove(motor, 3, 5, OFFSET_REFILL_GAP, "Pos Refill");

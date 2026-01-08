@@ -38,115 +38,174 @@
 #define LED_BRIGHT_LOW          50
 #define LED_BRIGHT_HIGH         200
 
+// UI Timing
+#define UI_BUTTON_TOGGLE_DELAY_MS  250      // Delay after toggle operations (ms)
+
 // ==========================================
-// 3. MECHANICAL CONSTANTS
+// 3. MECHANICAL CONSTANTS & GLOBAL LIMITS
 // ==========================================
 #define TURNS_PER_CM_LINEAR     5.305f
 #define TURNS_PER_CM3_VOL       0.99925f 
 
-#define POS_HOME                0.0f
-#define OFFSET_REFILL_GAP       47.746f 
-#define OFFSET_COLD_ZONE        42.441f 
-#define POS_HEATED_ZONE_START   (OFFSET_REFILL_GAP + OFFSET_COLD_ZONE) 
-#define STROKE_HEATED_ZONE      265.25f 
-#define POS_BOTTOM_MAX          (POS_HEATED_ZONE_START + STROKE_HEATED_ZONE) 
+// Position Definitions (Turns)
+#define POS_HOME                0.0f        // Home position at top endstop
+#define OFFSET_REFILL_GAP       47.746f     // Distance from home to refill rest position
+#define OFFSET_COLD_ZONE        42.441f     // Cold zone below refill gap
+#define POS_HEATED_ZONE_START   (OFFSET_REFILL_GAP + OFFSET_COLD_ZONE)  // 90.187 turns
+#define STROKE_HEATED_ZONE      265.25f     // Length of heated zone
+#define POS_BOTTOM_MAX          (POS_HEATED_ZONE_START + STROKE_HEATED_ZONE)  // ~355.4 turns
+
+// ODrive Configuration
+#define ODRIVE_NODE_ID          0           // CAN node ID for ODrive
+#define INVERT_MOTOR_DIR        false       // Encoder A & B swapped: +47 = down (inject)
+#define MACHINE_MAX_VEL_LIMIT   25.0f       // Maximum velocity limit (turns/sec) - used for controller.vel_limit in TRAP_TRAJ moves
+
+// Safety & Debugging
+#define IGNORE_NOZZLE_BLOCK     true        // Disables pressure sensor errors for testing
+#define TEMP_MIN_MOVE           16          // Minimum temperature to allow movement (°C)
+#define TEMP_CRITICAL           13          // Critical low temperature (°C)
+#define DEBOUNCE_MS_SAFETY      150         // Safety input debounce time (ms)
+
+// CAN Bus Timing
+#define CAN_COMMAND_GAP_MS      50          // Minimum gap between CAN commands (ms)
 
 // ==========================================
-// 4. PROCESS VARIABLES
+// 4. MOTOR CONTROL PARAMETERS BY STATE
 // ==========================================
-#define ODRIVE_NODE_ID          0      
-#define VEL_LIMIT_INJECT        25.0f  
+// Note: ALL negative velocities/positions defined here with negative sign
+//       Code NEVER uses negative signs - always references these constants
 
-// --- MOTOR DIRECTION SETTING ---
-#define INVERT_MOTOR_DIR        false   // Encoder A & B swapped: +47 = down (inject)
-#define IGNORE_NOZZLE_BLOCK     true    // <--- NEW: Disables Error 3 for testing
+// ------------------------------------------------------------
+// STATE: HOMING (Homing.cpp)
+// ------------------------------------------------------------
+// Control: Various modes during sequence
+// Phase 1: Fast retract to top endstop
+#define HOMING_FAST_VEL         -12.5f      // Velocity up to top endstop (negative = up)
+#define HOMING_FAST_CURRENT     15.0f       // Current limit during fast retract
 
+// Phase 2: Backoff from endstop
+#define HOMING_BACKOFF_VEL      2.5f        // Velocity down during backoff (positive = down)
+#define HOMING_BACKOFF_DURATION 1500        // Backoff duration (ms)
+#define HOMING_BACKOFF_DIST     15.0f       // Backoff distance (turns, for reference)
 
-// Speeds (Turns/Sec)
-#define SPEED_PURGE             2.0f   
-#define SPEED_ANTIDRIP          2.0f   // Slow decompression move
-#define SPEED_FAST_MOVE         25.0f  
-#define SPEED_HOMING_FAST       12.5f  
-#define SPEED_HOMING_SLOW       2.5f   
-#define SPEED_COMPRESS_INIT     12.5f  // <--- KEPT AS IS (User Request)
-#define SPEED_COMPRESS_MIN      1.0f   
-#define SPEED_RELEASE           25.0f  
+// Phase 3: Slow approach to endstop
+#define HOMING_APPROACH_VEL     -2.5f       // Velocity up to endstop (negative = up)
+#define HOMING_STOP_THRESHOLD   0.05f       // Velocity threshold for stop detection (turns/sec)
 
-// Acceleration (Turns/Sec^2)
-#define ACCEL_RAMP_DEFAULT      2.0f   // Gentle acceleration
-#define ACCEL_RAMP_STOP         5.0f   // Faster (but safe) stop
+// ------------------------------------------------------------
+// STATE: REFILL (Refill.cpp)
+// ------------------------------------------------------------
+// Control: Mode 3 (Position), Input 5 (TRAP_TRAJ)
+// Target: OFFSET_REFILL_GAP (47.746 turns from home)
+// Controller uses MACHINE_MAX_VEL_LIMIT (25 rps) for maximum control authority
+#define REFILL_CONTROLLER_VEL_LIMIT  MACHINE_MAX_VEL_LIMIT  // Controller limit (for setMotorLimits)
+#define REFILL_TRAP_VEL_LIMIT        15.0f  // Trajectory vel limit (turns/sec) - actual movement speed
+#define REFILL_ACCEL            20.0f       // Acceleration (turns/sec²)
+#define REFILL_DECEL            20.0f       // Deceleration (turns/sec²)
+#define REFILL_CURRENT_LIMIT    15.0f       // Current limit (Amps)
 
-// Distances (Turns)
-#define DIST_HOME_BACKOFF       15.0f  // <--- INCREASED: To make pullback visible
-#define DIST_RELEASE_MOULD      -2.5f  
-#define DIST_ANTIDRIP_REV       -5.3f  
+// ------------------------------------------------------------
+// STATE: COMPRESSION (Compression.cpp)
+// ------------------------------------------------------------
+// Control: Mode 1 (Torque), Input 6 (TORQUE_RAMP)
+// Two phases: TRAVEL_DOWN (find contact) → TORQUE_RAMP (compress)
 
-// Homing Sequence Parameters
-#define HOMING_VELOCITY_STOP_THRESHOLD  0.05f   // Turns/sec - stop detection threshold
-#define HOMING_BACKOFF_VELOCITY         SPEED_HOMING_SLOW  // Down velocity during backoff
-#define HOMING_BACKOFF_DURATION         1500    // Milliseconds for backoff move
-#define HOMING_APPROACH_VELOCITY        -SPEED_HOMING_SLOW  // Slow approach up (negative)  
+// TRAVEL_DOWN Phase (torque mode, no resistance = continuous movement)
+#define COMPRESS_TRAVEL_VEL_LIMIT    12.5f  // Velocity limit (turns/sec)
+#define COMPRESS_TRAVEL_CURRENT      15.0f  // Current limit (Amps)
+#define COMPRESS_TRAVEL_TORQUE       10.0f  // Torque setpoint (Amps, torque_constant=1)
+#define COMPRESS_CONTACT_IQ_THRESHOLD 8.0f  // Current threshold for contact detection (Amps)
+#define COMPRESS_TRAVEL_TIMEOUT_MS   10000  // Timeout if no contact (ms)
 
-// Torque / Pressure 
-#define TORQUE_COMPRESSION_HOLD 5.0f   
-#define PRESSURE_BLOCK_MIN      50000  
+// TORQUE_RAMP Phase (after contact detected)
+#define COMPRESS_RAMP_TARGET         15.0f   // Target compression torque (Amps)
+#define COMPRESS_RAMP_DURATION       2.0f   // Ramp duration to target (seconds)
+#define COMPRESS_CONTACT_CURRENT     25.0f  // Current limit after contact (Amps)
+#define COMPRESS_RAMP_TIMEOUT_MS     15000  // Maximum time in torque ramp (ms)
 
-// Timing & Temp
-#define TIME_ANTIDRIP_MAX       15000  
-#define TIME_AUTO_COMPRESS      30000  
-#define TEMP_MIN_MOVE           16     
-#define TEMP_CRITICAL           13     
-#define DEBOUNCE_MS_SAFETY      150
+// MODE_2 (Micro Compression in ReadyToInject)
+#define COMPRESS_MICRO_VEL_LIMIT     12.0f  // Velocity limit for micro (turns/sec)
+#define COMPRESS_MICRO_CURRENT       10.0f   // Current limit for micro (Amps)
 
-// Timing Constants (Milliseconds)
-#define TIME_ANTIDRIP_TIMEOUT   15000   // 15 seconds to decompression
-#define TIME_AUTO_COMPRESS      30000   // Auto-compress after 30s idle
+// ------------------------------------------------------------
+// STATE: READY_TO_INJECT (ReadyToInject.cpp)
+// ------------------------------------------------------------
+// Control: Idle with periodic micro-compression
+// Micro-compression uses Compression module MODE_2
+#define READY_MICRO_INTERVAL_MS      30000  // Interval between micro-compressions (ms)
 
-// CAN Bus Command Timing
-// Minimum gap between consecutive CAN commands to ODrive
-// Allows ODrive to process mode changes before receiving move commands
-// Tuning: Reduce until inconsistency observed, then set to 2x that value
-#define CAN_COMMAND_GAP_MS      50      // Milliseconds between CAN commands (reduce to 20ms for faster response)
+// ------------------------------------------------------------
+// STATE: PURGE_ZERO (PurgeZero.cpp)
+// ------------------------------------------------------------
+// Control: Mode 2 (Velocity), Input 1 (PASSTHROUGH)
+// Manual button-controlled movement
+#define PURGE_VEL_UP            -2.0f       // Velocity for Upper button (negative = up, turns/sec)
+#define PURGE_VEL_DOWN          2.0f        // Velocity for Lower button (positive = down, turns/sec)
+#define PURGE_VEL_LIMIT         5.0f        // Maximum velocity (turns/sec)
+#define PURGE_CURRENT_LIMIT     10.0f        // Current limit (Amps)
 
-// ==========================================
-// 4.5 MOTOR CONTROL LIMITS & TRAP_TRAJ PARAMETERS
-// ==========================================
+// ------------------------------------------------------------
+// STATE: ANTIDRIP (AntiDrip.cpp)
+// ------------------------------------------------------------
+// Control: Mode 2 (Velocity), Input 1 (PASSTHROUGH)
+// Slow upward retract to prevent drip while placing mould
+#define ANTIDRIP_VEL            -2.0f       // Retract velocity (negative = up, turns/sec)
+#define ANTIDRIP_VEL_LIMIT      5.0f        // Velocity limit (turns/sec)
+#define ANTIDRIP_CURRENT_LIMIT  10.0f        // Current limit (Amps)
+#define ANTIDRIP_TIMEOUT_MS     15000       // User timeout to place mould (ms)
 
-// --- VELOCITY LIMITS BY STATE (turns/sec) ---
-#define VEL_LIMIT_REFILL        15.0f    // Refill: moderate speed, safe return to rest
-#define VEL_LIMIT_COMPRESSION   12.0f    // Compression: half max, controlled approach to contact
-#define VEL_LIMIT_INJECTION     15.0f    // Injection: moderate fill speed
-#define VEL_LIMIT_RELEASE       20.0f    // Release: faster unload
-#define VEL_LIMIT_PURGE         5.0f     // Purge: manual control, slower for safety
-#define VEL_LIMIT_ANTIDRIP      2.0f     // AntiDrip: very slow decompression
+// ------------------------------------------------------------
+// STATE: INJECT (Injection.cpp)
+// ------------------------------------------------------------
+// Control: Mode 3 (Position), Input 5 (TRAP_TRAJ)
+// Two phases: FILLING → PACKING (auto-transition)
+// Controller uses MACHINE_MAX_VEL_LIMIT (25 rps) for maximum control authority
 
-// --- CURRENT LIMITS BY STATE (Amps) ---
-#define CURRENT_LIMIT_REFILL    5.0f     // Refill: low current, no load expected
-#define CURRENT_LIMIT_COMPRESSION_INITIAL  7.0f  // Compression: double friction (3.4A * 2), contact detection
-#define CURRENT_LIMIT_COMPRESSION_CONTACT  25.0f // Compression: full force after contact detected
-#define CURRENT_LIMIT_INJECTION_FILL       10.0f // Injection fill: moderate pressure
-#define CURRENT_LIMIT_INJECTION_PACK       15.0f // Injection pack: higher pressure to maintain
-#define CURRENT_LIMIT_RELEASE   10.0f    // Release: moderate force for unload
-#define CURRENT_LIMIT_PURGE     8.0f     // Purge: moderate for manual control
-#define CURRENT_LIMIT_ANTIDRIP  5.0f     // AntiDrip: low force, gentle decompression
+// FILLING Phase
+#define INJECT_FILL_CONTROLLER_VEL_LIMIT  MACHINE_MAX_VEL_LIMIT  // Controller limit (for setMotorLimits)
+#define INJECT_FILL_TRAP_VEL_LIMIT        20.0f  // Trajectory vel limit (turns/sec) - actual movement speed
+#define INJECT_FILL_ACCEL       20.0f       // Acceleration (turns/sec²) - uses mould-specific from actualMouldParams
+#define INJECT_FILL_DECEL       20.0f       // Deceleration (turns/sec²) - uses mould-specific from actualMouldParams
+#define INJECT_FILL_CURRENT     31.0f       // Current limit (Amps)
+#define INJECT_FILL_TIMEOUT_MS  30000       // Maximum fill time (ms)
 
-// --- TRAP_TRAJ PARAMETERS (turns/sec²) ---
-#define TRAP_ACCEL_NORMAL       20.0f    // Normal acceleration for most moves
-#define TRAP_DECEL_NORMAL       20.0f    // Normal deceleration for most moves
-#define TRAP_ACCEL_SLOW         10.0f    // Careful/slow acceleration
-#define TRAP_DECEL_SLOW         10.0f    // Careful/slow deceleration
-#define TRAP_ACCEL_FAST         40.0f    // Fast acceleration (e.g., release)
-#define TRAP_DECEL_FAST         40.0f    // Fast deceleration (e.g., release)
+// PACKING Phase (holding pressure)
+#define INJECT_PACK_CONTROLLER_VEL_LIMIT  MACHINE_MAX_VEL_LIMIT  // Controller limit (for setMotorLimits)
+#define INJECT_PACK_TRAP_VEL_LIMIT        10.0f  // Trajectory vel limit (turns/sec) - actual movement speed
+#define INJECT_PACK_ACCEL       10.0f       // Acceleration (turns/sec²) - uses mould-specific from actualMouldParams
+#define INJECT_PACK_DECEL       10.0f       // Deceleration (turns/sec²) - uses mould-specific from actualMouldParams
+#define INJECT_PACK_CURRENT     30.0f       // Current limit (Amps)
+// Pack duration from actualMouldParams.packTime
 
-// --- CONTACT DETECTION (Current Monitoring) ---
-#define CURRENT_FRICTION_BASELINE   3.4f    // Motor friction current (idle, no load)
-#define CURRENT_CONTACT_THRESHOLD   5.0f    // Current spike indicating contact (empirical, adjust after testing)
-#define CURRENT_MONITOR_INTERVAL_MS 100     // How often to check current (matches IQ broadcast rate)
+// Auto-transition detection (FILLING → PACKING)
+#define INJECT_VEL_THRESHOLD    0.1f        // Velocity threshold for phase change (turns/sec)
+#define INJECT_POS_TOLERANCE    1.0f        // Position tolerance for phase change (turns)
+#define INJECT_STABLE_TIME_MS   500         // Time velocity must be stable (ms)
 
-// --- STATE TIMEOUTS ---
-#define TIMEOUT_COMPRESSION_EMPTY_MS    5000    // Compression timeout with empty barrel (no plastic)
-#define TIMEOUT_COMPRESSION_LOADED_MS   10000   // Compression timeout with plastic (if contact not detected)
-#define TIMEOUT_ANTIDRIP_MS             15000   // AntiDrip user timeout (time to place mould)
+// ------------------------------------------------------------
+// STATE: HOLD_PACKING (Injection.cpp)
+// ------------------------------------------------------------
+// Control: Mode 2 (Velocity), Input 1 (PASSTHROUGH) - holding position
+// Currently just holds final position from PACKING phase
+
+// ------------------------------------------------------------
+// STATE: RELEASE (main.cpp)
+// ------------------------------------------------------------
+// Control: Mode 3 (Position), Input 5 (TRAP_TRAJ)
+// Fast upward unload of mould
+// Controller uses MACHINE_MAX_VEL_LIMIT (25 rps) for maximum control authority
+#define RELEASE_DIST            -2.5f       // Distance to move (negative = up, turns)
+#define RELEASE_CONTROLLER_VEL_LIMIT  MACHINE_MAX_VEL_LIMIT  // Controller limit (for setMotorLimits)
+#define RELEASE_TRAP_VEL_LIMIT        20.0f  // Trajectory vel limit (turns/sec) - actual movement speed
+#define RELEASE_ACCEL           40.0f       // Acceleration (turns/sec²)
+#define RELEASE_DECEL           40.0f       // Deceleration (turns/sec²)
+#define RELEASE_CURRENT_LIMIT   20.0f       // Current limit (Amps)
+#define RELEASE_TIMEOUT_MS      2000        // Auto-transition timeout (ms)
+
+// ------------------------------------------------------------
+// STATE: CONFIRM_MOULD_REMOVAL (main.cpp)
+// ------------------------------------------------------------
+// No motor movement - just button press to return to REFILL or READY_TO_INJECT
 
 // ==========================================
 // 5. DATA STRUCTURES

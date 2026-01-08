@@ -6,7 +6,10 @@ extern CanBusHandlerV2 motor;
 
 SafetyManager::SafetyManager() 
     : _lastError(ERR_NONE), _wasMovingDown(false), _currentContext(CTX_IDLE),
-      _estopCounter(0), _barrelCounter(0), _topCounter(0), _botCounter(0) {}
+      _estopCounter(0), _barrelCounter(0), _topCounter(0), _botCounter(0),
+      _loadCellScale(1.0), _loadCellOffset(0), _loadCellAvgSamples(1),
+      _loadCellBuffer(nullptr), _loadCellBufferIdx(0), _loadCellUseMedian(false),
+      _lastValidReading(0) {}
 
 void SafetyManager::begin() {
     // 1. Initialize Debouncers
@@ -34,7 +37,16 @@ void SafetyManager::begin() {
     enableMotorPower(false);
     
     _loadCell.begin(PIN_HX711_DAT, PIN_HX711_CLK);
-    _loadCell.tare(); 
+    _loadCell.tare();  // Initial tare (motor off, clean baseline)
+    
+    // Initialize load cell with default settings (no averaging, no scale, no offset)
+    _loadCellScale = 1.0;
+    _loadCellOffset = 0;
+    _loadCellAvgSamples = 1;  // No averaging by default
+    _loadCellBuffer = nullptr;
+    _loadCellBufferIdx = 0;
+    _loadCellUseMedian = false;
+    _lastValidReading = 0;
 }
 
 void SafetyManager::updateInputs() {
@@ -53,7 +65,64 @@ void SafetyManager::updateInputs() {
 
     if (dbBot.read() == LOW) {if (_botCounter < CONFIDENCE_THRESHOLD) _botCounter++;} else {_botCounter = 0;}
     
-    if (_loadCell.is_ready()) { _currentPressure = _loadCell.read();}
+    // HX711 Load Cell Reading with EMI Rejection and Optional Filtering
+    if (_loadCell.is_ready()) {
+        long rawReading = _loadCell.read();
+        
+        // VALIDITY CHECK: Reject extreme EMI outliers (likely motor noise)
+        // HX711 is 24-bit: max range is ±8,388,608 (2^23)
+        // Reject readings beyond ±10 million (clearly EMI corruption)
+        const long MAX_VALID_READING = 10000000;
+        if (rawReading < -MAX_VALID_READING || rawReading > MAX_VALID_READING) {
+            // EMI corruption detected, use last valid reading
+            rawReading = _lastValidReading;
+        } else {
+            _lastValidReading = rawReading;  // Store for next time
+        }
+        
+        // Apply filtering if enabled
+        if (_loadCellAvgSamples > 1 && _loadCellBuffer != nullptr) {
+            _loadCellBuffer[_loadCellBufferIdx] = rawReading;
+            _loadCellBufferIdx = (_loadCellBufferIdx + 1) % _loadCellAvgSamples;
+            
+            if (_loadCellUseMedian) {
+                // MEDIAN FILTER: More robust against EMI spikes than average
+                // Copy buffer and sort to find median
+                long sorted[20];  // Max 20 samples
+                for (uint8_t i = 0; i < _loadCellAvgSamples; i++) {
+                    sorted[i] = _loadCellBuffer[i];
+                }
+                
+                // Simple bubble sort (sufficient for small arrays)
+                for (uint8_t i = 0; i < _loadCellAvgSamples - 1; i++) {
+                    for (uint8_t j = 0; j < _loadCellAvgSamples - i - 1; j++) {
+                        if (sorted[j] > sorted[j + 1]) {
+                            long temp = sorted[j];
+                            sorted[j] = sorted[j + 1];
+                            sorted[j + 1] = temp;
+                        }
+                    }
+                }
+                
+                // Take middle value (or average of two middle values if even)
+                if (_loadCellAvgSamples % 2 == 1) {
+                    rawReading = sorted[_loadCellAvgSamples / 2];
+                } else {
+                    rawReading = (sorted[_loadCellAvgSamples / 2 - 1] + sorted[_loadCellAvgSamples / 2]) / 2;
+                }
+            } else {
+                // AVERAGE FILTER: Simple but less robust to outliers
+                long sum = 0;
+                for (uint8_t i = 0; i < _loadCellAvgSamples; i++) {
+                    sum += _loadCellBuffer[i];
+                }
+                rawReading = sum / _loadCellAvgSamples;
+            }
+        }
+        
+        // Apply offset and scale
+        _currentPressure = (long)((rawReading - _loadCellOffset) * _loadCellScale);
+    }
 }
 
 // --- Getters (Now use the Counters) ---
@@ -132,4 +201,70 @@ void SafetyManager::resetError() {
     _barrelCounter = 0;
     _topCounter = 0;
     _botCounter = 0;
+}
+
+// ===== HX711 Load Cell Configuration Methods =====
+
+void SafetyManager::retareLoadCell() {
+    // Re-tare the load cell (useful after motor power on to compensate for EMI baseline shift)
+    _loadCell.tare();
+}
+
+void SafetyManager::setLoadCellScale(float scale) {
+    // Set calibration factor to convert raw ADC counts to engineering units
+    // Example: If 1000 counts = 1kg, scale = 0.001
+    _loadCellScale = scale;
+}
+
+void SafetyManager::setLoadCellOffset(long offset) {
+    // Manual baseline offset adjustment (alternative to tare)
+    // Useful if you know the baseline value and want to subtract it
+    _loadCellOffset = offset;
+}
+
+long SafetyManager::getLoadCellRaw() {
+    // Return raw ADC value for diagnostics (bypass offset/scale)
+    if (_loadCell.is_ready()) {
+        return _loadCell.read();
+    }
+    return 0;
+}
+
+void SafetyManager::setLoadCellAveraging(uint8_t samples) {
+    // Enable moving average filter to reduce EMI noise
+    // samples: 1 = disabled, 2-10 recommended (higher = smoother but slower response)
+    
+    if (samples < 1) samples = 1;
+    if (samples > 20) samples = 20;  // Cap at 20 to avoid excessive memory usage
+    
+    // Free old buffer if it exists
+    if (_loadCellBuffer != nullptr) {
+        delete[] _loadCellBuffer;
+        _loadCellBuffer = nullptr;
+    }
+    
+    _loadCellAvgSamples = samples;
+    
+    if (samples > 1) {
+        // Allocate new circular buffer
+        _loadCellBuffer = new long[samples];
+        
+        // Initialize buffer with current reading
+        long currentReading = 0;
+        if (_loadCell.is_ready()) {
+            currentReading = _loadCell.read();
+        }
+        
+        for (uint8_t i = 0; i < samples; i++) {
+            _loadCellBuffer[i] = currentReading;
+        }
+        
+        _loadCellBufferIdx = 0;
+    }
+}
+
+void SafetyManager::setLoadCellMedianFilter(bool enable) {
+    // Use median filter instead of average (more robust against EMI spikes)
+    // Requires averaging to be enabled with setLoadCellAveraging() first
+    _loadCellUseMedian = enable;
 }

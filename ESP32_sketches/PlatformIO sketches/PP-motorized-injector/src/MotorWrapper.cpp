@@ -41,59 +41,61 @@ namespace MotorWrapper {
     
     // ===== SET TRAP_TRAJ PARAMETERS (CAN 0x011 + 0x012) =====
     void setTrapTrajParams(CanBusHandlerV2& motor, float vel_limit, float accel, float decel, String context) {
-        unsigned long now = millis();
+        // First message: vel_limit
+        motor.setTrajVelLimit(vel_limit);
         
-        // First message: vel_limit (0x011)
-        if ((now - lastCmdTime) >= CAN_COMMAND_GAP_MS) {
-            motor.setTrajVelLimit(vel_limit);
-            lastCmdTime = now;
-            
-            // Wait for gap before second message
-            delay(CAN_COMMAND_GAP_MS + 5);  // Small safety margin
-            
-            // Second message: accel/decel (0x012)
-            motor.setTrajAccelLimits(accel, decel);
-            lastCmdTime = millis();
-            lastCmdStr = "TrapParams:" + context;
-            
-            // Log for diagnostics
-            char buf[128];
-            snprintf(buf, sizeof(buf), 
-                "SET_TRAP_TRAJ: vel=%.1f rps, accel=%.1f, decel=%.1f [%s]",
-                vel_limit, accel, decel, context.c_str());
-            MessageBuffer::getInstance().sendMessage(buf);
+        // Wait for first message to be sent
+        unsigned long waitStart = millis();
+        while (millis() - waitStart < CAN_COMMAND_GAP_MS) {
+            motor.loop();  // Process queue
         }
+        
+        // Second message: accel/decel
+        motor.setTrajAccelLimits(accel, decel);
+        
+        lastCmdTime = millis();
+        lastCmdStr = "TrapParams:" + context;
+            
+        // Log for diagnostics
+        char buf[128];
+        snprintf(buf, sizeof(buf), 
+            "SET_TRAP_TRAJ: vel=%.1f rps, accel=%.1f, decel=%.1f [%s]",
+            vel_limit, accel, decel, context.c_str());
+        MessageBuffer::getInstance().sendMessage(buf);
     }
     
     // ===== EXECUTE MOTOR MOVE (Unified Wrapper) =====
     void setModeAndMove(CanBusHandlerV2& motor, int ctrlMode, int inputMode, float value, String cmdName) {
-        unsigned long now = millis();
+        // Set control mode and input mode
+        motor.setControllerModes((ODriveCANProtocol::ControlMode)ctrlMode, 
+                                 (ODriveCANProtocol::InputMode)inputMode);
         
-        // Enforce CAN command gap
-        if ((now - lastCmdTime) >= CAN_COMMAND_GAP_MS) {
-            // Set control mode and input mode
-            motor.setControllerModes((ODriveCANProtocol::ControlMode)ctrlMode, 
-                                     (ODriveCANProtocol::InputMode)inputMode);
-            
-            // Wait for CAN command gap before sending setpoint
-            delay(CAN_COMMAND_GAP_MS);
-            
-            // Send appropriate setpoint based on control mode
-            if (ctrlMode == 1) motor.setInputTorque(value);      // Torque mode
-            else if (ctrlMode == 2) motor.setInputVel(value);    // Velocity mode
-            else if (ctrlMode == 3) motor.setInputPos(value);    // Position mode
-            
-            lastCmdTime = now;
-            lastCmdStr = cmdName;
-            lastControlMode = ctrlMode;
-            lastInputMode = inputMode;
-            
-            // Log for diagnostics
-            char buf[128];
-            snprintf(buf, sizeof(buf), "MOTOR_CMD: Mode=%d InputMode=%d Val=%.2f [%s]",
-                ctrlMode, inputMode, value, cmdName.c_str());
-            MessageBuffer::getInstance().sendMessage(buf);
+        char modeBuf[80];
+        snprintf(modeBuf, sizeof(modeBuf), "MODE_CMD: Ctrl=%d Input=%d [%s]",
+            ctrlMode, inputMode, cmdName.c_str());
+        MessageBuffer::getInstance().sendMessage(modeBuf);
+        
+        // Wait for mode command to be sent
+        unsigned long waitStart = millis();
+        while (millis() - waitStart < CAN_COMMAND_GAP_MS) {
+            motor.loop();  // Process queue
         }
+        
+        // Send appropriate setpoint based on control mode
+        if (ctrlMode == 1) motor.setInputTorque(value);      // Torque mode
+        else if (ctrlMode == 2) motor.setInputVel(value);    // Velocity mode
+        else if (ctrlMode == 3) motor.setInputPos(value);    // Position mode
+        
+        lastCmdTime = millis();
+        lastCmdStr = cmdName;
+        lastControlMode = ctrlMode;
+        lastInputMode = inputMode;
+        
+        // Log setpoint command
+        char buf[128];
+        snprintf(buf, sizeof(buf), "SETPOINT_CMD: Mode=%d InputMode=%d Val=%.2f [%s]",
+            ctrlMode, inputMode, value, cmdName.c_str());
+        MessageBuffer::getInstance().sendMessage(buf);
     }
     
     // ===== DYNAMIC ADJUSTMENT (Resend limits with new current) =====

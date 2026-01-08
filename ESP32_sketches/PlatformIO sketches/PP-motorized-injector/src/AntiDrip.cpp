@@ -30,10 +30,16 @@ namespace AntiDrip {
         unsigned long now = millis();
         unsigned long elapsed = now - stateEnterTime;
         
-        // ===== ENTRY: Set velocity control mode =====
+        // ===== ENTRY: Set velocity control mode and start upward movement =====
         if (stateEntry) {
-            MotorWrapper::setMotorLimits(motor, VEL_LIMIT_ANTIDRIP, CURRENT_LIMIT_REFILL, "AntiDrip");
-            delay(CAN_COMMAND_GAP_MS + 5);
+                MotorWrapper::setMotorLimits(motor, ANTIDRIP_VEL_LIMIT, REFILL_CURRENT_LIMIT, "AntiDrip");
+            unsigned long waitStart = millis();
+            while (millis() - waitStart < (CAN_COMMAND_GAP_MS + 5)) {
+                motor.loop();
+            }
+            
+            // Send velocity command ONCE - PASSTHROUGH mode maintains setpoint
+            MotorWrapper::setModeAndMove(motor, 2, 1, ANTIDRIP_VEL, "AntiDrip Up");  // ANTIDRIP_VEL is negative (up)
             lastCommandTime = now;
             stateEntry = false;
         }
@@ -47,14 +53,8 @@ namespace AntiDrip {
             pressureSensorChecked = true;
         }
         
-        // ===== CONTINUOUS COMMAND: Send slow upward velocity =====
-        if (now - lastCommandTime >= CAN_COMMAND_GAP_MS) {
-            MotorWrapper::setModeAndMove(motor, 2, 1, -SPEED_ANTIDRIP, "AntiDrip Up");  // Negative = up, slow retract to prevent drip
-            lastCommandTime = now;
-        }
-        
         // ===== TIMEOUT CHECK =====
-        if (elapsed > TIME_ANTIDRIP_TIMEOUT) {
+        if (elapsed > ANTIDRIP_TIMEOUT_MS) {
             isTimeoutFlag = true;
             complete = true;
             MotorWrapper::setModeAndMove(motor, 2, 1, 0, "AntiDrip Stop");  // Stop motor

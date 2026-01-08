@@ -9,6 +9,7 @@ namespace PurgeZero {
     static bool error = false;
     static bool buttonsReleased = false;  // Track initial button release debounce
     static unsigned long lastCommandTime = 0;
+    static int lastButtonState = 0;  // 0=stop, 1=up, 2=down
     
     // ===== BEGIN: Initialize on state entry =====
     void begin() {
@@ -17,6 +18,7 @@ namespace PurgeZero {
         error = false;
         buttonsReleased = false;
         lastCommandTime = millis();
+        lastButtonState = 0;  // Reset button state
     }
     
     // ===== UPDATE: Handle button-controlled movement =====
@@ -26,7 +28,7 @@ namespace PurgeZero {
         // ===== DEBOUNCE: Wait for buttons to release at entry =====
         if (stateEntry) {
             // Set motor limits for manual control
-            MotorWrapper::setMotorLimits(motor, VEL_LIMIT_PURGE, CURRENT_LIMIT_REFILL, "PurgeZero");
+            MotorWrapper::setMotorLimits(motor, PURGE_VEL_LIMIT, REFILL_CURRENT_LIMIT, "PurgeZero");
             delay(CAN_COMMAND_GAP_MS + 5);
             lastCommandTime = now;
             stateEntry = false;
@@ -41,26 +43,33 @@ namespace PurgeZero {
         }
         
         // ===== MOVEMENT CONTROL =====
-        // Only send new velocity commands if minimum gap has elapsed
-        if (now - lastCommandTime >= CAN_COMMAND_GAP_MS) {
-            if (buttonUp == LOW) {
-                // Upper button pressed: retract (up) = negative velocity
-                MotorWrapper::setModeAndMove(motor, 2, 1, -SPEED_PURGE, "Purge Up");
-                lastCommandTime = now;
-            } else if (buttonDown == LOW) {
-                // Lower button pressed: push plastic out (down) = positive velocity
-                MotorWrapper::setModeAndMove(motor, 2, 1, SPEED_PURGE, "Purge Down");
-                lastCommandTime = now;
+        // Determine current button state
+        int currentButtonState = 0;  // 0=stop, 1=up, 2=down
+        if (buttonUp == LOW) {
+            currentButtonState = 1;  // Up
+        } else if (buttonDown == LOW) {
+            currentButtonState = 2;  // Down
+        }
+        
+        // Only send commands if button state changed AND minimum gap elapsed
+        if (currentButtonState != lastButtonState && now - lastCommandTime >= CAN_COMMAND_GAP_MS) {
+            if (currentButtonState == 1) {
+                // Upper button pressed: retract (up) = PURGE_VEL_UP (negative in config)
+                MotorWrapper::setModeAndMove(motor, 2, 1, PURGE_VEL_UP, "Purge Up");
+            } else if (currentButtonState == 2) {
+                // Lower button pressed: push plastic out (down) = PURGE_VEL_DOWN (positive in config)
+                MotorWrapper::setModeAndMove(motor, 2, 1, PURGE_VEL_DOWN, "Purge Down");
             } else {
                 // Neither button pressed: stop
                 MotorWrapper::setModeAndMove(motor, 2, 1, 0, "Purge Stop");
-                lastCommandTime = now;
             }
+            lastButtonState = currentButtonState;
+            lastCommandTime = now;
         }
         
         // ===== CENTER BUTTON: Confirm zero point =====
-        if (buttonCenter == LOW) {
-            // User pressed center: confirm current position as zero point for injection
+        if (buttonCenter) {  // buttonCenter is now bool pressed() event from main
+            // User released center: confirm current position as zero point for injection
             MotorWrapper::setModeAndMove(motor, 2, 1, 0, "Purge Confirm");  // Stop motor
             lastCommandTime = now;
             complete = true;

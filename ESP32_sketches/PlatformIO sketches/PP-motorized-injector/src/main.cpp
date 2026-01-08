@@ -25,6 +25,10 @@
 #include "ReadyToInject.h"
 // ===== END MODULE INCLUDES =====
 
+// ===== ERROR MANAGEMENT (Centralized Logging & Classification) =====
+#include "ErrorManager.h"
+// ===== END ERROR MANAGEMENT =====
+
 // --- FSM Global Variables ---
 fsm_inputs_t fsm_inputs;
 fsm_outputs_t fsm_outputs;
@@ -91,10 +95,10 @@ actualMouldParams_t currentMould = {
     10.0f,  // Pack Pressure (Amps)
     2.0f,   // Pack Time (Sec)
     5.0f,   // Cooling Time (Sec)
-    TRAP_ACCEL_NORMAL,  // Fill Trap Accel (default)
-    TRAP_DECEL_NORMAL,  // Fill Trap Decel (default)
-    TRAP_ACCEL_SLOW,    // Pack Trap Accel (slower, more controlled)
-    TRAP_DECEL_SLOW     // Pack Trap Decel (slower, more controlled)
+    REFILL_ACCEL,  // Fill Trap Accel (default)
+    REFILL_DECEL,  // Fill Trap Decel (default)
+    10.0f,    // Pack Trap Accel (slower, more controlled)
+    10.0f     // Pack Trap Decel (slower, more controlled)
 };
 
 // --- Helper: Log ---
@@ -165,8 +169,14 @@ void updateLeds() {
         case INJECT: colUpper = RED_RGB; colCenter = GREEN_RGB; colLower = BLACK_RGB; colRing = RED_RGB; break;
         case HOLD_INJECTION: colUpper = RED_RGB; colCenter = GREEN_RGB; colLower = GREEN_RGB; colRing = RED_RGB; break;
         case RELEASE: colUpper = GREEN_RGB; colCenter = GREEN_RGB; colLower = GREEN_RGB; colRing = GREEN_RGB; break;
-        case CONFIRM_MOULD_REMOVAL: colUpper = GREEN_RGB; colCenter = GREEN_RGB; colLower = GREEN_RGB; colRing = GREEN_RGB; break;
+        case CONFIRM_MOULD_REMOVAL: colUpper = GREEN_RGB; colCenter = BLACK_RGB; colLower = GREEN_RGB; colRing = GREEN_RGB; break;  // Center OFF
     }
+    
+    // Brightness control: HIGH when any button pressed, LOW otherwise
+    uint8_t brightness = (btnUpper.read() == LOW || btnCenter.read() == LOW || btnLower.read() == LOW) ? LED_BRIGHT_HIGH : LED_BRIGHT_LOW;
+    ledsButtons.setBrightness(brightness);
+    ledsRing.setBrightness(brightness);
+    
     ledsButtons.setPixelColor(0, colUpper); ledsButtons.setPixelColor(1, colCenter); ledsButtons.setPixelColor(2, colLower); ledsButtons.show();
     for(int i=0; i<LED_COUNT_RING; i++) ledsRing.setPixelColor(i, colRing); ledsRing.show();
 }
@@ -194,8 +204,8 @@ bool runCompressionCycle() {
         compressStart = millis();
     }
     float elapsed = (millis() - compressStart) / 1000.0f;
-    float targetTorque = (TORQUE_COMPRESSION_HOLD / 2.0f) * elapsed;
-    if (targetTorque > TORQUE_COMPRESSION_HOLD) targetTorque = TORQUE_COMPRESSION_HOLD;
+    float targetTorque = (COMPRESS_RAMP_TARGET / 2.0f) * elapsed;
+    if (targetTorque > COMPRESS_RAMP_TARGET) targetTorque = COMPRESS_RAMP_TARGET;
     
     MotorWrapper::setModeAndMove(motor, 1, 1, targetTorque, "TorqueMode");
 
@@ -205,30 +215,35 @@ bool runCompressionCycle() {
 }
 
 // --- Debug Report ---
-void printDebugReport() {
+void printDebugReport(unsigned long currentLoopTime, unsigned long maxLoopTimeSinceLastReport) {
     char buf[256];
     long pDisp = safety.getPressure();
-    if (pDisp > 999999) pDisp = 999999; if (pDisp < -999999) pDisp = -999999;
+    // Display cap removed to observe full EMI range
     
     // Get current measurements for contact detection
     const ODriveCANProtocol::CyclicIq& iq_data = motor.getIq();
     float iq_setpoint = iq_data.Iq_setpoint;
     float iq_measured = iq_data.Iq_measured;
     
-    // Mode name helpers
-    const char* ctrlModeName[] = {"Voltage", "Torque", "Velocity", "Position"};
-    const char* inputModeName[] = {"Inactive", "Passthrough", "VelRamp", "PosFilter", "TrapTraj", "TorqueRamp"};
+    // Get numeric mode/input values
     int lastControlMode = MotorWrapper::getLastControlMode();
     int lastInputMode = MotorWrapper::getLastInputMode();
     String lastCmdStr = MotorWrapper::getLastCommand();
-    const char* ctrlStr = (lastControlMode >= 0 && lastControlMode < 4) ? ctrlModeName[lastControlMode] : "None";
-    const char* inputStr = (lastInputMode >= 0 && lastInputMode < 6) ? inputModeName[lastInputMode] : "None";
     
-    snprintf(buf, sizeof(buf), "[%-16s] T:%-3d P:%-7ld | OD:%d Err:0x%-2X | Pos:%-5.1f Vel:%-4.1f | IqS:%-4.1f IqM:%-4.1f | Ctrl:%s Input:%s | Cmd:%s",
+    // Calculate uptime in seconds
+    unsigned long uptimeSeconds = millis() / 1000;
+    
+    BroadcastDataStore& broadcast = BroadcastDataStore::getInstance();
+    uint32_t motorErr = broadcast.getMotorError();
+    uint32_t encoderErr = broadcast.getEncoderError();
+    uint32_t controllerErr = broadcast.getControllerError();
+    
+    snprintf(buf, sizeof(buf), "[%lus c:%lums m:%lums][[%-12s] T:%-3d P:%-7ld OD:%d MX:0x%-2X EX:0x%-2X CX:0x%-2X P:%-5.1f V:%-4.1f IqS:%-4.1f IqM:%-4.1f C:%d I:%d Cmd:%s]",
+        uptimeSeconds, currentLoopTime, maxLoopTimeSinceLastReport,
         getStateName(fsm_state.currentState), fsm_inputs.nozzleTemperature, pDisp,
-        motor.getAxisState(), motor.getAxisError(), motor.getPosition(), motor.getVelocity(), 
+        motor.getAxisState(), motorErr, encoderErr, controllerErr, motor.getPosition(), motor.getVelocity(), 
         iq_setpoint, iq_measured,
-        ctrlStr, inputStr, lastCmdStr.c_str());
+        lastControlMode, lastInputMode, lastCmdStr.c_str());
     MessageBuffer::getInstance().set1HzMessage(buf);
 }
 
@@ -266,7 +281,7 @@ void loop() {
     unsigned long loopStart = millis();
     static unsigned long lastLoopReportTime = 0;
     static unsigned long maxLoopTime = 0;
-    static unsigned long loopCount = 0;
+    static unsigned long loopTime = 0;  // Current loop time, accessible to printDebugReport
     
     motor.loop(); safety.updateInputs(); fsm_inputs.nozzleTemperature = readThermocouple();
     btnCenter.update(); btnUpper.update(); btnLower.update();
@@ -349,28 +364,88 @@ void loop() {
     else if (btnCenter.read() == LOW && btnLower.read() == LOW) buttonLock = true;
     if (buttonLock && btnUpper.read() == HIGH && btnLower.read() == HIGH && btnCenter.read() == HIGH) buttonLock = false;
 
+    // --- MOVEMENT LOCK (Position Move Safety) ---
+    // Locks button handlers during critical position moves (e.g., returning to Refill)
+    // Prevents accidental state changes while motor is moving to target position
+    static bool moveLockActive = false;
+
     // --- SAFETY CHECKS ---
     static unsigned long lowTempStart = 0;
+    // --- Temperature Safety Check ---
+    // TEMP CHECK DISABLED: EMI causing false readings - will be re-enabled after hardware fix
+    /*
     if (fsm_state.currentState != INIT_HEATING && fsm_state.currentState != INIT_HOMING) {
         if (fsm_inputs.nozzleTemperature < TEMP_CRITICAL) {
              if (lowTempStart == 0) lowTempStart = millis();
              if (millis() - lowTempStart > 2000) { if (!tempErrorActive) { safety.triggerHalt(ERR_UNDER_TEMP); fsm_state.currentState = InjectorStates::ERROR_STATE; tempErrorActive = true; } }
         } else { lowTempStart = 0; if (fsm_inputs.nozzleTemperature > (TEMP_CRITICAL + 2)) { tempErrorActive = false; } }
     }
+    */
 
     if (millis() - bootTime > 3000) {
         bool movingDown = motor.getVelocity() > 0.1f;
         if (!safety.check(motor.getVelocity(), movingDown)) { fsm_state.currentState = InjectorStates::ERROR_STATE; fsm_state.error = safety.getLastError(); }
-        if (motor.getAxisError() != 0 && fsm_state.currentState != INIT_HOMING && fsm_state.currentState != ERROR_STATE) { fsm_state.currentState = InjectorStates::ERROR_STATE; fsm_state.error = motor.getAxisError(); }
+        
+        // ===== CENTRALIZED ERROR CHECKING & RECOVERY (New Architecture) =====
+        // Check for ODrive errors (any non-zero error code)
+        uint32_t axisErr = motor.getAxisError();
+        uint32_t motorErr = motor.getMotorErrorDetails().motor_error;
+        uint32_t encoderErr = motor.getEncoderErrorDetails().encoder_error;
+        uint32_t controllerErr = motor.getControllerErrorDetails().controller_error;
+        
+        if (hasAnyError(axisErr, motorErr, encoderErr, controllerErr) && 
+            fsm_state.currentState != INIT_HOMING && 
+            fsm_state.currentState != ERROR_STATE) {
+            
+            // Log error for diagnostics
+            logError(axisErr, motorErr, encoderErr, controllerErr, fsm_state.currentState);
+            
+            // Classify error severity
+            ErrorSeverity severity = classifyError(axisErr, motorErr, encoderErr, controllerErr);
+            
+            // Recovery strategy based on severity
+            switch(severity) {
+                case ERR_EXPECTED_TRANSIENT:
+                    // Module handles it (e.g., Homing auto-clears 0x100)
+                    // Do nothing here, let module-level handling work
+                    break;
+                    
+                case ERR_RECOVERABLE_RETRY:
+                    // Clear errors + request CLC, stay in current state
+                    MessageBuffer::getInstance().sendMessage("Error: Recoverable (retry) - clearing and requesting State 8");
+                    motor.clearErrors();
+                    delay(50);  // Brief pause for error clear to process
+                    motor.setAxisState(ODriveCANProtocol::AxisState::CLOSED_LOOP_CONTROL);
+                    // Stay in current state, retry operation
+                    break;
+                    
+                case ERR_RECOVERABLE_HOMING:
+                    // Requires recalibration - return to homing
+                    MessageBuffer::getInstance().sendMessage("Error: Requires recalibration - returning to homing");
+                    fsm_state.currentState = InjectorStates::INIT_HOMING;
+                    flags.calibrationDone = false;  // Force recalibration
+                    break;
+                    
+                case ERR_SAFETY_CRITICAL:
+                    // Hardware fault - enter ERROR_STATE, require user intervention
+                    MessageBuffer::getInstance().sendMessage("Error: SAFETY CRITICAL - user intervention required");
+                    safety.triggerHalt(ERR_OVER_TEMP);  // Use existing safety error code
+                    fsm_state.currentState = InjectorStates::ERROR_STATE;
+                    fsm_state.error = motorErr;  // Store primary error code
+                    break;
+            }
+        }
+        // ===== END CENTRALIZED ERROR CHECKING =====
     }
+
 
     // --- STATE MACHINE ---
     bool ignoreButtons = (millis() - stateTimer < 500);
 
     switch (fsm_state.currentState) {
         case InjectorStates::ERROR_STATE:
-            MotorWrapper::setModeAndMove(motor, 2, 1, 0, "Stop");
-            if (stateEntry) { 
+            if (stateEntry) {
+                MotorWrapper::setModeAndMove(motor, 2, 1, 0, "Stop");
                 char errBuf[64];
                 snprintf(errBuf, sizeof(errBuf), "ERROR STATE ENTERED: 0x%X", fsm_state.error);
                 MessageBuffer::getInstance().sendMessage(errBuf);
@@ -403,10 +478,18 @@ void loop() {
             // Update non-blocking homing state machine
             Homing::update(motor, safety);
             
+            // Log homing state progress (throttled to 1Hz)
+            static unsigned long lastHomingLogTime = 0;
+            if (millis() - lastHomingLogTime > 1000) {
+                char homingBuf[64];
+                snprintf(homingBuf, sizeof(homingBuf), "[HOMING: %s]", Homing::getStateString());
+                MessageBuffer::getInstance().sendMessage(homingBuf);
+                lastHomingLogTime = millis();
+            }
+            
             // Check for completion or error
             if (Homing::isComplete()) {
-                delay(500);
-                MotorWrapper::setModeAndMove(motor, 3, 1, OFFSET_REFILL_GAP, "Pos Refill");
+                // Don't send move command here - let Refill module handle it
                 fsm_state.currentState = InjectorStates::REFILL;
             } else if (Homing::hasError()) {
                 fsm_state.currentState = InjectorStates::ERROR_STATE;
@@ -440,13 +523,42 @@ void loop() {
                 stateEntry = false;
             }
             if (Refill::update(motor)) {
-                // Transition on completion
-                fsm_state.currentState = InjectorStates::COMPRESSION;
+                // Position reached - unlock buttons
+                moveLockActive = false;
             }
-            if (!ignoreButtons && btnUpper.read() == LOW && btnLower.read() == LOW) { 
-                flags.endOfDay = !flags.endOfDay; 
-                delay(500); 
+            
+            // Check if position move complete to unlock buttons
+            if (moveLockActive && Refill::isComplete()) {
+                moveLockActive = false;
             }
+            
+            // Button handlers (locked during position move)
+            if (!ignoreButtons && !moveLockActive) {
+                // Upper+Lower: Toggle end-of-day flag
+                static unsigned long togglePressTime = 0;
+                static bool toggleProcessed = false;
+                
+                if (btnUpper.read() == LOW && btnLower.read() == LOW) {
+                    if (!toggleProcessed) {
+                        if (togglePressTime == 0) {
+                            togglePressTime = millis();
+                        }
+                        if (millis() - togglePressTime >= UI_BUTTON_TOGGLE_DELAY_MS) {
+                            flags.endOfDay = !flags.endOfDay;
+                            toggleProcessed = true;
+                        }
+                    }
+                } else {
+                    // Buttons released - reset for next toggle
+                    togglePressTime = 0;
+                    toggleProcessed = false;
+                }
+                // Center: Proceed to Compression
+                if (btnCenter.released()) {
+                    fsm_state.currentState = InjectorStates::COMPRESSION;
+                }
+            }
+            
             if (Refill::hasError()) {
                 fsm_state.currentState = InjectorStates::ERROR_STATE;
                 fsm_state.error = 0xFE;  // Refill error
@@ -490,6 +602,13 @@ void loop() {
             if (!ignoreButtons && !buttonLock && btnUpper.released()) { 
                 logMessage("Compression: User aborted, returning to Refill");
                 fsm_state.currentState = InjectorStates::REFILL;
+                moveLockActive = true;  // Lock buttons until Refill position reached
+                Compression::reset();
+            }
+            if (!ignoreButtons && !buttonLock && btnLower.released()) { 
+                logMessage("Compression: User confirmed, ready to inject");
+                fsm_state.currentState = InjectorStates::READY_TO_INJECT;
+                lastAutoCompress = millis();
                 Compression::reset();
             }
             if (Compression::hasError()) {
@@ -528,6 +647,7 @@ void loop() {
             else if (!ignoreButtons && !buttonLock && btnCenter.released()) { 
                 logMessage("Ready: User abort, returning to Refill");
                 fsm_state.currentState = InjectorStates::REFILL;
+                moveLockActive = true;  // Lock buttons until Refill position reached
                 ReadyToInject::reset();
             }
             if (ReadyToInject::hasError()) {
@@ -544,8 +664,8 @@ void loop() {
             if (stateEntry) buttonsReleased = false;
             if (!buttonsReleased) { if (btnUpper.read() == HIGH && btnLower.read() == HIGH) { buttonsReleased = true; logMessage("Purge: Buttons Released."); } } 
             else {
-                if (btnUpper.read() == LOW) MotorWrapper::setModeAndMove(motor, 2, 1, -SPEED_PURGE, "Purge Up");
-                else if (btnLower.read() == LOW) MotorWrapper::setModeAndMove(motor, 2, 1, SPEED_PURGE, "Purge Down");
+                if (btnUpper.read() == LOW) MotorWrapper::setModeAndMove(motor, 2, 1, PURGE_VEL_UP, "Purge Up");       // PURGE_VEL_UP is negative (up)
+                else if (btnLower.read() == LOW) MotorWrapper::setModeAndMove(motor, 2, 1, PURGE_VEL_DOWN, "Purge Down");  // PURGE_VEL_DOWN is positive (down)
                 else MotorWrapper::setModeAndMove(motor, 2, 1, 0, "Stop");
                 if (btnCenter.pressed()) { 
                     logMessage("Purge: Entering AntiDrip");
@@ -560,7 +680,7 @@ void loop() {
                 PurgeZero::begin();
                 stateEntry = false;
             }
-            if (PurgeZero::update(motor, btnUpper.read(), btnLower.read(), btnCenter.pressed())) {
+            if (PurgeZero::update(motor, btnUpper.read(), btnLower.read(), btnCenter.released())) {
                 logMessage("PurgeZero: Complete, moving to AntiDrip");
                 fsm_state.currentState = InjectorStates::ANTIDRIP;
                 PurgeZero::reset();
@@ -583,7 +703,7 @@ void loop() {
                     lastMotorCmdTime = 0;              // Force immediate command
                 }
                 // Move UP (negative velocity) to decompress
-                MotorWrapper::setModeAndMove(motor, 2, 1, -SPEED_ANTIDRIP, "AntiDrip Vel");
+                MotorWrapper::setModeAndMove(motor, 2, 1, ANTIDRIP_VEL, "AntiDrip Vel");  // ANTIDRIP_VEL is negative (up)
                 
                 // Check buttons FIRST - allow interrupt at any time
                 if (!ignoreButtons && btnCenter.read() == LOW && btnLower.read() == LOW) { 
@@ -669,9 +789,9 @@ void loop() {
                 stateEntry = false;
             }
             if (Injection::update(motor)) {
-                // Auto-transition to HOLD_INJECTION
+                // Auto-transition to HOLD_INJECTION (module continues in PACKING phase)
                 fsm_state.currentState = InjectorStates::HOLD_INJECTION;
-                Injection::reset();
+                // DO NOT reset() here - module needs to stay active for PACKING phase!
             }
             if (!ignoreButtons && !buttonLock && btnUpper.released()) { 
                 logMessage("Inject: User abort, releasing mould");
@@ -716,15 +836,16 @@ void loop() {
             ===== END COMMENTED HOLD_INJECTION =====
             */
             // ===== NEW: Modular Injection (PACKING phase, handled by same module) =====
+            Injection::update(motor);  // CRITICAL: Must call update() to check pack timer
             if (Injection::isComplete()) {
                 logMessage("Hold: Pack time complete, releasing mould");
                 fsm_state.currentState = InjectorStates::RELEASE;
-                Injection::reset();
+                Injection::reset();  // Reset module when DONE (exiting injection sequence)
             }
             if (!ignoreButtons && !buttonLock && btnUpper.released()) { 
                 logMessage("Pack: User abort, releasing mould");
                 fsm_state.currentState = InjectorStates::RELEASE;
-                Injection::reset();
+                Injection::reset();  // Reset module on abort
             }
             break;
 
@@ -753,16 +874,16 @@ void loop() {
             if (stateEntry) {
                 logMessage("Release: Unloading mould");
                 
-                // Step 1: Set motor limits for release
-                MotorWrapper::setMotorLimits(motor, VEL_LIMIT_RELEASE, CURRENT_LIMIT_RELEASE, "RELEASE");
+                // Step 1: Set motor limits for release (controller limit = machine max for TRAP_TRAJ authority)
+                MotorWrapper::setMotorLimits(motor, RELEASE_CONTROLLER_VEL_LIMIT, RELEASE_CURRENT_LIMIT, "RELEASE");
                 delay(CAN_COMMAND_GAP_MS + 5);
                 
-                // Step 2: Configure TRAP_TRAJ for smooth fast unload
-                MotorWrapper::setTrapTrajParams(motor, VEL_LIMIT_RELEASE, TRAP_ACCEL_FAST, TRAP_DECEL_FAST, "RELEASE_TRAJ");
+                // Step 2: Configure TRAP_TRAJ for smooth fast unload (trajectory limit - actual movement speed)
+                MotorWrapper::setTrapTrajParams(motor, RELEASE_TRAP_VEL_LIMIT, RELEASE_ACCEL, RELEASE_DECEL, "RELEASE_TRAJ");
                 delay(CAN_COMMAND_GAP_MS + 5);
                 
                 // Step 3: Send position command with TRAP_TRAJ input mode
-                float releaseTarget = motor.getPosition() - DIST_RELEASE_MOULD;  // NEGATIVE = UP
+                float releaseTarget = motor.getPosition() + RELEASE_DIST;  // RELEASE_DIST is negative (up)
                 MotorWrapper::setModeAndMove(motor, 3, 5, releaseTarget, "Pos Release");  // Mode 3 (Position), InputMode 5 (TRAP_TRAJ)
                 
                 stateEntry = false;
@@ -783,15 +904,27 @@ void loop() {
              ===== END COMMENTED CONFIRM =====
              */
              // ===== NEW: Confirm (button-driven state return) =====
-             if (!ignoreButtons && !buttonLock && (btnCenter.released() || btnUpper.released() || btnLower.released())) { 
+             static unsigned long confirmButtonTime = 0;
+             
+             // Only accept UPPER or LOWER buttons (not center to avoid carry-over)
+             if (!ignoreButtons && !buttonLock && (btnUpper.released() || btnLower.released())) {
+                 if (confirmButtonTime == 0) {
+                     confirmButtonTime = millis();
+                 }
+             }
+             
+             // After 1 second delay, proceed to next state
+             if (confirmButtonTime > 0 && millis() - confirmButtonTime >= 1000) {
                  if(flags.endOfDay) {
                      logMessage("Confirm: Returning to ReadyToInject");
                      fsm_state.currentState = InjectorStates::READY_TO_INJECT; 
                  }
                  else {
                      logMessage("Confirm: Returning to Refill");
-                     fsm_state.currentState = InjectorStates::REFILL; 
+                     fsm_state.currentState = InjectorStates::REFILL;
+                     moveLockActive = true;  // Lock buttons until Refill position reached
                  }
+                 confirmButtonTime = 0;  // Reset for next time
              }
              break;
 
@@ -800,24 +933,13 @@ void loop() {
     
     // ===== LOOP TIMING MEASUREMENT =====
     unsigned long loopEnd = millis();
-    unsigned long loopTime = loopEnd - loopStart;
-    loopCount++;
+    loopTime = loopEnd - loopStart;
     if (loopTime > maxLoopTime) maxLoopTime = loopTime;
-    
-    // Report timing every 100 iterations or 10Hz (whichever comes first)
-    if (loopCount % 100 == 0 || (millis() - lastLoopReportTime) > 100) {
-        char timingBuf[128];
-        snprintf(timingBuf, sizeof(timingBuf), 
-            "LOOP_TIME: current=%lums max=%lums count=%lu",
-            loopTime, maxLoopTime, loopCount);
-        MessageBuffer::getInstance().sendMessage(timingBuf);
-        lastLoopReportTime = millis();
-        maxLoopTime = 0;  // Reset max after reporting
-    }
     
     if (millis() - lastDebugTime > 1000) { 
         lastDebugTime = millis(); 
-        printDebugReport();
+        printDebugReport(loopTime, maxLoopTime);  // Pass timing values as parameters
+        maxLoopTime = 0;  // Reset max after reporting (tracks max over ~1 second)
         // Flush buffered messages: output 1Hz status + accumulated event messages
         const char* output = MessageBuffer::getInstance().getOutput();
         Serial.println(output);
