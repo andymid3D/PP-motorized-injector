@@ -216,34 +216,31 @@ Each module namespace must include: `begin()`, `update(motor)`, `isComplete()`, 
 
 ## ⚠️ KNOWN ISSUES / POTENTIAL PROBLEMS
 
-### **Issue 1: MotorWrapper Blocking Delays** ⚠️ HIGH PRIORITY
-- **Location:** Refill.cpp lines 38-41, 47-50; Compression.cpp lines 78-82, 156-159; ReadyToInject.cpp line 35
-- **Problem:** Using `delay(CAN_COMMAND_GAP_MS + 5)` instead of non-blocking timing
-- **Impact:** Blocks main loop for 55ms per motor command (violates non-blocking architecture)
-- **Current Workaround:** Calls `motor.loop()` during delay to process CAN queue
-- **Fix Required:** Replace with state machine waits or millisDelay checks
-- **Testing:** Monitor if this causes CAN queue overflow or button responsiveness issues
+### ✅ **Issue 1: MotorWrapper Blocking Delays** - **FIXED (Jan 10 2026)**
+- **Status:** RESOLVED - All blocking delays replaced with non-blocking state machine waits
+- **Changes:**
+  - **Refill:** Added SETTING_LIMITS, SETTING_TRAJ substeps with non-blocking CAN waits
+  - **Compression:** Added WAIT_TRAVEL_LIMITS, WAIT_CONTACT_ADJUST, WAIT_MICRO_LIMITS, WAIT_MICRO_MODE substeps
+  - **ReadyToInject:** Replaced state machine with SETTING_IDLE_LIMITS, IDLE_WAITING, SETTING_MICRO_LIMITS, MICRO_COMPRESSING
+- **Testing:** Verify button responsiveness and CAN queue processing during hardware tests
 
 ### **Issue 2: Compression Contact Detection Logic** ⚠️ MEDIUM PRIORITY
-- **Location:** Compression.cpp lines 110-113
+- **Location:** Compression.cpp (contact detection in TRAVEL_DOWN step)
 - **Current Logic:** `stallDetected = motor.getAxisError() != 0` OR `torqueExceeded = high current + stopped`
 - **Concern:** Torque mode naturally has velocity near-zero without resistance
 - **Question:** Is `motor.getIqReadings().Iq_measured > 8.0f` the correct threshold?
 - **Testing Required:** Verify contact detection with actual plastic block
 - **Alternative:** May need to use velocity drop + current spike combination
 
-### **Issue 3: ReadyToInject Torque Ramp Updates** ⚠️ LOW PRIORITY
-- **Location:** ReadyToInject.cpp lines 61-63
-- **Current:** Calls `motor.setInputTorque(targetTorque)` directly (bypasses MotorWrapper)
-- **Concern:** No logging, no CAN gap enforcement
-- **Impact:** May cause issues if other commands sent during micro-compression
-- **Fix Required:** Consider wrapping in MotorWrapper or add explicit gap check
+### ✅ **Issue 3: ReadyToInject Torque Ramp Updates** - **FIXED (Jan 10 2026)**
+- **Status:** RESOLVED - CAN gap enforcement added to torque setpoint updates
+- **Changes:** Added `if (now - lastCommandTime >= CAN_COMMAND_GAP_MS)` check before `motor.setInputTorque()`
 - **Testing:** Monitor for CAN errors during micro-compression cycles
 
 ### **Issue 4: Compression Mode Setting** ⚠️ LOW PRIORITY
-- **Location:** Compression.cpp lines 151-156
-- **Current:** Sets mode to TORQUE_CONTROL inside TORQUE_RAMP step (MODE_2 only)
-- **Question:** Is mode already set from TRAVEL_DOWN phase for MODE_1?
+- **Location:** Compression.cpp (MODE 2 torque mode setting)
+- **Current:** Sets mode to TORQUE_CONTROL in WAIT_MICRO_MODE step (MODE 2 only)
+- **Note:** Mode already set from TRAVEL_DOWN for MODE 1 (torque travel command)
 - **Testing Required:** Verify mode transitions don't cause ODrive errors or reset setpoints
 
 ---
@@ -348,12 +345,13 @@ screen /dev/cu.SLAB_USBtoUART 115200
 
 ---
 
-## 📋 NEXT STEPS AFTER PHASE 2 COMPLETE
+## 📋 NEXT STEPS (Updated: Jan 10 2026)
 
 1. ✅ Validate Refill, Compression, ReadyToInject work correctly with hardware
-2. ⚠️ Fix blocking delays in MotorWrapper (Issue 1) - convert to non-blocking waits
+2. ✅ **COMPLETE:** Fix blocking delays in MotorWrapper (Issue 1) - converted to non-blocking state machine waits
 3. ⚠️ Tune contact detection thresholds (Issue 2) - test with actual plastic
-4. ⚠️ Add CAN gap enforcement to ReadyToInject torque updates (Issue 3)
-5. 🔜 Proceed to Phase 3 hardware testing: PurgeZero + AntiDrip + Injection (requires mould)
-6. 🔜 Implement Display Communications (UART2 broadcasts, mould parameter parsing)
-7. 🔜 Test full injection cycle: REFILL → COMPRESSION → READY → PURGE → ANTIDRIP → INJECT → HOLD → RELEASE
+4. ✅ **COMPLETE:** Add CAN gap enforcement to ReadyToInject torque updates (Issue 3)
+5. 🔜 **READY:** Hardware testing Phase 2 (Refill, Compression, ReadyToInject)
+6. 🔜 **READY:** Hardware testing Phase 3 (PurgeZero, AntiDrip, Injection - requires mould)
+7. 🔜 Implement Display Communications (UART2 broadcasts, mould parameter parsing)
+8. 🔜 Test full injection cycle: REFILL → COMPRESSION → READY → PURGE → ANTIDRIP → INJECT → HOLD → RELEASE

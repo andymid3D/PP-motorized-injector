@@ -90,7 +90,13 @@
 #define DEBOUNCE_MS_SAFETY      150         // Safety input debounce time (ms)
 
 // CAN Bus Timing
-#define CAN_COMMAND_GAP_MS      50          // Minimum gap between CAN commands (ms)
+#define CAN_COMMAND_GAP_MS          0       // RTR eliminates need for timing gap (was 50ms)
+#define ERROR_CLEAR_DELAY_MS        50      // Delay after error clear command (ms)
+#define BROADCAST_STALE_TIMEOUT_MS  100     // No broadcast = CAN failure (matches heartbeat interval)
+
+// RTR Response Tracking
+#define RTR_TIMEOUT_MS              5       // Per-attempt timeout for RTR response (ms)
+#define RTR_RETRY_COUNT             3       // Number of retry attempts (total 15ms detection)
 
 // ==========================================
 // 4. MOTOR CONTROL PARAMETERS BY STATE
@@ -126,6 +132,9 @@
 #define REFILL_ACCEL            20.0f       // Acceleration (turns/sec²)
 #define REFILL_DECEL            20.0f       // Deceleration (turns/sec²)
 #define REFILL_CURRENT_LIMIT    15.0f       // Current limit (Amps)
+// Timeout: Worst case = full barrel length / speed + 2s margin
+// Full length: POS_HOME (0) to POS_BOTTOM_MAX (~355.4 turns)
+#define REFILL_TIMEOUT_MS       ((uint32_t)((POS_BOTTOM_MAX / REFILL_TRAP_VEL_LIMIT) * 1000.0f + 2000.0f))  // ~26 seconds
 
 // ------------------------------------------------------------
 // STATE: COMPRESSION (Compression.cpp)
@@ -156,6 +165,7 @@
 // Control: Idle with periodic micro-compression
 // Micro-compression uses Compression module MODE_2
 #define READY_MICRO_INTERVAL_MS      30000  // Interval between micro-compressions (ms)
+#define READY_MICRO_DURATION_MS      2000   // Duration of micro-compression ramp (ms)
 
 // ------------------------------------------------------------
 // STATE: PURGE_ZERO (PurgeZero.cpp)

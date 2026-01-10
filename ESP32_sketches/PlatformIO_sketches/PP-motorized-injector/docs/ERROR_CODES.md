@@ -164,6 +164,110 @@ This allows quick visual identification of error codes for troubleshooting.
 
 ---
 
+## ESP32 Machine Errors (SafetyManager)
+
+These are high-level safety faults detected by the ESP32 SafetyManager, separate from ODrive errors:
+
+| Code | Name | Meaning | Possible Causes | Response |
+|------|------|---------|-----------------|----------|
+| 0 | ERR_NONE | No error | - | Normal operation |
+| 1 | ERR_ESTOP | E-stop pressed | Emergency stop button activated | Cut motor power, require manual reset |
+| 2 | ERR_BARREL_POSITION_LOST | Barrel endstop open | Barrel removed during operation | Cut motor power, ERROR_STATE |
+| 3 | ERR_NOZZLE_NOT_BLOCKED | Nozzle blockage check failed | Nozzle not blocked during test | Cut motor power, ERROR_STATE |
+| 4 | ERR_OVER_TEMP | Temperature too high | Heater malfunction or overshoot | Cut motor power, wait for cooldown |
+| 5 | ERR_HARD_LIMIT | Hard position limit violated | Motor moved beyond safe range | Cut motor power, require homing |
+| 6 | ERR_UNDER_TEMP | Temperature too low | Heater not reaching target | Wait for heating |
+| 7 | ERR_BOTTOM_ENDSTOP_COLLISION | Bottom endstop hit unexpectedly | Plunger collided with bottom during downward move | Cut motor power, ERROR_STATE |
+| 8 | ERR_TOP_ENDSTOP_COLLISION | Top endstop hit unexpectedly | Plunger collided with top during upward move | Cut motor power, ERROR_STATE |
+| 9 | ERR_BROADCAST_STALE | No ODrive broadcast data | CAN bus disconnected, ODrive crashed, ESP32 CAN failure | Flag error, FSM stops motor |
+
+### ERR_BROADCAST_STALE (Code 9) - Critical Communication Fault
+
+**Detection:** No encoder estimates broadcast received in 100ms (matches heartbeat interval)
+
+**Why 100ms?**
+- Encoder broadcasts every 10ms (fast feedback)
+- Heartbeat broadcasts every 100ms (includes axis errors)
+- If 100ms passes with NO broadcasts:
+  - Heartbeat WOULD have arrived WITH axis error → existing error handler catches it
+  - No heartbeat at all → CAN disconnect/ODrive crash/ESP32 CAN failure
+
+**Root Causes (when 100ms timeout triggers):**
+1. **CAN bus physical disconnect** → Hardware failure (loose cable, damaged connector)
+2. **ODrive firmware crash/lockup** → ODrive stopped executing completely
+3. **ESP32 CAN peripheral failure** → EMI/noise caused ESP32 TWAI reset
+
+**Response:**
+- SafetyManager flags error (does NOT cut DC contactor)
+- FSM transitions to ERROR_STATE and stops motor via state machine
+- Serial log: `SAFETY ERROR: Broadcast Stale (>100ms)`
+- **Why not power off?** Avoids unnecessary homing cycle on recovery
+- **Requires manual intervention** - investigate CAN bus, check ODrive status
+
+**Why This Is Critical:**
+- No feedback = blind operation (position/velocity unknown)
+- Cannot detect collisions, overshoot, or stalls
+- Similar risk to total sensor failure
+
+**Future Enhancement:**
+- Could attempt DC contactor cycle to reset ODrive (90% success rate on firmware lockups)
+- Track staleness count to distinguish transient vs permanent failure
+- Log last valid broadcast timestamp for diagnostics
+
+---
+
+## Machine Error Code 10: ERR_CAN_RTR_FAILURE
+
+**Trigger Condition:** Critical CAN command failed RTR (Remote Transmission Request) confirmation after 3 retries (15ms total detection time)
+
+**Critical Commands Protected by RTR:**
+1. `setControllerModes()` - Mode transitions (Position/Velocity/Torque)
+2. `setAxisState()` - State transitions (IDLE ↔ CLOSED_LOOP)
+3. `clearErrors()` - Error recovery
+
+**RTR Mechanism:**
+- Command sent with RTR flag set (requests ODrive to echo back message)
+- 5ms timeout per attempt × 3 retries = 15ms detection
+- If no RTR response received, command failed (CAN break or ODrive non-responsive)
+
+**Response:**
+1. **If Motor Stationary (velocity < 0.5 rps):**
+   - SafetyManager flags ERR_CAN_RTR_FAILURE
+   - FSM transitions to ERROR_STATE
+   - Serial log: `CRITICAL_TRANSITION_FAIL: <transition_type> | AxisState=X CtrlMode=Y`
+   - No power cutoff (motor safe, CAN can recover)
+
+2. **If Motor Moving (velocity ≥ 0.5 rps):**
+   - Immediate DC contactor cutoff (forceEmergencyShutdown)
+   - Serial log: `TRANS_FAIL: Motor moving, CAN unreliable, CUTTING CONTACTOR`
+   - Requires power cycle to reset (hardware safety interlock)
+
+**Why This Is Critical:**
+- RTR failure = CAN bus break or ODrive firmware crash
+- Continuing operation without confirmation risks:
+  - Wrong mode (e.g., velocity mode with position setpoint = runaway)
+  - Wrong state (e.g., IDLE when expecting CLOSED_LOOP = no motor control)
+  - Uncleared errors (e.g., previous fault still active)
+- 15ms detection prevents 1.25cm³ plastic waste (vs 100ms broadcast staleness)
+
+**4 Critical Transitions:**
+1. IDLE → CLOSED_LOOP (State 8): Homing/movement enable
+2. Mode → POSITION_CONTROL (Mode 3): Refill/Injection moves
+3. Mode → TORQUE_CONTROL (Mode 1): Compression/packing
+4. Any State → IDLE (State 1): Emergency stop/release
+
+**Recovery:**
+- Power cycle ESP32 + ODrive (resets CAN bus and firmware)
+- Check CAN bus wiring (loose connections, EMI interference)
+- Verify ODrive firmware is responsive (USB odrivetool)
+
+**Blocking Time:**
+- Each RTR command blocks for 2-5ms (acceptable for critical commands)
+- Non-critical commands (setInputPos, setInputVel, setInputTorque) remain non-blocking
+- CAN_COMMAND_GAP_MS reduced to 0 (RTR replaces timing-based protection)
+
+---
+
 ## Troubleshooting Workflow
 
 1. **Check Serial Output:** Look for hex error codes in 1Hz status line
@@ -177,6 +281,7 @@ This allows quick visual identification of error codes for troubleshooting.
    - Connection errors → Check cables and connectors
    - Mechanical errors → Inspect mechanical system for jams
    - Parameter errors → Verify ODrive configuration
+   - RTR failures → Power cycle, check CAN bus wiring
 
 ---
 

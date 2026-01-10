@@ -1,6 +1,7 @@
 #include "SafetyManager.h"
 #include "CanBusHandlerV2.h"
-#include "MessageBuffer.h" 
+#include "MessageBuffer.h"
+#include "BroadcastDataStore.h"
 
 extern CanBusHandlerV2 motor; 
 
@@ -165,6 +166,27 @@ bool SafetyManager::check(float current_velocity, bool is_moving_down) {
         triggerHalt(ERR_BARREL_POSITION_LOST);
         return false;
     }
+    
+    // ===== BROADCAST STALENESS CHECK =====
+    // Timeout: 100ms (matches heartbeat interval)
+    // Why 100ms?
+    // - Encoder broadcasts: 10ms (fast feedback for movement)
+    // - Heartbeat broadcasts: 100ms (includes axis errors)
+    // If 100ms passes with NO broadcasts:
+    //   - Heartbeat would have arrived WITH axis error → existing error handler catches it
+    //   - No heartbeat at all → CAN disconnect/ODrive crash/ESP32 CAN peripheral failure
+    // Response: Flag error, FSM stops motor via state transition
+    // NOTE: Don't power off driver (avoids forced homing cycle)
+    if (BroadcastDataStore::getInstance().isBroadcastDataStale()) {
+        // Just flag error - don't cut power (triggerHalt calls enableMotorPower(false))
+        if (_lastError != ERR_BROADCAST_STALE) {
+            char buf[64];
+            snprintf(buf, sizeof(buf), "SAFETY ERROR: Broadcast Stale (>%dms)", BROADCAST_STALE_TIMEOUT_MS);
+            MessageBuffer::getInstance().sendMessage(buf);
+            _lastError = ERR_BROADCAST_STALE;
+        }
+        return false;  // FSM will transition to ERROR_STATE and stop motor
+    }
 
     // ===== ENDSTOP COLLISION DETECTION =====
     // Prevent unexpected endstop collisions during movement (except during homing/antidrip)
@@ -283,4 +305,37 @@ void SafetyManager::setLoadCellMedianFilter(bool enable) {
     // Use median filter instead of average (more robust against EMI spikes)
     // Requires averaging to be enabled with setLoadCellAveraging() first
     _loadCellUseMedian = enable;
+}
+
+// ===== SINGLETON ACCESS =====
+
+SafetyManager& SafetyManager::getInstance() {
+    static SafetyManager instance;
+    return instance;
+}
+
+// ===== EMERGENCY SHUTDOWN (for TransitionErrorHandler) =====
+
+void SafetyManager::forceEmergencyShutdown(const char* reason) {
+    // Immediate contactor cutoff (bypasses normal safety checks)
+    // Used when ODrive cannot be controlled via CAN (RTR failure + motor moving)
+    
+    char buf[128];
+    snprintf(buf, sizeof(buf), "EMERGENCY_SHUTDOWN: %s", reason);
+    MessageBuffer::getInstance().sendMessage(buf);
+    
+    // Cut DC contactor immediately
+    enableMotorPower(false);
+    
+    // Flag error for FSM transition to ERROR_STATE
+    _lastError = ERR_CAN_RTR_FAILURE;
+}
+
+void SafetyManager::flagError(MachineError err) {
+    // Set error code (triggers FSM transition to ERROR_STATE)
+    _lastError = err;
+    
+    char buf[64];
+    snprintf(buf, sizeof(buf), "SAFETY_ERROR_FLAGGED: Code=%d", err);
+    MessageBuffer::getInstance().sendMessage(buf);
 }

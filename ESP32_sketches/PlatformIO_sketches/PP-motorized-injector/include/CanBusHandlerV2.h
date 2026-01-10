@@ -120,46 +120,51 @@ public:
      * Set axis requested state (AxisState enum)
      * Examples: IDLE (1), CALIBRATION (3-6), CLOSED_LOOP_CONTROL (8)
      * @param state Target AxisState
+     * @return true if queued, false if queue full
      */
-    void setAxisState(ODriveCANProtocol::AxisState state);
+    bool setAxisState(ODriveCANProtocol::AxisState state);
     
     /**
      * Set control mode and input mode together
      * CRITICAL: Both parameters MUST be sent in same command
      * @param ctrlMode ControlMode: 0=Voltage, 1=Torque, 2=Velocity, 3=Position
      * @param inputMode InputMode: 0=Inactive, 1=Passthrough, 2=VelRamp, 3=PosFilter, 5=TrapTraj, 6=TorqueRamp
+     * @return true if queued, false if queue full
      * 
      * Example: setControllerModes(ControlMode::POSITION_CONTROL, InputMode::TRAP_TRAJ)
      */
-    void setControllerModes(ODriveCANProtocol::ControlMode ctrlMode, 
+    bool setControllerModes(ODriveCANProtocol::ControlMode ctrlMode, 
                            ODriveCANProtocol::InputMode inputMode);
     
     /**
      * Set position target
      * Byte 0-3: position (float32)
      * @param position Target position in turns
+     * @return true if queued, false if queue full
      * 
      * Example: setInputPos(10.5f) → move to 10.5 turns
      */
-    void setInputPos(float position);
+    bool setInputPos(float position);
     
     /**
      * Set velocity target
      * Byte 0-3: velocity (float32)
      * @param velocity Target velocity in turns/second
+     * @return true if queued, false if queue full
      * 
      * Example: setInputVel(5.0f) → move at 5 turns/sec
      */
-    void setInputVel(float velocity);
+    bool setInputVel(float velocity);
     
     /**
      * Set torque target (current control)
      * Byte 0-3: torque (float32)
      * @param torque Target torque in Nm (or amps if using current control)
+     * @return true if queued, false if queue full
      * 
      * Example: setInputTorque(2.5f) → apply 2.5 Nm torque
      */
-    void setInputTorque(float torque);
+    bool setInputTorque(float torque);
     
     /**
      * Set velocity and current limits
@@ -168,16 +173,18 @@ public:
      * Byte 4-7: current_limit (float32)
      * @param velLimit Velocity limit in turns/second
      * @param currentLimit Current limit in amps
+     * @return true if queued, false if queue full
      * 
      * Example: setLimits(50.0f, 10.0f) → max 50 turns/sec, max 10 amps
      */
-    void setLimits(float velLimit, float currentLimit);
+    bool setLimits(float velLimit, float currentLimit);
     
     /**
      * Reset encoder to zero (or set to arbitrary count)
      * Sets the encoder count value (ODrive's internal step counter)
      * Byte 0-3: count (int32_t)
      * @param count Encoder count value in steps (typically 0 to reset to zero)
+     * @return true if queued, false if queue full
      * 
      * IMPORTANT: This is the encoder COUNT (in ODrive's step units), NOT position in turns.
      * ODrive encoder CPR = 8192 counts per turn.
@@ -190,15 +197,16 @@ public:
      *   setLinearCount(8192) → set to 1.0 turn
      *   setLinearCount(16384) → set to 2.0 turns
      */
-    void setLinearCount(int32_t count);
+    bool setLinearCount(int32_t count);
     
     /**
      * Clear all ODrive errors
      * Command-only, no parameters required
+     * @return true if queued, false if queue full
      * 
      * Use when recovering from ERROR_STATE after fixing root cause
      */
-    void clearErrors();
+    bool clearErrors();
     
     // ===== DIAGNOSTIC & CONTROL COMMANDS (RTR - Remote Transfer Request) =====
     // These request data from ODrive or perform advanced control
@@ -207,62 +215,71 @@ public:
     /**
      * Request immediate heartbeat from ODrive
      * Forces ODrive to send heartbeat immediately (not just ~100ms interval)
+     * @return true if queued, false if queue full
      */
-    void heartbeatRequest();
+    bool heartbeatRequest();
     
     /**
      * Emergency stop - cuts motor PWM immediately
      * Motor coasts to a stop
      * Clears any pending commands
+     * @return true if queued, false if queue full
      */
-    void estop();
+    bool estop();
     
     /**
      * Request motor error flags from ODrive (diagnostic)
      * ODrive will respond with motor error value via CAN
+     * @return true if queued, false if queue full
      */
-    void getMotorError();
+    bool getMotorError();
     
     /**
      * Request encoder error flags from ODrive (diagnostic)
      * ODrive will respond with encoder error value via CAN
+     * @return true if queued, false if queue full
      */
-    void getEncoderError();
+    bool getEncoderError();
     
     /**
      * Request sensorless estimator error from ODrive (diagnostic)
      * ODrive will respond with sensorless error value via CAN
+     * @return true if queued, false if queue full
      */
-    void getSensorlessError();
+    bool getSensorlessError();
     
     /**
      * Change the CAN node ID of this axis
      * WARNING: After calling, axis must be re-discovered at new address
      * @param newNodeId New CAN node ID (0-63)
+     * @return true if queued, false if queue full
      */
-    void setAxisNodeId(uint32_t newNodeId);
+    bool setAxisNodeId(uint32_t newNodeId);
     
     /**
      * Request current encoder count from ODrive (diagnostic)
      * ODrive will respond with encoder count value via CAN
+     * @return true if queued, false if queue full
      */
-    void getEncoderCount();
+    bool getEncoderCount();
     
     /**
      * Start anticogging calibration procedure
      * Motor will move in characteristic pattern to build anticogging map
      * May take several seconds
+     * @return true if queued, false if queue full
      */
-    void startAnticogging();
+    bool startAnticogging();
     
     /**
      * Set trajectory planner velocity limit
      * Used with setControllerModes(..., InputMode::TRAP_TRAJ)
      * @param trajVelLimit Max trajectory velocity (turns/second)
+     * @return true if queued, false if queue full
      * 
      * Example: setTrajVelLimit(20.0f) → limit to 20 turns/sec
      */
-    void setTrajVelLimit(float trajVelLimit);
+    bool setTrajVelLimit(float trajVelLimit);
     
     /**
      * Set trajectory planner acceleration and deceleration limits
@@ -272,19 +289,21 @@ public:
      * Byte 4-7: decel_limit (float32, turns/sec²)
      * @param accelLimit Max acceleration (turns/sec²)
      * @param decelLimit Max deceleration (turns/sec²)
+     * @return true if queued, false if queue full
      * 
      * Example: setTrajAccelLimits(100.0f, 100.0f) → symmetric accel/decel
      */
-    void setTrajAccelLimits(float accelLimit, float decelLimit);
+    bool setTrajAccelLimits(float accelLimit, float decelLimit);
     
     /**
      * Set trajectory planner feedforward inertia
      * Improves trajectory tracking accuracy
      * @param inertia Feedforward inertia value
+     * @return true if queued, false if queue full
      * 
      * Example: setTrajInertia(0.0f) → no feedforward
      */
-    void setTrajInertia(float inertia);
+    bool setTrajInertia(float inertia);
     
     /**
      * Get current Iq (current) setpoint and measured values
@@ -360,11 +379,18 @@ public:
      */
     void onCanMessageReceived(const can_Message_t& msg);
 
+    /**
+     * Get current queue depth (for debugging)
+     * @return Number of messages waiting in ring buffer (0-8)
+     */
+    uint8_t getQueueDepth() const { return getQueueCount(); }
+
 private:
     static constexpr uint8_t NODE_ID = 0;  // ODrive node ID
     
     // Helper: Queue command respecting CAN_COMMAND_GAP_MS timing
-    void _queueCommand(const can_Message_t& cmd);
+    // Returns false if queue is full (command dropped)
+    bool _queueCommand(const can_Message_t& cmd);
     
     // Current ODrive state (updated by CAN RX)
     // Core messages (always processed)
@@ -394,9 +420,37 @@ private:
     // Used to enforce CAN_COMMAND_GAP_MS between successive sends
     uint32_t lastCommandSentTime_ = 0;
     
-    // Command queue (one pending at a time for now)
-    can_Message_t pendingCommand_;
-    bool hasPendingCommand_ = false;
+    // Command ring buffer (8-message circular queue)
+    static constexpr uint8_t CMD_QUEUE_SIZE = 8;
+    can_Message_t commandQueue_[CMD_QUEUE_SIZE];
+    uint8_t queueHead_ = 0;  // Index where next command is written
+    uint8_t queueTail_ = 0;  // Index where next command is read
+    bool queueFull_ = false;  // Flag to detect overflow
+    
+    // RTR Response Tracking
+    struct {
+        uint32_t canId;          // CAN ID we're waiting for response from
+        uint32_t sentTime;       // Time command was sent (microseconds)
+        bool waiting;            // True if waiting for RTR response
+        uint8_t retryCount;      // Number of retries attempted
+    } pendingRTR_;
+    
+    // Helper: Check if queue is empty
+    bool isQueueEmpty() const { return (queueHead_ == queueTail_) && !queueFull_; }
+    
+    // Helper: Check if queue has space
+    bool isQueueFull() const { return queueFull_; }
+    
+    // Helper: Get number of messages in queue
+    uint8_t getQueueCount() const {
+        if (queueFull_) return CMD_QUEUE_SIZE;
+        if (queueHead_ >= queueTail_) return queueHead_ - queueTail_;
+        return CMD_QUEUE_SIZE - (queueTail_ - queueHead_);
+    }
+    
+    // Internal: Queue command with RTR flag and blocking wait for response
+    // Returns true if command queued + RTR received, false on timeout/error
+    bool _queueCommandWithRTR(const can_Message_t& msg);
 };
 
 #endif // __CANBUS_HANDLER_V2_H__

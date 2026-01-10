@@ -25,7 +25,14 @@ namespace MotorWrapper {
         
         // Enforce CAN command gap
         if ((now - lastCmdTime) >= CAN_COMMAND_GAP_MS) {
-            motor.setLimits(vel_lim, current_lim);
+            if (!motor.setLimits(vel_lim, current_lim)) {
+                // Queue full - log warning
+                char errBuf[64];
+                snprintf(errBuf, sizeof(errBuf), "CAN_QUEUE_FULL: Limits [%s]", context.c_str());
+                MessageBuffer::getInstance().sendMessage(errBuf);
+                return;  // Don't update state if command failed
+            }
+            
             lastCmdTime = now;
             lastCmdStr = "Limits:" + context;
             lastVelLimit = vel_lim;
@@ -41,17 +48,19 @@ namespace MotorWrapper {
     
     // ===== SET TRAP_TRAJ PARAMETERS (CAN 0x011 + 0x012) =====
     void setTrapTrajParams(CanBusHandlerV2& motor, float vel_limit, float accel, float decel, String context) {
-        // First message: vel_limit
-        motor.setTrajVelLimit(vel_limit);
-        
-        // Wait for first message to be sent
-        unsigned long waitStart = millis();
-        while (millis() - waitStart < CAN_COMMAND_GAP_MS) {
-            motor.loop();  // Process queue
+        // Queue both messages - ring buffer handles timing
+        if (!motor.setTrajVelLimit(vel_limit)) {
+            char errBuf[64];
+            snprintf(errBuf, sizeof(errBuf), "CAN_QUEUE_FULL: TrajVel [%s]", context.c_str());
+            MessageBuffer::getInstance().sendMessage(errBuf);
+            return;
         }
-        
-        // Second message: accel/decel
-        motor.setTrajAccelLimits(accel, decel);
+        if (!motor.setTrajAccelLimits(accel, decel)) {
+            char errBuf[64];
+            snprintf(errBuf, sizeof(errBuf), "CAN_QUEUE_FULL: TrajAccel [%s]", context.c_str());
+            MessageBuffer::getInstance().sendMessage(errBuf);
+            return;
+        }
         
         lastCmdTime = millis();
         lastCmdStr = "TrapParams:" + context;
@@ -64,27 +73,40 @@ namespace MotorWrapper {
         MessageBuffer::getInstance().sendMessage(buf);
     }
     
+    // ===== DYNAMIC ADJUSTMENT (Resend limits with new current) =====
+    void adjustMotorLimits(CanBusHandlerV2& motor, float current_lim, String reason) {
+        // Reuse setMotorLimits with last velocity limit
+        setMotorLimits(motor, lastVelLimit, current_lim, reason);
+    }
+    
     // ===== EXECUTE MOTOR MOVE (Unified Wrapper) =====
     void setModeAndMove(CanBusHandlerV2& motor, int ctrlMode, int inputMode, float value, String cmdName) {
-        // Set control mode and input mode
-        motor.setControllerModes((ODriveCANProtocol::ControlMode)ctrlMode, 
-                                 (ODriveCANProtocol::InputMode)inputMode);
+        // Queue mode command - ring buffer handles timing
+        if (!motor.setControllerModes((ODriveCANProtocol::ControlMode)ctrlMode, 
+                                      (ODriveCANProtocol::InputMode)inputMode)) {
+            char errBuf[64];
+            snprintf(errBuf, sizeof(errBuf), "CAN_QUEUE_FULL: Mode [%s]", cmdName.c_str());
+            MessageBuffer::getInstance().sendMessage(errBuf);
+            return;
+        }
         
         char modeBuf[80];
         snprintf(modeBuf, sizeof(modeBuf), "MODE_CMD: Ctrl=%d Input=%d [%s]",
             ctrlMode, inputMode, cmdName.c_str());
         MessageBuffer::getInstance().sendMessage(modeBuf);
         
-        // Wait for mode command to be sent
-        unsigned long waitStart = millis();
-        while (millis() - waitStart < CAN_COMMAND_GAP_MS) {
-            motor.loop();  // Process queue
-        }
+        // Queue setpoint command - ring buffer handles timing
+        bool queued = false;
+        if (ctrlMode == 1) queued = motor.setInputTorque(value);      // Torque mode
+        else if (ctrlMode == 2) queued = motor.setInputVel(value);    // Velocity mode
+        else if (ctrlMode == 3) queued = motor.setInputPos(value);    // Position mode
         
-        // Send appropriate setpoint based on control mode
-        if (ctrlMode == 1) motor.setInputTorque(value);      // Torque mode
-        else if (ctrlMode == 2) motor.setInputVel(value);    // Velocity mode
-        else if (ctrlMode == 3) motor.setInputPos(value);    // Position mode
+        if (!queued) {
+            char errBuf[64];
+            snprintf(errBuf, sizeof(errBuf), "CAN_QUEUE_FULL: Setpoint [%s]", cmdName.c_str());
+            MessageBuffer::getInstance().sendMessage(errBuf);
+            return;
+        }
         
         lastCmdTime = millis();
         lastCmdStr = cmdName;
@@ -96,12 +118,6 @@ namespace MotorWrapper {
         snprintf(buf, sizeof(buf), "SETPOINT_CMD: Mode=%d InputMode=%d Val=%.2f [%s]",
             ctrlMode, inputMode, value, cmdName.c_str());
         MessageBuffer::getInstance().sendMessage(buf);
-    }
-    
-    // ===== DYNAMIC ADJUSTMENT (Resend limits with new current) =====
-    void adjustMotorLimits(CanBusHandlerV2& motor, float current_lim, String reason) {
-        // Reuse setMotorLimits with last velocity limit
-        setMotorLimits(motor, lastVelLimit, current_lim, reason);
     }
     
     // ===== QUERY FUNCTIONS =====

@@ -27,9 +27,8 @@ namespace PurgeZero {
         
         // ===== DEBOUNCE: Wait for buttons to release at entry =====
         if (stateEntry) {
-            // Set motor limits for manual control
-            MotorWrapper::setMotorLimits(motor, PURGE_VEL_LIMIT, REFILL_CURRENT_LIMIT, "PurgeZero");
-            delay(CAN_COMMAND_GAP_MS + 5);
+            // Queue limit command - ring buffer handles timing
+            MotorWrapper::setMotorLimits(motor, PURGE_VEL_LIMIT, PURGE_CURRENT_LIMIT, "PurgeZero");
             lastCommandTime = now;
             stateEntry = false;
         }

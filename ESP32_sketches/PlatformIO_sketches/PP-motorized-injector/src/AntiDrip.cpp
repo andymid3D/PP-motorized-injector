@@ -32,13 +32,8 @@ namespace AntiDrip {
         
         // ===== ENTRY: Set velocity control mode and start upward movement =====
         if (stateEntry) {
-                MotorWrapper::setMotorLimits(motor, ANTIDRIP_VEL_LIMIT, REFILL_CURRENT_LIMIT, "AntiDrip");
-            unsigned long waitStart = millis();
-            while (millis() - waitStart < (CAN_COMMAND_GAP_MS + 5)) {
-                motor.loop();
-            }
-            
-            // Send velocity command ONCE - PASSTHROUGH mode maintains setpoint
+            // Queue all commands - ring buffer handles timing
+            MotorWrapper::setMotorLimits(motor, ANTIDRIP_VEL_LIMIT, ANTIDRIP_CURRENT_LIMIT, "AntiDrip");
             MotorWrapper::setModeAndMove(motor, 2, 1, ANTIDRIP_VEL, "AntiDrip Up");  // ANTIDRIP_VEL is negative (up)
             lastCommandTime = now;
             stateEntry = false;

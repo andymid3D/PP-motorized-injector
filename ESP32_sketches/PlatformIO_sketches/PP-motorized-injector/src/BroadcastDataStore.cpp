@@ -1,9 +1,20 @@
 #include "BroadcastDataStore.h"
+#include "config.h"
 
 BroadcastDataStore& BroadcastDataStore::getInstance() {
     // Meyer's singleton - thread-safe, lazy initialization
     static BroadcastDataStore instance;
     return instance;
+}
+
+// ===== STALENESS CHECK =====
+bool BroadcastDataStore::isBroadcastDataStale() const {
+    // Check encoder estimates (most frequent broadcast, ~10ms)
+    // 100ms timeout = matches heartbeat interval
+    // If heartbeat arrives with axis error → existing error handling catches it
+    // If NO heartbeat at all → CAN disconnect/ODrive crash/ESP32 CAN failure
+    uint32_t now = millis();
+    return (now - estimates_.lastUpdateMs) > BROADCAST_STALE_TIMEOUT_MS;
 }
 
 // ===== UPDATE METHODS =====

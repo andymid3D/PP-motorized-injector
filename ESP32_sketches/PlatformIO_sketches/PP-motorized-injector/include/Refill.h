@@ -35,6 +35,10 @@ namespace Refill {
     
     // Reset for next cycle
     void reset();
+    
+    // Button handlers
+    bool handleToggleEndOfDay();
+    bool handleCompressButton();
 };
 
 #endif

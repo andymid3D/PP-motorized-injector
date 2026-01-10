@@ -1,5 +1,6 @@
 #include "CanBusHandlerV2.h"
 #include "BroadcastDataStore.h"
+#include "MessageBuffer.h"
 #include "config.h"
 #include <Arduino.h>
 #include <ESP32-TWAI-CAN.hpp>
@@ -48,6 +49,13 @@ void CanBusHandlerV2::loop() {
     // Service CAN RX queue - read all available frames
     CanFrame rxFrame;
     if (ESP32Can.readFrame(rxFrame, 0)) {
+        // Check if this is RTR response we're waiting for
+        if (pendingRTR_.waiting && rxFrame.identifier == pendingRTR_.canId) {
+            // RTR response received - clear waiting flag
+            pendingRTR_.waiting = false;
+            // Note: Don't return - continue processing as normal broadcast message
+        }
+        
         // Extract node ID (bits 5-12) and message ID (bits 0-4)
         uint32_t nodeId = rxFrame.identifier >> 5;
         uint32_t msgId = rxFrame.identifier & 0x1F;
@@ -139,12 +147,17 @@ void CanBusHandlerV2::loop() {
         }
     }
     
-    // Send pending command if CAN_COMMAND_GAP_MS has elapsed since last send
+    // Send next queued command if CAN_COMMAND_GAP_MS has elapsed since last send
     uint32_t now = millis();
-    if (hasPendingCommand_ && (now - lastCommandSentTime_) >= CAN_COMMAND_GAP_MS) {
-        CanFrame frame = messageToFrame(pendingCommand_);
+    if (!isQueueEmpty() && (now - lastCommandSentTime_) >= CAN_COMMAND_GAP_MS) {
+        // Dequeue command from tail
+        can_Message_t cmd = commandQueue_[queueTail_];
+        queueTail_ = (queueTail_ + 1) % CMD_QUEUE_SIZE;
+        queueFull_ = false;  // No longer full after dequeue
+        
+        // Send to CAN bus
+        CanFrame frame = messageToFrame(cmd);
         ESP32Can.writeFrame(frame);
-        hasPendingCommand_ = false;
         lastCommandSentTime_ = now;  // Track when this command was actually SENT
     }
 }
@@ -163,95 +176,166 @@ bool CanBusHandlerV2::isAlive(uint32_t timeoutMs) const {
 
 // Helper method to queue a command respecting CAN_COMMAND_GAP_MS
 // This ensures adequate time for ODrive to process between successive commands
-void CanBusHandlerV2::_queueCommand(const can_Message_t& cmd) {
-    pendingCommand_ = cmd;
-    hasPendingCommand_ = true;
-    // Command will be sent by loop() when CAN_COMMAND_GAP_MS has elapsed since last send
-    // No need to manipulate lastCommandTime_ here - just queue it
+// Returns false if queue is full (command dropped)
+bool CanBusHandlerV2::_queueCommand(const can_Message_t& cmd) {
+    // Check for queue overflow
+    if (queueFull_) {
+        // Queue full - drop new message and log error
+        char buf[64];
+        snprintf(buf, sizeof(buf), "CAN_QUEUE_OVERFLOW: Dropped cmd 0x%03X", cmd.id);
+        MessageBuffer::getInstance().sendMessage(buf);
+        return false;  // Command not queued
+    }
+    
+    // Enqueue command at head
+    commandQueue_[queueHead_] = cmd;
+    queueHead_ = (queueHead_ + 1) % CMD_QUEUE_SIZE;
+    
+    // Check if queue is now full
+    if (queueHead_ == queueTail_) {
+        queueFull_ = true;
+    }
+    
+    return true;  // Command queued successfully
+}
+
+// Helper method to queue a command WITH RTR flag and wait for response
+// BLOCKS for up to RTR_TIMEOUT_MS * RTR_RETRY_COUNT milliseconds
+// Returns true if RTR response received, false on timeout/error
+bool CanBusHandlerV2::_queueCommandWithRTR(const can_Message_t& msg) {
+    // Create RTR message (copy input, set RTR flag)
+    can_Message_t rtrMsg = msg;
+    rtrMsg.rtr = true;  // Set RTR flag (request remote transmission)
+    
+    // Attempt send with retries
+    for (uint8_t attempt = 0; attempt < RTR_RETRY_COUNT; attempt++) {
+        // Queue command
+        if (!_queueCommand(rtrMsg)) {
+            // Queue full - fatal error
+            MessageBuffer::getInstance().sendMessage("RTR_FAIL: Queue full");
+            return false;
+        }
+        
+        // Initialize RTR tracking
+        pendingRTR_.canId = msg.id;
+        pendingRTR_.sentTime = micros();
+        pendingRTR_.waiting = true;
+        pendingRTR_.retryCount = attempt;
+        
+        // BLOCKING WAIT: Poll for RTR response or timeout
+        uint32_t startTime = micros();
+        while (pendingRTR_.waiting) {
+            // Service CAN bus (processes RX and TX)
+            loop();
+            
+            // Check timeout
+            if ((micros() - startTime) >= (RTR_TIMEOUT_MS * 1000UL)) {
+                break;  // Timeout - try next retry
+            }
+            
+            // Small delay to prevent tight loop (100us between polls)
+            delayMicroseconds(100);
+        }
+        
+        // Check if RTR response received
+        if (!pendingRTR_.waiting) {
+            // Success - RTR response received
+            return true;
+        }
+        
+        // Timeout - log and retry
+        char buf[64];
+        snprintf(buf, sizeof(buf), "RTR_TIMEOUT: ID=0x%03X Attempt=%d", msg.id, attempt + 1);
+        MessageBuffer::getInstance().sendMessage(buf);
+    }
+    
+    // All retries exhausted - fatal error
+    char buf[64];
+    snprintf(buf, sizeof(buf), "RTR_FAIL: ID=0x%03X (no response after %d attempts)", msg.id, RTR_RETRY_COUNT);
+    MessageBuffer::getInstance().sendMessage(buf);
+    return false;
 }
 
 // ===== Command Builders =====
 
-void CanBusHandlerV2::setAxisState(ODriveCANProtocol::AxisState state) {
-    _queueCommand(ODriveCANProtocol::buildSetAxisState(NODE_ID, state));
+bool CanBusHandlerV2::setAxisState(ODriveCANProtocol::AxisState state) {
+    return _queueCommandWithRTR(ODriveCANProtocol::buildSetAxisState(NODE_ID, state));
 }
 
-void CanBusHandlerV2::setControllerModes(ODriveCANProtocol::ControlMode ctrlMode, 
+bool CanBusHandlerV2::setControllerModes(ODriveCANProtocol::ControlMode ctrlMode, 
                                          ODriveCANProtocol::InputMode inputMode) {
-    _queueCommand(ODriveCANProtocol::buildSetControllerModes(NODE_ID, ctrlMode, inputMode));
+    return _queueCommandWithRTR(ODriveCANProtocol::buildSetControllerModes(NODE_ID, ctrlMode, inputMode));
 }
 
-void CanBusHandlerV2::setInputPos(float position) {
-    _queueCommand(ODriveCANProtocol::buildSetInputPos(NODE_ID, position));
+bool CanBusHandlerV2::setInputPos(float position) {
+    return _queueCommand(ODriveCANProtocol::buildSetInputPos(NODE_ID, position));
 }
 
-void CanBusHandlerV2::setInputVel(float velocity) {
-    _queueCommand(ODriveCANProtocol::buildSetInputVel(NODE_ID, velocity));
+bool CanBusHandlerV2::setInputVel(float velocity) {
+    return _queueCommand(ODriveCANProtocol::buildSetInputVel(NODE_ID, velocity));
 }
 
-void CanBusHandlerV2::setInputTorque(float torque) {
-    _queueCommand(ODriveCANProtocol::buildSetInputTorque(NODE_ID, torque));
+bool CanBusHandlerV2::setInputTorque(float torque) {
+    return _queueCommand(ODriveCANProtocol::buildSetInputTorque(NODE_ID, torque));
 }
 
-void CanBusHandlerV2::setLimits(float velLimit, float currentLimit) {
-    _queueCommand(ODriveCANProtocol::buildSetLimits(NODE_ID, velLimit, currentLimit));
+bool CanBusHandlerV2::setLimits(float velLimit, float currentLimit) {
+    return _queueCommand(ODriveCANProtocol::buildSetLimits(NODE_ID, velLimit, currentLimit));
 }
 
-void CanBusHandlerV2::setLinearCount(int32_t count) {
-    _queueCommand(ODriveCANProtocol::buildSetLinearCount(NODE_ID, count));
+bool CanBusHandlerV2::setLinearCount(int32_t count) {
+    return _queueCommand(ODriveCANProtocol::buildSetLinearCount(NODE_ID, count));
 }
 
-void CanBusHandlerV2::clearErrors() {
-    _queueCommand(ODriveCANProtocol::buildClearErrors(NODE_ID));
+bool CanBusHandlerV2::clearErrors() {
+    return _queueCommandWithRTR(ODriveCANProtocol::buildClearErrors(NODE_ID));
 }
 
 // ===== DIAGNOSTIC & CONTROL COMMANDS (RTR) =====
 
-void CanBusHandlerV2::heartbeatRequest() {
-    _queueCommand(ODriveCANProtocol::buildHeartbeatRequest(NODE_ID));
+bool CanBusHandlerV2::heartbeatRequest() {
+    return _queueCommand(ODriveCANProtocol::buildHeartbeatRequest(NODE_ID));
 }
 
-void CanBusHandlerV2::estop() {
-    // E-stop doesn't need the gap - send immediately
-    pendingCommand_ = ODriveCANProtocol::buildEstop(NODE_ID);
-    hasPendingCommand_ = true;
-    lastCommandTime_ = millis();  // Force send on next loop
+bool CanBusHandlerV2::estop() {
+    // E-stop is critical - queue immediately with highest priority
+    return _queueCommand(ODriveCANProtocol::buildEstop(NODE_ID));
 }
 
-void CanBusHandlerV2::getMotorError() {
-    _queueCommand(ODriveCANProtocol::buildGetMotorError(NODE_ID));
+bool CanBusHandlerV2::getMotorError() {
+    return _queueCommand(ODriveCANProtocol::buildGetMotorError(NODE_ID));
 }
 
-void CanBusHandlerV2::getEncoderError() {
-    _queueCommand(ODriveCANProtocol::buildGetEncoderError(NODE_ID));
+bool CanBusHandlerV2::getEncoderError() {
+    return _queueCommand(ODriveCANProtocol::buildGetEncoderError(NODE_ID));
 }
 
-void CanBusHandlerV2::getSensorlessError() {
-    _queueCommand(ODriveCANProtocol::buildGetSensorlessError(NODE_ID));
+bool CanBusHandlerV2::getSensorlessError() {
+    return _queueCommand(ODriveCANProtocol::buildGetSensorlessError(NODE_ID));
 }
 
-void CanBusHandlerV2::setAxisNodeId(uint32_t newNodeId) {
-    _queueCommand(ODriveCANProtocol::buildSetAxisNodeId(NODE_ID, newNodeId));
+bool CanBusHandlerV2::setAxisNodeId(uint32_t newNodeId) {
+    return _queueCommand(ODriveCANProtocol::buildSetAxisNodeId(NODE_ID, newNodeId));
 }
 
-void CanBusHandlerV2::getEncoderCount() {
-    _queueCommand(ODriveCANProtocol::buildGetEncoderCount(NODE_ID));
+bool CanBusHandlerV2::getEncoderCount() {
+    return _queueCommand(ODriveCANProtocol::buildGetEncoderCount(NODE_ID));
 }
 
-void CanBusHandlerV2::startAnticogging() {
-    _queueCommand(ODriveCANProtocol::buildStartAnticogging(NODE_ID));
+bool CanBusHandlerV2::startAnticogging() {
+    return _queueCommand(ODriveCANProtocol::buildStartAnticogging(NODE_ID));
 }
 
-void CanBusHandlerV2::setTrajVelLimit(float trajVelLimit) {
-    _queueCommand(ODriveCANProtocol::buildSetTrajVelLimit(NODE_ID, trajVelLimit));
+bool CanBusHandlerV2::setTrajVelLimit(float trajVelLimit) {
+    return _queueCommand(ODriveCANProtocol::buildSetTrajVelLimit(NODE_ID, trajVelLimit));
 }
 
-void CanBusHandlerV2::setTrajAccelLimits(float accelLimit, float decelLimit) {
-    _queueCommand(ODriveCANProtocol::buildSetTrajAccelLimits(NODE_ID, accelLimit, decelLimit));
+bool CanBusHandlerV2::setTrajAccelLimits(float accelLimit, float decelLimit) {
+    return _queueCommand(ODriveCANProtocol::buildSetTrajAccelLimits(NODE_ID, accelLimit, decelLimit));
 }
 
-void CanBusHandlerV2::setTrajInertia(float inertia) {
-    _queueCommand(ODriveCANProtocol::buildSetTrajInertia(NODE_ID, inertia));
+bool CanBusHandlerV2::setTrajInertia(float inertia) {
+    return _queueCommand(ODriveCANProtocol::buildSetTrajInertia(NODE_ID, inertia));
 }
 
 void CanBusHandlerV2::reboot() {

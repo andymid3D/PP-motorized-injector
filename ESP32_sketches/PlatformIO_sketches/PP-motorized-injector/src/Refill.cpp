@@ -7,7 +7,11 @@ extern commonInjectParams_t commonParams;  // From main.cpp
 
 namespace Refill {
     // ===== STATIC STATE VARIABLES =====
-    static enum { MOVING_TO_HOME, WAIT_ARRIVE, DONE } step = DONE;
+    static enum { 
+        MOVING_TO_HOME,      // Position move active
+        WAIT_ARRIVE,         // Arrived, waiting for button
+        DONE 
+    } step = DONE;
     static unsigned long stepTimer = 0;
     static bool stateEntry = false;
     static bool complete = false;
@@ -30,42 +34,29 @@ namespace Refill {
         // ===== STEP 0: Move to OFFSET_REFILL_GAP =====
         if (step == MOVING_TO_HOME) {
             if (stateEntry) {
-                // Set motor limits for refill move (controller limit = machine max for TRAP_TRAJ authority)
+                // Queue all commands - ring buffer handles timing
                 MotorWrapper::setMotorLimits(motor, REFILL_CONTROLLER_VEL_LIMIT, REFILL_CURRENT_LIMIT, "Refill");
-                
-                // Wait for command to be sent via loop()
-                unsigned long waitStart = millis();
-                while (millis() - waitStart < (CAN_COMMAND_GAP_MS + 5)) {
-                    motor.loop();  // Process CAN queue during wait
-                }
-                
-                // Configure TRAP_TRAJ for smooth move (trajectory limit - actual movement speed)
                 MotorWrapper::setTrapTrajParams(motor, commonParams.refillTrapVelLimit, 
                                                 commonParams.refillAccel, commonParams.refillDecel, "Refill Traj");
-                
-                // Wait for commands to be sent
-                waitStart = millis();
-                while (millis() - waitStart < (CAN_COMMAND_GAP_MS + 5)) {
-                    motor.loop();  // Process CAN queue during wait
-                }
-                
-                // Execute position move with TRAP_TRAJ
                 MotorWrapper::setModeAndMove(motor, 3, 5, OFFSET_REFILL_GAP, "Pos Refill");
+                stepTimer = millis();
                 stateEntry = false;
             }
             
             // Check if motor arrived (velocity < threshold for sustained time)
-            if (fabs(motor.getVelocity()) < 0.1f && elapsed > 500) {
+            unsigned long moveElapsed = now - stepTimer;
+            if (fabs(motor.getVelocity()) < 0.1f && moveElapsed > INJECT_STABLE_TIME_MS) {
                 step = WAIT_ARRIVE;
                 stepTimer = now;
             }
             
-            // Safety timeout (15 seconds should be plenty for this move)
-            if (elapsed > 15000) {
+            // Safety timeout (calculated from full barrel length)
+            if (moveElapsed > REFILL_TIMEOUT_MS) {
                 error = true;
                 complete = true;
                 return true;
             }
+            return false;
         }
         
         // ===== STEP 1: Wait at home position =====

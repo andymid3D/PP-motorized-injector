@@ -15,7 +15,9 @@ enum MachineError {
     ERR_HARD_LIMIT = 5,
     ERR_UNDER_TEMP = 6,
     ERR_BOTTOM_ENDSTOP_COLLISION = 7,  // Plunger hit bottom endstop during downward movement
-    ERR_TOP_ENDSTOP_COLLISION = 8      // Plunger hit top endstop during upward movement
+    ERR_TOP_ENDSTOP_COLLISION = 8,     // Plunger hit top endstop during upward movement
+    ERR_BROADCAST_STALE = 9,           // No ODrive broadcast data in 50ms (CAN disconnect/crash)
+    ERR_CAN_RTR_FAILURE = 10           // Critical CAN command failed RTR confirmation
 };
 
 enum SafetyContext {
@@ -39,6 +41,13 @@ public:
     void enableMotorPower(bool enable);
     void triggerHalt(MachineError err);
     void resetError();
+    
+    // Emergency Shutdown (for TransitionErrorHandler)
+    void forceEmergencyShutdown(const char* reason);
+    void flagError(MachineError err);
+    
+    // Singleton Access
+    static SafetyManager& getInstance();
     
     // Clean Getters 
     bool isEStopPressed();      

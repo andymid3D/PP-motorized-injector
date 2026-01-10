@@ -75,6 +75,13 @@ public:
     // ===== SINGLETON PATTERN =====
     static BroadcastDataStore& getInstance();
     
+    /**
+     * Check if broadcast data is stale (no updates in 50ms)
+     * Indicates CAN bus issue, ODrive crash, or disconnection
+     * @return true if no broadcast received in 50ms
+     */
+    bool isBroadcastDataStale() const;
+    
     // ===== UPDATE METHODS (called when new broadcasts arrive) =====
     // These are called from CanBusHandlerV2 when cyclic messages arrive
     // Append to SafeString for non-blocking serial logging

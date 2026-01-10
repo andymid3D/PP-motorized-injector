@@ -73,26 +73,12 @@ namespace Injection {
                      volToTurns(currentMould.fillVolume), currentMould.fillVolume);
             logMessage(logBuf);
             
-            // Set motor limits for filling (controller limit = machine max for TRAP_TRAJ authority)
+            // Queue all commands - ring buffer handles timing
             MotorWrapper::setMotorLimits(motor, INJECT_FILL_CONTROLLER_VEL_LIMIT, INJECT_FILL_CURRENT, "Inject Fill");
-            
-            unsigned long waitStart = millis();
-            while (millis() - waitStart < (CAN_COMMAND_GAP_MS + 5)) {
-                motor.loop();
-            }
-            
-            // Configure TRAP_TRAJ with mould-specific accel/decel for fill (trajectory limit - actual movement speed)
             MotorWrapper::setTrapTrajParams(motor, commonParams.injectFillTrapVelLimit, 
                                            commonParams.injectFillAccel, 
                                            commonParams.injectFillDecel, 
                                            "Fill Traj");
-            
-            waitStart = millis();
-            while (millis() - waitStart < (CAN_COMMAND_GAP_MS + 5)) {
-                motor.loop();
-            }
-            
-            // Execute position move ONCE - TRAP_TRAJ maintains trajectory
             MotorWrapper::setModeAndMove(motor, 3, 5, targetInjectPos, "Pos Inject");
             lastCommandTime = now;
             

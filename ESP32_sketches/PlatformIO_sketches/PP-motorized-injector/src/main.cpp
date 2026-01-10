@@ -255,9 +255,12 @@ void printDebugReport(unsigned long currentLoopTime, unsigned long maxLoopTimeSi
     uint32_t encoderErr = broadcast.getEncoderError();
     uint32_t controllerErr = broadcast.getControllerError();
     
-    snprintf(buf, sizeof(buf), "[%lus c:%lums m:%lums][[%-12s] T:%-3d P:%-7ld OD:%d MX:0x%-2X EX:0x%-2X CX:0x%-2X P:%-5.1f V:%-4.1f IqS:%-4.1f IqM:%-4.1f C:%d I:%d Cmd:%s]",
+    // Get CAN queue depth for debugging (0-8)
+    uint8_t queueDepth = motor.getQueueDepth();
+    
+    snprintf(buf, sizeof(buf), "[%lus c:%lums m:%lums][[%-12s] T:%-3d P:%-7ld Q:%d OD:%d MX:0x%-2X EX:0x%-2X CX:0x%-2X P:%-5.1f V:%-4.1f IqS:%-4.1f IqM:%-4.1f C:%d I:%d Cmd:%s]",
         uptimeSeconds, currentLoopTime, maxLoopTimeSinceLastReport,
-        getStateName(fsm_state.currentState), fsm_inputs.nozzleTemperature, pDisp,
+        getStateName(fsm_state.currentState), fsm_inputs.nozzleTemperature, pDisp, queueDepth,
         motor.getAxisState(), motorErr, encoderErr, controllerErr, motor.getPosition(), motor.getVelocity(), 
         iq_setpoint, iq_measured,
         lastControlMode, lastInputMode, lastCmdStr.c_str());
@@ -431,7 +434,7 @@ void loop() {
                     // Clear errors + request CLC, stay in current state
                     MessageBuffer::getInstance().sendMessage("Error: Recoverable (retry) - clearing and requesting State 8");
                     motor.clearErrors();
-                    delay(50);  // Brief pause for error clear to process
+                    delay(ERROR_CLEAR_DELAY_MS);  // Brief pause for error clear to process
                     motor.setAxisState(ODriveCANProtocol::AxisState::CLOSED_LOOP_CONTROL);
                     // Stay in current state, retry operation
                     break;
@@ -891,15 +894,10 @@ void loop() {
             if (stateEntry) {
                 logMessage("Release: Unloading mould");
                 
-                // Step 1: Set motor limits for release (controller limit = machine max for TRAP_TRAJ authority)
+                // Queue all commands - ring buffer handles timing
                 MotorWrapper::setMotorLimits(motor, RELEASE_CONTROLLER_VEL_LIMIT, RELEASE_CURRENT_LIMIT, "RELEASE");
-                delay(CAN_COMMAND_GAP_MS + 5);
-                
-                // Step 2: Configure TRAP_TRAJ for smooth fast unload (trajectory limit - actual movement speed)
                 MotorWrapper::setTrapTrajParams(motor, RELEASE_TRAP_VEL_LIMIT, RELEASE_ACCEL, RELEASE_DECEL, "RELEASE_TRAJ");
-                delay(CAN_COMMAND_GAP_MS + 5);
                 
-                // Step 3: Send position command with TRAP_TRAJ input mode
                 float releaseTarget = motor.getPosition() + RELEASE_DIST;  // RELEASE_DIST is negative (up)
                 MotorWrapper::setModeAndMove(motor, 3, 5, releaseTarget, "Pos Release");  // Mode 3 (Position), InputMode 5 (TRAP_TRAJ)
                 
