@@ -60,9 +60,12 @@ bool _queueCommandWithRTR(const can_Message_t& msg);  // Blocking wait for RTR
 
 **Why Only 3 Commands?**
 - RTR adds 2-5ms blocking per command
-- Critical commands affect safety (mode/state transitions)
-- Setpoint commands are high-frequency (every 10-50ms during moves)
-- Broadcast staleness (100ms) detects CAN failure for non-RTR commands
+- Mode/state transitions are MOST critical (wrong mode = catastrophic failure)
+- Setpoint failures are detected by broadcast monitoring:
+  - If setInputPos fails, motor won't reach target (position feedback shows error)
+  - If setInputVel fails, motor won't reach velocity (velocity feedback shows error)
+  - Broadcast staleness (100ms) detects complete CAN failure
+- Defense in depth: Mode RTR catches CAN breaks before setpoint commands execute
 
 ---
 
@@ -277,7 +280,7 @@ State: ERROR_STATE | Pos: 92.18 | Vel: 0.00 | Temp: 185°C | Err: 0
 ## Known Limitations
 
 1. **Blocking on Critical Commands:** 2-5ms blocking is acceptable for mode/state changes but violates pure non-blocking philosophy
-2. **No RTR on Setpoints:** High-frequency commands (setInputPos, setInputVel) remain non-blocking for performance
+2. **No RTR on Setpoints:** setInputPos/Vel/Torque don't use RTR - failures detected by broadcast feedback monitoring instead of immediate confirmation
 3. **Recovery Requires Power Cycle:** ERR_CAN_RTR_FAILURE requires manual intervention (no auto-recovery)
 4. **Single RTR Tracking:** Can only track one pending RTR at a time (serial command execution)
 
@@ -285,7 +288,10 @@ State: ERROR_STATE | Pos: 92.18 | Vel: 0.00 | Temp: 185°C | Err: 0
 
 ## Future Enhancements
 
-1. **RTR on Setpoints (Optional):** Add `setInputPosWithRTR()` for ultra-critical moves (e.g., final packing)
+1. **RTR on All Commands:** Could add RTR to setInputPos/Vel/Torque for faster failure detection (currently rely on broadcast feedback)
+   - Benefit: 15ms detection vs 100ms broadcast monitoring
+   - Cost: 2-5ms blocking per setpoint command
+   - Alternative: Keep current approach (mode RTR + broadcast monitoring = defense in depth)
 2. **Auto-Recovery:** Attempt DC contactor cycle to reset ODrive on RTR failure
 3. **Retry Count Tuning:** Experiment with 2 retries (10ms) vs 3 retries (15ms) for optimal detection speed
 4. **RTR Statistics:** Track RTR success rate, average response time, timeout frequency
