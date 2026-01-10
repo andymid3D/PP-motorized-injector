@@ -1,6 +1,9 @@
 #include "Refill.h"
 #include "config.h"
 #include "MotorWrapper.h"
+#include "injector_fsm.h"  // For commonInjectParams_t
+
+extern commonInjectParams_t commonParams;  // From main.cpp
 
 namespace Refill {
     // ===== STATIC STATE VARIABLES =====
@@ -37,7 +40,8 @@ namespace Refill {
                 }
                 
                 // Configure TRAP_TRAJ for smooth move (trajectory limit - actual movement speed)
-                MotorWrapper::setTrapTrajParams(motor, REFILL_TRAP_VEL_LIMIT, REFILL_ACCEL, REFILL_DECEL, "Refill Traj");
+                MotorWrapper::setTrapTrajParams(motor, commonParams.refillTrapVelLimit, 
+                                                commonParams.refillAccel, commonParams.refillDecel, "Refill Traj");
                 
                 // Wait for commands to be sent
                 waitStart = millis();

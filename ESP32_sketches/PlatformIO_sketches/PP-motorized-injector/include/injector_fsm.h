@@ -75,6 +75,36 @@ enum InjectorError : uint16_t {
   
   } fsm_inputs_t;
   
+  // Common injection parameters (runtime-writable, updated from Display)
+  typedef struct commonInjectParams {
+    // Refill parameters
+    float refillTrapVelLimit;     // REFILL_TRAP_VEL_LIMIT (default: 15.0 rps)
+    float refillAccel;            // REFILL_ACCEL (default: 20.0 rps²)
+    float refillDecel;            // REFILL_DECEL (default: 20.0 rps²)
+    
+    // Compression parameters
+    float compressRampTarget;     // COMPRESS_RAMP_TARGET (default: 15.0 A)
+    float compressRampDuration;   // COMPRESS_RAMP_DURATION (default: 2.0 sec)
+    float compressMicroCurrent;   // COMPRESS_MICRO_CURRENT (default: 10.0 A)
+    
+    // Injection FILL parameters (common across all moulds)
+    float injectFillTrapVelLimit; // INJECT_FILL_TRAP_VEL_LIMIT (default: 20.0 rps)
+    float injectFillAccel;        // INJECT_FILL_ACCEL (default: 20.0 rps²)
+    float injectFillDecel;        // INJECT_FILL_DECEL (default: 20.0 rps²)
+    float injectFillCurrent;      // INJECT_FILL_CURRENT (default: 31.0 A)
+    
+    // Injection PACK parameters (common across all moulds)
+    float injectPackTrapVelLimit; // INJECT_PACK_TRAP_VEL_LIMIT (default: 10.0 rps)
+    float injectPackAccel;        // INJECT_PACK_ACCEL (default: 10.0 rps²)
+    float injectPackDecel;        // INJECT_PACK_DECEL (default: 10.0 rps²)
+    float injectPackCurrent;      // INJECT_PACK_CURRENT (default: 30.0 A)
+    
+    // Auto-transition parameters
+    float injectVelThreshold;     // INJECT_VEL_THRESHOLD (default: 0.1 rps)
+    float injectPosLolerance;     // INJECT_POS_TOLERANCE (default: 1.0 turns)
+    unsigned long injectStableTimeMs; // INJECT_STABLE_TIME_MS (default: 500 ms)
+  } commonInjectParams_t;
+
   typedef struct fsm_state {
     InjectorStates currentState;
     uint16_t error;

@@ -3,6 +3,8 @@
 #include "config.h"
 #include "MotorWrapper.h"
 
+extern commonInjectParams_t commonParams;  // From main.cpp
+
 namespace Injection {
     // ===== STATIC STATE VARIABLES =====
     static InjectionPhase phase = DONE;
@@ -80,9 +82,9 @@ namespace Injection {
             }
             
             // Configure TRAP_TRAJ with mould-specific accel/decel for fill (trajectory limit - actual movement speed)
-            MotorWrapper::setTrapTrajParams(motor, INJECT_FILL_TRAP_VEL_LIMIT, 
-                                           currentMould.fillTrapAccel, 
-                                           currentMould.fillTrapDecel, 
+            MotorWrapper::setTrapTrajParams(motor, commonParams.injectFillTrapVelLimit, 
+                                           commonParams.injectFillAccel, 
+                                           commonParams.injectFillDecel, 
                                            "Fill Traj");
             
             waitStart = millis();
@@ -128,9 +130,9 @@ namespace Injection {
                 }
                 
                 // Configure TRAP_TRAJ with mould-specific accel/decel for pack (trajectory limit - slower, controlled)
-                MotorWrapper::setTrapTrajParams(motor, INJECT_PACK_TRAP_VEL_LIMIT,
-                                               currentMould.packTrapAccel,
-                                               currentMould.packTrapDecel,
+                MotorWrapper::setTrapTrajParams(motor, commonParams.injectPackTrapVelLimit,
+                                               commonParams.injectPackAccel,
+                                               commonParams.injectPackDecel,
                                                "Pack Traj");
                 
                 waitStart = millis();

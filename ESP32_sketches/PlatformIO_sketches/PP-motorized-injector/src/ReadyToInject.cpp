@@ -1,6 +1,9 @@
 #include "ReadyToInject.h"
 #include "config.h"
 #include "MotorWrapper.h"
+#include "injector_fsm.h"  // For commonInjectParams_t
+
+extern commonInjectParams_t commonParams;  // From main.cpp
 
 namespace ReadyToInject {
     // ===== STATIC STATE VARIABLES =====
@@ -59,10 +62,10 @@ namespace ReadyToInject {
             float rampDuration = MICRO_COMPRESSION_DURATION / 1000.0f;  // Convert to seconds
             float elapsedSec = compressionElapsed / 1000.0f;
             
-            // Linear torque ramp: 0 → COMPRESS_RAMP_TARGET
-            float targetTorque = (COMPRESS_RAMP_TARGET / rampDuration) * elapsedSec;
-            if (targetTorque > COMPRESS_RAMP_TARGET) {
-                targetTorque = COMPRESS_RAMP_TARGET;
+            // Linear torque ramp: 0 → commonParams.compressMicroCurrent
+            float targetTorque = (commonParams.compressMicroCurrent / rampDuration) * elapsedSec;
+            if (targetTorque > commonParams.compressMicroCurrent) {
+                targetTorque = commonParams.compressMicroCurrent;
             }
             
             // Send torque setpoint updates (mode already set in entry)

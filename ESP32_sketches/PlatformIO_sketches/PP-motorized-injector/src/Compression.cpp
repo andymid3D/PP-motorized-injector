@@ -1,6 +1,9 @@
 #include "Compression.h"
 #include "config.h"
 #include "MotorWrapper.h"
+#include "injector_fsm.h"  // For commonInjectParams_t
+
+extern commonInjectParams_t commonParams;  // From main.cpp
 
 namespace Compression {
     // ===== STATIC STATE VARIABLES =====
@@ -159,11 +162,11 @@ namespace Compression {
             }
             
             // Calculate torque ramp
-            float rampDuration = 2.0f;  // Seconds to reach target torque
+            float rampDuration = commonParams.compressRampDuration;  // From commonParams (default: 2.0 sec)
             float elapsedSec = stepElapsed / 1000.0f;
-            float targetTorque = (COMPRESS_RAMP_TARGET / rampDuration) * elapsedSec;
-            if (targetTorque > COMPRESS_RAMP_TARGET) {
-                targetTorque = COMPRESS_RAMP_TARGET;
+            float targetTorque = (commonParams.compressRampTarget / rampDuration) * elapsedSec;
+            if (targetTorque > commonParams.compressRampTarget) {
+                targetTorque = commonParams.compressRampTarget;
             }
             
             // Send torque setpoint updates (mode already set in stateEntry or TRAVEL_DOWN)
@@ -173,7 +176,7 @@ namespace Compression {
             }
             
             // Completion conditions
-            bool reachedTorqueTarget = (targetTorque >= COMPRESS_RAMP_TARGET);
+            bool reachedTorqueTarget = (targetTorque >= commonParams.compressRampTarget);
             bool stallDetected = stepElapsed > 500 && motor.getAxisError() != 0;
             bool timeoutOnTorque = stepElapsed > 15000;  // 15 seconds max for torque ramp
             

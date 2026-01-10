@@ -21,6 +21,7 @@ createSafeString(rxBuffer, 512);
 DisplayCommsState state;
 
 // ===== EXTERNAL REFERENCES =====
+extern commonInjectParams_t commonParams; // From main.cpp
 extern actualMouldParams_t currentMould;  // From main.cpp
 extern MachineFlags flags;                // From main.cpp
 extern fsm_state_t fsm_state;             // From main.cpp
@@ -186,25 +187,39 @@ void sendMouldParamsConfirm(const actualMouldParams_t& params) {
 void sendCommonParamsConfirm() {
     createSafeString(msg, 512);
     msg = "COMMON_OK|";
-    msg += HOMING_FAST_VEL;
+    msg += commonParams.refillTrapVelLimit;
     msg += "|";
-    msg += OFFSET_REFILL_GAP;
+    msg += commonParams.refillAccel;
     msg += "|";
-    msg += COMPRESS_RAMP_TARGET;  // Compression torque limit
+    msg += commonParams.refillDecel;
     msg += "|";
-    msg += INJECT_FILL_TRAP_VEL_LIMIT;
+    msg += commonParams.compressRampTarget;
     msg += "|";
-    msg += RELEASE_DIST;
+    msg += commonParams.compressRampDuration;
     msg += "|";
-    msg += ANTIDRIP_VEL;  // AntiDrip velocity
+    msg += commonParams.compressMicroCurrent;
     msg += "|";
-    msg += PURGE_VEL_DOWN;  // Purge velocity (down direction)
+    msg += commonParams.injectFillTrapVelLimit;
     msg += "|";
-    msg += HOMING_BACKOFF_VEL;
+    msg += commonParams.injectFillAccel;
     msg += "|";
-    msg += HOMING_APPROACH_VEL;
+    msg += commonParams.injectFillDecel;
     msg += "|";
-    msg += COMPRESS_TRAVEL_VEL_LIMIT;  // Compression travel velocity
+    msg += commonParams.injectFillCurrent;
+    msg += "|";
+    msg += commonParams.injectPackTrapVelLimit;
+    msg += "|";
+    msg += commonParams.injectPackAccel;
+    msg += "|";
+    msg += commonParams.injectPackDecel;
+    msg += "|";
+    msg += commonParams.injectPackCurrent;
+    msg += "|";
+    msg += commonParams.injectVelThreshold;
+    msg += "|";
+    msg += commonParams.injectPosLolerance;
+    msg += "|";
+    msg += commonParams.injectStableTimeMs;
     msg += "\n";
     
     DisplaySerial.print(msg.c_str());
@@ -277,11 +292,54 @@ void parseIncomingMessage(const char* message) {
     
     // ===== COMMAND: COMMON PARAMS UPDATE =====
     else if (cmd == "COMMON") {
-        // Format: COMMON|homingVel|refillGap|compressionTorque|injectVel|releaseDist|antidripVel|purgeVel|...
-        // NOTE: These are config.h defines, cannot be changed at runtime without modifying config.h
-        // For now, just acknowledge receipt and send back current values
-        logMessage("DisplayComms: COMMON command received (config.h params are read-only at runtime)");
-        sendCommonParamsConfirm();
+        // Format: COMMON|refillTrapVel|refillAccel|refillDecel|compressRampTarget|compressRampDuration|
+        //                compressMicroCurrent|injectFillTrapVel|injectFillAccel|injectFillDecel|injectFillCurrent|
+        //                injectPackTrapVel|injectPackAccel|injectPackDecel|injectPackCurrent|
+        //                injectVelThreshold|injectPosTolerance|injectStableTimeMs
+        createSafeString(field, 64);
+        size_t fieldIdx = 0;
+        commonInjectParams_t newParams = commonParams;  // Start with current values
+        
+        // Skip command field, start parsing params
+        size_t pos = idx + 1;
+        while (pos < msgCopy.length()) {
+            size_t nextIdx = msgCopy.indexOf('|', pos);
+            if (nextIdx == (size_t)-1) nextIdx = msgCopy.length();
+            
+            msgCopy.substring(field, pos, nextIdx);
+            
+            switch (fieldIdx) {
+                case 0: newParams.refillTrapVelLimit = atof(field.c_str()); break;
+                case 1: newParams.refillAccel = atof(field.c_str()); break;
+                case 2: newParams.refillDecel = atof(field.c_str()); break;
+                case 3: newParams.compressRampTarget = atof(field.c_str()); break;
+                case 4: newParams.compressRampDuration = atof(field.c_str()); break;
+                case 5: newParams.compressMicroCurrent = atof(field.c_str()); break;
+                case 6: newParams.injectFillTrapVelLimit = atof(field.c_str()); break;
+                case 7: newParams.injectFillAccel = atof(field.c_str()); break;
+                case 8: newParams.injectFillDecel = atof(field.c_str()); break;
+                case 9: newParams.injectFillCurrent = atof(field.c_str()); break;
+                case 10: newParams.injectPackTrapVelLimit = atof(field.c_str()); break;
+                case 11: newParams.injectPackAccel = atof(field.c_str()); break;
+                case 12: newParams.injectPackDecel = atof(field.c_str()); break;
+                case 13: newParams.injectPackCurrent = atof(field.c_str()); break;
+                case 14: newParams.injectVelThreshold = atof(field.c_str()); break;
+                case 15: newParams.injectPosLolerance = atof(field.c_str()); break;
+                case 16: newParams.injectStableTimeMs = atol(field.c_str()); break;
+            }
+            
+            fieldIdx++;
+            pos = nextIdx + 1;
+        }
+        
+        // Validate and update
+        if (fieldIdx >= 17) {  // All required fields
+            commonParams = newParams;
+            sendCommonParamsConfirm();
+            logMessage("Common params updated from Display");
+        } else {
+            logMessage("DisplayComms: COMMON command parsing failed (insufficient fields)");
+        }
     }
     
     // ===== COMMAND: QUERY MOULD PARAMS =====

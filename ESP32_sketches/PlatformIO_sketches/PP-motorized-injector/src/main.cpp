@@ -85,6 +85,28 @@ float injectStartPos = 0.0f; // Track injection start position
 float packStartPos = 0.0f;   // Track pack start position
 
 // --- Parameters ---
+// Common parameters (used across all moulds, Display-writable)
+commonInjectParams_t commonParams = {
+    REFILL_TRAP_VEL_LIMIT,        // refillTrapVelLimit (15.0 rps)
+    REFILL_ACCEL,                 // refillAccel (20.0 rps²)
+    REFILL_DECEL,                 // refillDecel (20.0 rps²)
+    COMPRESS_RAMP_TARGET,         // compressRampTarget (15.0 A)
+    COMPRESS_RAMP_DURATION,       // compressRampDuration (2.0 sec)
+    COMPRESS_MICRO_CURRENT,       // compressMicroCurrent (10.0 A)
+    INJECT_FILL_TRAP_VEL_LIMIT,   // injectFillTrapVelLimit (20.0 rps)
+    INJECT_FILL_ACCEL,            // injectFillAccel (20.0 rps²)
+    INJECT_FILL_DECEL,            // injectFillDecel (20.0 rps²)
+    INJECT_FILL_CURRENT,          // injectFillCurrent (31.0 A)
+    INJECT_PACK_TRAP_VEL_LIMIT,   // injectPackTrapVelLimit (10.0 rps)
+    INJECT_PACK_ACCEL,            // injectPackAccel (10.0 rps²)
+    INJECT_PACK_DECEL,            // injectPackDecel (10.0 rps²)
+    INJECT_PACK_CURRENT,          // injectPackCurrent (30.0 A)
+    INJECT_VEL_THRESHOLD,         // injectVelThreshold (0.1 rps)
+    INJECT_POS_TOLERANCE,         // injectPosTolerance (1.0 turns)
+    INJECT_STABLE_TIME_MS         // injectStableTimeMs (500 ms)
+};
+
+// Mould-specific parameters (per-mould settings, Display-writable)
 actualMouldParams_t currentMould = {
     "Default", 
     35.0f,  // Fill Volume (cm3)
