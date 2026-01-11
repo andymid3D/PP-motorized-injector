@@ -18,19 +18,15 @@ void SafetyManager::begin() {
     // If you didn't add resistors to a specific pin, change to INPUT_PULLUP
     
     dbEStop.attach(PIN_ESTOP, INPUT); 
-    dbEStop.setPressedState(LOW);  // Triggered when sensor reads LOW
     dbEStop.interval(20); // Short debounce, let the counter handle EMI
     
     dbBarrel.attach(PIN_ENDSTOP_BARREL, INPUT); // External 1k Pullup
-    dbBarrel.setPressedState(LOW);  // Triggered when sensor reads LOW
     dbBarrel.interval(20);
 
     dbTop.attach(PIN_ENDSTOP_TOP, INPUT); // External 1k Pullup
-    dbTop.setPressedState(LOW);  // Triggered when sensor reads LOW (plunger NOT at endstop)
     dbTop.interval(20);
 
     dbBot.attach(PIN_ENDSTOP_BOTTOM, INPUT); // External 1k Pullup
-    dbBot.setPressedState(LOW);  // Triggered when sensor reads LOW (plunger NOT at endstop)
     dbBot.interval(20);
 
     // 2. Outputs & Sensors
@@ -56,6 +52,16 @@ void SafetyManager::updateInputs() {
     dbTop.update();
     dbBot.update();
     
+    // ENDSTOP LOGIC: Direct pin state reading (ignores Bounce2 .pressed() API)
+    // 
+    // TESTING (without plunger): Endstops normally OPEN, trigger with metal = LOW
+    //   - E-Stop: HIGH = pressed (normally closed, opens when pressed)
+    //   - Barrel: HIGH = open (normally closed, opens when barrel removed)
+    //   - Top/Bottom: LOW = triggered (normally open, closes when metal present)
+    // 
+    // PRODUCTION (with plunger): Endstops normally TRIGGERED by metal plunger
+    //   - Top/Bottom: LOW = plunger present (normal), HIGH = plunger reached end (trigger)
+    //   - TO INVERT FOR PRODUCTION: Change "LOW" to "HIGH" in lines below
     
     if (dbEStop.read() == HIGH) { 
         if (_estopCounter < CONFIDENCE_THRESHOLD) _estopCounter++;} else {_estopCounter = 0;}
