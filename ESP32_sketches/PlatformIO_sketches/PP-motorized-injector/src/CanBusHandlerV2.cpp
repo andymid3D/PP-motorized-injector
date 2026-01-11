@@ -268,19 +268,19 @@ bool CanBusHandlerV2::setControllerModes(ODriveCANProtocol::ControlMode ctrlMode
 }
 
 bool CanBusHandlerV2::setInputPos(float position) {
-    return _queueCommand(ODriveCANProtocol::buildSetInputPos(NODE_ID, position));
+    return _queueCommandWithRTR(ODriveCANProtocol::buildSetInputPos(NODE_ID, position));
 }
 
 bool CanBusHandlerV2::setInputVel(float velocity) {
-    return _queueCommand(ODriveCANProtocol::buildSetInputVel(NODE_ID, velocity));
+    return _queueCommandWithRTR(ODriveCANProtocol::buildSetInputVel(NODE_ID, velocity));
 }
 
 bool CanBusHandlerV2::setInputTorque(float torque) {
-    return _queueCommand(ODriveCANProtocol::buildSetInputTorque(NODE_ID, torque));
+    return _queueCommandWithRTR(ODriveCANProtocol::buildSetInputTorque(NODE_ID, torque));
 }
 
 bool CanBusHandlerV2::setLimits(float velLimit, float currentLimit) {
-    return _queueCommand(ODriveCANProtocol::buildSetLimits(NODE_ID, velLimit, currentLimit));
+    return _queueCommandWithRTR(ODriveCANProtocol::buildSetLimits(NODE_ID, velLimit, currentLimit));
 }
 
 bool CanBusHandlerV2::setLinearCount(int32_t count) {
@@ -327,11 +327,11 @@ bool CanBusHandlerV2::startAnticogging() {
 }
 
 bool CanBusHandlerV2::setTrajVelLimit(float trajVelLimit) {
-    return _queueCommand(ODriveCANProtocol::buildSetTrajVelLimit(NODE_ID, trajVelLimit));
+    return _queueCommandWithRTR(ODriveCANProtocol::buildSetTrajVelLimit(NODE_ID, trajVelLimit));
 }
 
 bool CanBusHandlerV2::setTrajAccelLimits(float accelLimit, float decelLimit) {
-    return _queueCommand(ODriveCANProtocol::buildSetTrajAccelLimits(NODE_ID, accelLimit, decelLimit));
+    return _queueCommandWithRTR(ODriveCANProtocol::buildSetTrajAccelLimits(NODE_ID, accelLimit, decelLimit));
 }
 
 bool CanBusHandlerV2::setTrajInertia(float inertia) {

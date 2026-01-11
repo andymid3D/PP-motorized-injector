@@ -47,25 +47,27 @@ bool _queueCommandWithRTR(const can_Message_t& msg);  // Blocking wait for RTR
 
 ### 2. Critical Command Protection ✅
 
-**Commands Protected by RTR:**
+**All Motor Commands Protected by RTR:**
 - `setControllerModes(ctrlMode, inputMode)` - Mode transitions
 - `setAxisState(state)` - State transitions
 - `clearErrors()` - Error recovery
+- `setLimits(velLimit, currentLimit)` - Motor limits (CRITICAL - called before mode changes)
+- `setTrajVelLimit(trajVelLimit)` - Trajectory velocity limit
+- `setTrajAccelLimits(accel, decel)` - Trajectory acceleration limits
+- `setInputPos(position)` - Position setpoints
+- `setInputVel(velocity)` - Velocity setpoints
+- `setInputTorque(torque)` - Torque setpoints
 
-**Non-RTR Commands (Performance):**
-- `setInputPos(position)` - Position setpoints (non-blocking)
-- `setInputVel(velocity)` - Velocity setpoints (non-blocking)
-- `setInputTorque(torque)` - Torque setpoints (non-blocking)
-- `setLimits(velLimit, currentLimit)` - Parameter changes (non-blocking)
-
-**Why Only 3 Commands?**
-- RTR adds 2-5ms blocking per command
-- Mode/state transitions are MOST critical (wrong mode = catastrophic failure)
-- Setpoint failures are detected by broadcast monitoring:
-  - If setInputPos fails, motor won't reach target (position feedback shows error)
-  - If setInputVel fails, motor won't reach velocity (velocity feedback shows error)
-  - Broadcast staleness (100ms) detects complete CAN failure
-- Defense in depth: Mode RTR catches CAN breaks before setpoint commands execute
+**Why ALL Commands?**
+- **Complete safety:** Any failed command leaves motor in unpredictable state
+- **Critical dependency chain:** setLimits() failure before setControllerModes() would be silent and catastrophic
+- **No partial states:** Motor must have consistent configuration (limits + mode + setpoint all confirmed)
+- **RTR cost acceptable:** 2-5ms blocking per command is acceptable for safety-critical system
+- **Example failure scenario:**
+  - setLimits(25, 15) fails silently
+  - setControllerModes(3, 5) succeeds with RTR
+  - Motor runs in position mode with WRONG limits → Unsafe!
+- **Defense in depth:** RTR (15ms) + Broadcast monitoring (100ms) + SafetyManager interlocks
 
 ---
 
@@ -279,22 +281,19 @@ State: ERROR_STATE | Pos: 92.18 | Vel: 0.00 | Temp: 185°C | Err: 0
 
 ## Known Limitations
 
-1. **Blocking on Critical Commands:** 2-5ms blocking is acceptable for mode/state changes but violates pure non-blocking philosophy
-2. **No RTR on Setpoints:** setInputPos/Vel/Torque don't use RTR - failures detected by broadcast feedback monitoring instead of immediate confirmation
-3. **Recovery Requires Power Cycle:** ERR_CAN_RTR_FAILURE requires manual intervention (no auto-recovery)
-4. **Single RTR Tracking:** Can only track one pending RTR at a time (serial command execution)
+1. **Blocking on ALL Commands:** 2-5ms blocking per motor command violates pure non-blocking philosophy
+   - Acceptable tradeoff: Safety > Performance for safety-critical injection system
+   - Motor commands are infrequent (state transitions, not high-frequency loops)
+2. **Recovery Requires Power Cycle:** ERR_CAN_RTR_FAILURE requires manual intervention (no auto-recovery)
 
 ---
 
 ## Future Enhancements
 
-1. **RTR on All Commands:** Could add RTR to setInputPos/Vel/Torque for faster failure detection (currently rely on broadcast feedback)
-   - Benefit: 15ms detection vs 100ms broadcast monitoring
-   - Cost: 2-5ms blocking per setpoint command
-   - Alternative: Keep current approach (mode RTR + broadcast monitoring = defense in depth)
-2. **Auto-Recovery:** Attempt DC contactor cycle to reset ODrive on RTR failure
-3. **Retry Count Tuning:** Experiment with 2 retries (10ms) vs 3 retries (15ms) for optimal detection speed
-4. **RTR Statistics:** Track RTR success rate, average response time, timeout frequency
+1. **Auto-Recovery:** Attempt DC contactor cycle to reset ODrive on RTR failure
+2. **Retry Count Tuning:** Experiment with 2 retries (10ms) vs 3 retries (15ms) for optimal detection speed
+3. **RTR Statistics:** Track RTR success rate, average response time, timeout frequency per command type
+4. **Parallel RTR Tracking:** Support multiple pending RTR commands (requires queue depth tracking)
 
 ---
 
