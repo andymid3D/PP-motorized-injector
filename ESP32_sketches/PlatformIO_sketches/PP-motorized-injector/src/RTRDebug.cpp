@@ -1,0 +1,478 @@
+#include "RTRDebug.h"
+#include "MessageBuffer.h"
+#include "config.h"
+#include <ESP32-TWAI-CAN.hpp>
+
+RTRDebug::RTRDebug() 
+    : bufferCount_(0), commandSentTime_us_(0), capturing_(false), captureStartTime_us_(0) {
+}
+
+void RTRDebug::begin() {
+    // Enable DC contactor (motor power)
+    pinMode(PIN_CONTACTOR, OUTPUT);
+    digitalWrite(PIN_CONTACTOR, HIGH);
+    
+    MessageBuffer::getInstance().sendMessage("=== RTR DEBUG MODE ACTIVE ===");
+    MessageBuffer::getInstance().sendMessage("Testing ODrive RTR (Remote Transmission Request) behavior");
+    MessageBuffer::getInstance().sendMessage("Type 'help' for command list");
+    Serial.println();
+    printHelp();
+}
+
+void RTRDebug::loop() {
+    // Feed watchdog to prevent ESP32 reset
+    yield();
+    
+    // Poll for incoming CAN messages if capturing
+    if (capturing_) {
+        pollCANMessages();
+        
+
+        // Stop capture if buffer full
+        if (bufferCount_ >= BUFFER_SIZE) {
+            capturing_ = false;
+            MessageBuffer::getInstance().sendMessage("Capture complete");
+            displayBuffer();
+        }
+    }
+    
+    // Handle serial commands
+    if (Serial.available()) {
+        String cmd = Serial.readStringUntil('\n');
+        cmd.trim();
+        if (cmd.length() > 0) {
+            handleSerialCommand(cmd);
+        }
+    }
+}
+
+void RTRDebug::handleSerialCommand(const String& cmd) {
+    String command = cmd;
+    command.toLowerCase();
+    
+    Serial.printf("\n>> %s\n", cmd.c_str());
+    
+    if (command == "test_nortr") {
+        testNoRTR();
+    }
+    else if (command == "test_state8_nortr") {
+        testState8NoRTR();
+    }
+    else if (command == "test_state1_nortr") {
+        testState1NoRTR();
+    }
+    else if (command == "set_modes") {
+        testSetModes();
+    }
+    else if (command == "set_pos_short") {
+        testSetPosShort();
+    }
+    else if (command == "set_pos_long") {
+        testSetPosLong();
+    }
+    else if (command == "get_pos_nortr") {
+        testGetPosNoRTR();
+    }
+    else if (command == "test_nortr_triple") {
+        testNoRTRTriple();
+    }
+    else if (command == "test_state8_triple") {
+        testState8Triple();
+    }
+    else if (command == "set_modes_triple") {
+        testSetModesTriple();
+    }
+    else if (command == "set_pos_short_triple") {
+        testSetPosShortTriple();
+    }
+    else if (command == "show") {
+        displayBuffer();
+    }
+    else if (command == "clear") {
+        clearBuffer();
+        Serial.println("Buffer cleared");
+    }
+    else if (command == "help") {
+        printHelp();
+    }
+    else {
+        Serial.println("Unknown command. Type 'help' for command list.");
+    }
+}
+
+void RTRDebug::printHelp() {
+    Serial.println("\n=== CAN Protocol Debug Commands ===");
+    Serial.println("=== State Commands ===");
+    Serial.println("test_nortr         - Send axis_state 7 (calibration)");
+    Serial.println("test_state8_nortr  - Send axis_state 8 (CLOSED_LOOP)");
+    Serial.println("test_state1_nortr  - Send axis_state 1 (IDLE)");
+    Serial.println("");
+    Serial.println("=== Control Commands ===");
+    Serial.println("set_modes          - SET controller_modes (3, 1) Position/Passthrough");
+    Serial.println("set_pos_short      - SET position +1 turn (~50ms move)");
+    Serial.println("set_pos_long       - SET position +5 turns (~500ms move)");
+    Serial.println("get_pos_nortr      - GET position (DLC=0)");
+    Serial.println("");
+    Serial.println("=== Triple-Send (5ms spacing, collision test) ===");
+    Serial.println("test_nortr_triple  - Send axis_state 7 THREE times (5ms apart)");
+    Serial.println("test_state8_triple - Send axis_state 8 THREE times (5ms apart)");
+    Serial.println("set_modes_triple   - Send set_modes THREE times (5ms apart)");
+    Serial.println("set_pos_short_triple - Send set_pos_short THREE times (5ms apart)");
+    Serial.println("");
+    Serial.println("=== Utility ===");
+    Serial.println("show               - Display buffer with timestamps");
+    Serial.println("clear              - Clear capture buffer");
+    Serial.println("help               - Show this help");
+    Serial.println();
+}
+
+void RTRDebug::testNoRTR() {
+    Serial.println("Starting NO-RTR test (DLC=0 without RTR - v0.5.5+ feature)...");
+    clearBuffer();
+    startCapture();
+    
+    // Pre-roll: capture baseline broadcasts
+    delay(PREROLL_CAPTURE_MS);
+    
+    sendAxisState(7, false);  // Send command
+}
+
+void RTRDebug::testState8NoRTR() {
+    Serial.println("Starting State 8 WITHOUT RTR test (CLOSED_LOOP_CONTROL)...");
+    clearBuffer();
+    startCapture();
+    
+    delay(PREROLL_CAPTURE_MS);
+    
+    sendAxisState(8, false);
+}
+
+void RTRDebug::testState1NoRTR() {
+    Serial.println("Starting State 1 WITHOUT RTR test (IDLE)...");
+    clearBuffer();
+    startCapture();
+    
+    delay(PREROLL_CAPTURE_MS);
+    
+    sendAxisState(1, false);
+}
+
+void RTRDebug::clearBuffer() {
+    bufferCount_ = 0;
+    commandSentTime_us_ = 0;
+}
+
+void RTRDebug::startCapture() {
+    capturing_ = true;
+    captureStartTime_us_ = micros();
+}
+
+void RTRDebug::captureMessage(uint32_t id, uint8_t dlc, const uint8_t* data, bool rtr, bool isTx) {
+    if (bufferCount_ >= BUFFER_SIZE) return;  // Buffer full
+    
+    CANMessage& msg = captureBuffer_[bufferCount_];
+    msg.canId = id;
+    msg.dlc = dlc;
+    msg.rtr = rtr;
+    msg.isTx = isTx;
+    memcpy(msg.data, data, 8);
+    
+    // Calculate timestamp relative to command send (T=0)
+    uint32_t now = micros();
+    if (commandSentTime_us_ == 0) {
+        // Command not sent yet - negative timestamp (pre-roll)
+        msg.timestamp_us = -((int32_t)(now - captureStartTime_us_));
+    } else {
+        // Command sent - positive timestamp
+        msg.timestamp_us = now - commandSentTime_us_;
+    }
+    
+    bufferCount_++;
+}
+
+void RTRDebug::sendAxisState(uint8_t state, bool useRTR, bool preserveTimestamp) {
+    // Build CAN frame: Set_Axis_State
+    // CAN ID: (ODRIVE_NODE_ID << 5) | 0x007
+    uint32_t canId = (ODRIVE_NODE_ID << 5) | 0x007;
+    
+    CanFrame frame;
+    frame.identifier = canId;
+    frame.extd = 0;  // Standard 11-bit ID
+    frame.rtr = useRTR ? 1 : 0;  // RTR flag
+    frame.data_length_code = 4;  // axis_state is int32 = 4 bytes
+    
+    // Pack axis_state (little-endian)
+    frame.data[0] = state;
+    frame.data[1] = 0;
+    frame.data[2] = 0;
+    frame.data[3] = 0;
+    
+    // Mark command send time (T=0) - only if not preserving
+    if (!preserveTimestamp) {
+        commandSentTime_us_ = micros();
+    }
+    
+    // Send via ESP32Can
+    ESP32Can.writeFrame(frame);
+    
+    // Log to capture buffer
+    captureMessage(canId, 4, frame.data, useRTR, true);  // isTx = true
+    
+    Serial.printf("Sent: ID=0x%03X DLC=%d RTR=%d Data=[%02X %02X %02X %02X] (axis_state=%d)\n",
+                  canId, 4, useRTR, frame.data[0], frame.data[1], frame.data[2], frame.data[3], state);
+}
+
+void RTRDebug::pollCANMessages() {
+    CanFrame rxFrame;
+    while (ESP32Can.readFrame(rxFrame, 0)) {  // Non-blocking read
+        // Extract node ID and message ID
+        uint32_t nodeId = rxFrame.identifier >> 5;
+        uint32_t msgId = rxFrame.identifier & 0x1F;
+        
+        // Only capture messages from our ODrive (ODRIVE_NODE_ID)
+        if (nodeId != ODRIVE_NODE_ID) continue;
+        
+        // Capture to buffer
+        captureMessage(rxFrame.identifier, rxFrame.data_length_code, rxFrame.data, 
+                      rxFrame.rtr ? true : false, false);  // isTx = false
+    }
+}
+
+// ===== NEW TEST COMMANDS =====
+
+void RTRDebug::testSetModes() {
+    Serial.println("Starting SET controller_modes test (3=Position, 1=Passthrough)...");
+    clearBuffer();
+    startCapture();
+    
+    delay(PREROLL_CAPTURE_MS);
+    
+    sendControllerModes(3, 1);
+}
+
+void RTRDebug::testSetPosShort() {
+    Serial.println("Starting SET position SHORT test (+1 turn, ~50ms)...");
+    clearBuffer();
+    startCapture();
+    
+    delay(PREROLL_CAPTURE_MS);
+    
+    sendSetPosition(1.0f);
+}
+
+void RTRDebug::testSetPosLong() {
+    Serial.println("Starting SET position LONG test (+5 turns, ~500ms)...");
+    clearBuffer();
+    startCapture();
+    
+    delay(PREROLL_CAPTURE_MS);
+    
+    sendSetPosition(5.0f);
+}
+
+void RTRDebug::testGetPosNoRTR() {
+    Serial.println("Starting GET position WITHOUT RTR test (DLC=0)...");
+    clearBuffer();
+    startCapture();
+    
+    delay(PREROLL_CAPTURE_MS);
+    
+    sendGetPosition(false);
+}
+
+// ===============================================
+// ===== TRIPLE-SEND TESTS (5ms spacing for collision avoidance) =====
+
+void RTRDebug::testNoRTRTriple() {
+    Serial.printf("Starting TRIPLE axis_state 7 (calibration) test (3x sends, %dms apart)...\n", TRIPLE_SEND_SPACING_MS);
+    clearBuffer();
+    startCapture();
+    
+    delay(PREROLL_CAPTURE_MS);
+    
+    sendAxisState(7, false);
+    delay(TRIPLE_SEND_SPACING_MS);
+    sendAxisState(7, false, true);  // preserve timestamp
+    delay(TRIPLE_SEND_SPACING_MS);
+    sendAxisState(7, false, true);  // preserve timestamp
+}
+
+void RTRDebug::testState8Triple() {
+    Serial.printf("Starting TRIPLE axis_state 8 test (3x sends, %dms apart)...\n", TRIPLE_SEND_SPACING_MS);
+    clearBuffer();
+    startCapture();
+    
+    delay(PREROLL_CAPTURE_MS);
+    
+    sendAxisState(8, false);
+    delay(TRIPLE_SEND_SPACING_MS);
+    sendAxisState(8, false, true);
+    delay(TRIPLE_SEND_SPACING_MS);
+    sendAxisState(8, false, true);
+}
+
+void RTRDebug::testSetModesTriple() {
+    Serial.printf("Starting TRIPLE set_modes test (3x sends, %dms apart)...\n", TRIPLE_SEND_SPACING_MS);
+    clearBuffer();
+    startCapture();
+    
+    delay(PREROLL_CAPTURE_MS);
+    
+    sendControllerModes(3, 1);
+    delay(TRIPLE_SEND_SPACING_MS);
+    sendControllerModes(3, 1, true);
+    delay(TRIPLE_SEND_SPACING_MS);
+    sendControllerModes(3, 1, true);
+}
+
+void RTRDebug::testSetPosShortTriple() {
+    Serial.printf("Starting TRIPLE set_pos_short test (3x sends, %dms apart)...\n", TRIPLE_SEND_SPACING_MS);
+    clearBuffer();
+    startCapture();
+    
+    delay(PREROLL_CAPTURE_MS);
+    
+    sendSetPosition(1.0f);
+    delay(TRIPLE_SEND_SPACING_MS);
+    sendSetPosition(1.0f, true);
+    delay(TRIPLE_SEND_SPACING_MS);
+    sendSetPosition(1.0f, true);
+}
+
+// ===== CAN MESSAGE BUILDERS =====
+
+void RTRDebug::sendControllerModes(uint8_t ctrlMode, uint8_t inputMode, bool preserveTimestamp) {
+    // CAN ID: (ODRIVE_NODE_ID << 5) | 0x00B (Set_Controller_Modes)
+    uint32_t canId = (ODRIVE_NODE_ID << 5) | 0x00B;
+    
+    CanFrame frame;
+    frame.identifier = canId;
+    frame.extd = 0;
+    frame.rtr = 0;  // NO RTR for SET commands
+    frame.data_length_code = 8;
+    
+    // Pack: int32 control_mode, int32 input_mode (little-endian)
+    frame.data[0] = ctrlMode;
+    frame.data[1] = 0;
+    frame.data[2] = 0;
+    frame.data[3] = 0;
+    frame.data[4] = inputMode;
+    frame.data[5] = 0;
+    frame.data[6] = 0;
+    frame.data[7] = 0;
+    
+    if (!preserveTimestamp) {
+        commandSentTime_us_ = micros();
+    }
+    ESP32Can.writeFrame(frame);
+    captureMessage(canId, 8, frame.data, false, true);  // isTx = true
+    
+    Serial.printf("Sent: ID=0x%03X DLC=%d Data=[%02X %02X %02X %02X %02X %02X %02X %02X] (modes=%d,%d)\n",
+                  canId, 8, frame.data[0], frame.data[1], frame.data[2], frame.data[3],
+                  frame.data[4], frame.data[5], frame.data[6], frame.data[7], ctrlMode, inputMode);
+}
+
+void RTRDebug::sendSetPosition(float position, bool preserveTimestamp) {
+    // CAN ID: (ODRIVE_NODE_ID << 5) | 0x00C (Set_Input_Pos)
+    uint32_t canId = (ODRIVE_NODE_ID << 5) | 0x00C;
+    
+    CanFrame frame;
+    frame.identifier = canId;
+    frame.extd = 0;
+    frame.rtr = 0;  // NO RTR for SET commands
+    frame.data_length_code = 8;
+    
+    // Pack: float32 input_pos, int16 vel_ff, int16 torque_ff (little-endian)
+    // For now: just position, vel_ff=0, torque_ff=0
+    memcpy(frame.data, &position, 4);
+    frame.data[4] = 0;  // vel_ff low
+    frame.data[5] = 0;  // vel_ff high
+    frame.data[6] = 0;  // torque_ff low
+    frame.data[7] = 0;  // torque_ff high
+    
+    commandSentTime_us_ = micros();
+    ESP32Can.writeFrame(frame);
+    captureMessage(canId, 8, frame.data, false, true);  // isTx = true
+    
+    Serial.printf("Sent: ID=0x%03X DLC=%d Data=[%02X %02X %02X %02X ...] (position=%.2f)\n",
+                  canId, 8, frame.data[0], frame.data[1], frame.data[2], frame.data[3], position);
+}
+
+void RTRDebug::sendGetPosition(bool useRTR) {
+    // CAN ID: (ODRIVE_NODE_ID << 5) | 0x009 (Get_Encoder_Estimates)
+    uint32_t canId = (ODRIVE_NODE_ID << 5) | 0x009;
+    
+    CanFrame frame;
+    frame.identifier = canId;
+    frame.extd = 0;
+    frame.rtr = useRTR ? 1 : 0;  // Test WITH or WITHOUT RTR
+    frame.data_length_code = 0;  // DLC=0 for GET
+    
+    commandSentTime_us_ = micros();
+    ESP32Can.writeFrame(frame);
+    captureMessage(canId, 0, frame.data, useRTR, true);  // isTx = true
+    
+    Serial.printf("Sent: ID=0x%03X DLC=%d RTR=%d (GET encoder estimates)\n",
+                  canId, 0, useRTR);
+}
+
+void RTRDebug::displayBuffer() {
+    if (bufferCount_ == 0) {
+        Serial.println("Buffer empty. Run 'test_rtr' or 'test_nortr' first.");
+        return;
+    }
+    
+    Serial.println("\n=== CAPTURE BUFFER ===");
+    Serial.printf("Captured %d messages\n\n", bufferCount_);
+    Serial.println("Time(us) | Dir | CAN_ID | DLC | RTR | Data (hex)                      | Description");
+    Serial.println("---------|-----|--------|-----|-----|----------------------------------|------------------");
+    
+    for (uint8_t i = 0; i < bufferCount_; i++) {
+        CANMessage& msg = captureBuffer_[i];
+        
+        // Format timestamp
+        char timeStr[16];
+        if (msg.timestamp_us < 0) {
+            snprintf(timeStr, sizeof(timeStr), "-%6ld", -msg.timestamp_us);
+        } else {
+            snprintf(timeStr, sizeof(timeStr), "+%6ld", msg.timestamp_us);
+        }
+        
+        // Direction
+        const char* dir = msg.isTx ? "TX " : "RX ";
+        
+        // Data hex dump
+        char dataStr[32];
+        snprintf(dataStr, sizeof(dataStr), "%02X %02X %02X %02X %02X %02X %02X %02X",
+                msg.data[0], msg.data[1], msg.data[2], msg.data[3],
+                msg.data[4], msg.data[5], msg.data[6], msg.data[7]);
+        
+        // Message type description
+        const char* desc = "";
+        uint32_t msgId = msg.canId & 0x1F;
+        switch (msgId) {
+            case 0x001: desc = "Heartbeat"; break;
+            case 0x003: desc = "Motor_Error"; break;
+            case 0x004: desc = "Encoder_Error"; break;
+            case 0x005: desc = "Sensorless_Error"; break;
+            case 0x007: desc = msg.isTx ? "Set_Axis_State(7)" : "RESPONSE!"; break;
+            case 0x009: desc = "Encoder_Estimates"; break;
+            case 0x00A: desc = "Encoder_Count"; break;
+            case 0x014: desc = "Get_Iq"; break;
+            case 0x015: desc = "Sensorless_Estimates"; break;
+            case 0x017: desc = "Bus_Voltage_Current"; break;
+            case 0x01D: desc = "Controller_Error"; break;
+            default: desc = "Unknown"; break;
+        }
+        
+        Serial.printf("%8s | %s | 0x%04X |  %d  |  %d  | %s | %s\n",
+                     timeStr, dir, msg.canId, msg.dlc, msg.rtr ? 1 : 0, dataStr, desc);
+    }
+    
+    Serial.println("\n=== ANALYSIS ===");
+    Serial.println("Look for:");
+    Serial.println("1. Response message with ID 0x007 shortly after T=0 (10-50ms)");
+    Serial.println("2. Timing pattern of cyclic messages (10ms: Encoder/Iq, 100ms: Errors/Voltage)");
+    Serial.println("3. If response present → RTR works. If absent → RTR not working.");
+    Serial.println();
+}

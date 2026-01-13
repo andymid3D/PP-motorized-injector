@@ -1,0 +1,103 @@
+#ifndef __RTR_DEBUG_H__
+#define __RTR_DEBUG_H__
+
+#include <Arduino.h>
+#include <millisDelay.h>
+
+// Configurable timing constants (change here to adjust all tests)
+#define PREROLL_CAPTURE_MS 50         // Pre-roll time to capture baseline broadcasts before TX
+#define TRIPLE_SEND_SPACING_MS 5      // Milliseconds between repeated commands in triple-send tests
+#define COMPARE_TEST_DELAY_MS 1000    // Delay between RTR and NO-RTR comparison tests
+
+/**
+ * RTRDebug - Isolated CAN RTR Testing Module
+ * 
+ * Purpose: Test ODrive RTR (Remote Transmission Request) behavior
+ * - Direct ESP32Can access (bypasses CanBusHandlerV2 queue)
+ * - 50-message capture buffer with timestamps
+ * - Compare RTR vs DLC=0 (v0.5.5+ feature)
+ * 
+ * Commands:
+ *   test_rtr           - Send axis_state 7 WITH RTR flag (calibration, 10s delay)
+ *   test_nortr         - Send axis_state 7 WITHOUT RTR (DLC=0)
+ *   test_state8_rtr    - Send axis_state 8 WITH RTR (CLOSED_LOOP, instant)
+ *   test_state8_nortr  - Send axis_state 8 WITHOUT RTR (CLOSED_LOOP, instant)
+ *   test_state1_rtr    - Send axis_state 1 WITH RTR (IDLE, instant)
+ *   test_state1_nortr  - Send axis_state 1 WITHOUT RTR (IDLE, instant)
+ *   compare            - Run both tests back-to-back, show timing differences
+ *   show               - Display current capture buffer with hex dump
+ *   clear              - Clear buffer
+ *   help               - Show command list
+ * 
+ * Test Flow:
+ * 1. Start capture (50ms pre-roll to catch existing broadcasts)
+ * 2. Send command at T=0 (axis_state 7 - encoder calibration)
+ * 3. Capture until buffer full (~250ms with cyclic messages)
+ * 4. Display: timestamp, direction (TX/RX), ID, DLC, data, RTR flag
+ * 
+ * Analysis Goals:
+ * - Does ODrive respond to RTR requests?
+ * - Does DLC=0 without RTR work? (v0.5.5+)
+ * - What's the response format/timing?
+ * - Why do some commands timeout in production code?
+ */
+
+struct CANMessage {
+    int32_t timestamp_us;   // Microseconds relative to command send (T=0)
+    uint32_t canId;         // CAN ID (e.g., 0x007, 0x009)
+    uint8_t dlc;            // Data Length Code (0-8)
+    uint8_t data[8];        // Payload
+    bool rtr;               // RTR flag state
+    bool isTx;              // true = TX (command sent), false = RX (broadcast/response)
+};
+
+class RTRDebug {
+public:
+    RTRDebug();
+    
+    void begin();
+    void loop();
+    
+private:
+    // Serial command handling
+    void handleSerialCommand(const String& cmd);
+    void printHelp();
+    
+    // Test commands
+    void testNoRTR();         // Send axis_state 7 with DLC=0, no RTR (v0.5.5+ feature)
+    void testState8NoRTR();   // Send axis_state 8 (CLOSED_LOOP) WITHOUT RTR
+    void testState1NoRTR();   // Send axis_state 1 (IDLE) WITHOUT RTR
+    void testSetModes();      // SET controller_modes (3, 1) - Position, Passthrough
+    void testSetPosShort();   // SET position move (short, ~50ms)
+    void testSetPosLong();    // SET position move (longer, ~500ms)
+    void testGetPosNoRTR();   // GET position WITHOUT RTR (DLC=0)
+    
+    // Triple-send variants (send 3x with 5ms spacing to test collision avoidance)
+    void testNoRTRTriple();       // Send axis_state 7 (calibration) three times
+    void testState8Triple();      // Send axis_state 8 three times
+    void testSetModesTriple();    // Send set_modes three times
+    void testSetPosShortTriple(); // Send short position three times
+    
+    // Buffer management
+    void clearBuffer();
+    void displayBuffer();
+    void startCapture();
+    void captureMessage(uint32_t id, uint8_t dlc, const uint8_t* data, bool rtr, bool isTx);
+    
+    // Direct CAN access
+    void sendAxisState(uint8_t state, bool useRTR, bool preserveTimestamp = false);
+    void sendControllerModes(uint8_t ctrlMode, uint8_t inputMode, bool preserveTimestamp = false);
+    void sendSetPosition(float position, bool preserveTimestamp = false);
+    void sendGetPosition(bool useRTR);
+    void pollCANMessages();
+    
+    // Capture state
+    static const uint8_t BUFFER_SIZE = 100;  // Increased from 50 for longer moves
+    CANMessage captureBuffer_[100];
+    uint8_t bufferCount_;
+    uint32_t commandSentTime_us_;  // T=0 reference time
+    bool capturing_;
+    uint32_t captureStartTime_us_;  // For 50ms pre-roll
+};
+
+#endif // __RTR_DEBUG_H__
