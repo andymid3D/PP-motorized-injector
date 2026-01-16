@@ -5,9 +5,10 @@
 #include <millisDelay.h>
 
 // Configurable timing constants (change here to adjust all tests)
-#define PREROLL_CAPTURE_MS 50         // Pre-roll time to capture baseline broadcasts before TX
+#define PREROLL_CAPTURE_MS 100        // Pre-roll time to capture baseline broadcasts before TX
 #define TRIPLE_SEND_SPACING_MS 5      // Milliseconds between repeated commands in triple-send tests
 #define COMPARE_TEST_DELAY_MS 1000    // Delay between RTR and NO-RTR comparison tests
+#define TEST_DELAY 0                 // Post-TX delay to observe data outage during blocking delay
 
 /**
  * RTRDebug - Isolated CAN RTR Testing Module

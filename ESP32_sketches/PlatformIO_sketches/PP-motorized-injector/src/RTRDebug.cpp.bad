@@ -4,7 +4,7 @@
 #include <ESP32-TWAI-CAN.hpp>
 
 RTRDebug::RTRDebug() 
-    : bufferCount_(0), commandSentTime_us_(0), capturing_(false), captureStartTime_us_(0) {
+    : bufferCount_(0), commandSentTime_us_(0), capturing_(false), captureStartTime_us_(0), activeTest_(TEST_IDLE) {
 }
 
 void RTRDebug::begin() {
@@ -27,7 +27,9 @@ void RTRDebug::loop() {
     if (capturing_) {
         pollCANMessages();
         
-
+        // Update test state machine (non-blocking)
+        updateTestStateMachine();
+        
         // Stop capture if buffer full
         if (bufferCount_ >= BUFFER_SIZE) {
             capturing_ = false;
@@ -130,31 +132,30 @@ void RTRDebug::testNoRTR() {
     Serial.println("Starting NO-RTR test (DLC=0 without RTR - v0.5.5+ feature)...");
     clearBuffer();
     startCapture();
-    
-    // Pre-roll: capture baseline broadcasts
-    delay(PREROLL_CAPTURE_MS);
-    
-    sendAxisState(7, false);  // Send command
+    currentAxisState_ = 7;
+    currentUseRTR_ = 0x80;  // false (0x00) + single-send marker (0x80)
+    activeTest_ = TEST_PREROLL;
+    nonBlockingDelay_.start(PREROLL_CAPTURE_MS);
 }
 
 void RTRDebug::testState8NoRTR() {
     Serial.println("Starting State 8 WITHOUT RTR test (CLOSED_LOOP_CONTROL)...");
     clearBuffer();
     startCapture();
-    
-    delay(PREROLL_CAPTURE_MS);
-    
-    sendAxisState(8, false);
+    currentAxisState_ = 8;
+    currentUseRTR_ = 0x80;  // false + single-send marker
+    activeTest_ = TEST_PREROLL;
+    nonBlockingDelay_.start(PREROLL_CAPTURE_MS);
 }
 
 void RTRDebug::testState1NoRTR() {
     Serial.println("Starting State 1 WITHOUT RTR test (IDLE)...");
     clearBuffer();
     startCapture();
-    
-    delay(PREROLL_CAPTURE_MS);
-    
-    sendAxisState(1, false);
+    currentAxisState_ = 1;
+    currentUseRTR_ = 0x80;  // false + single-send marker
+    activeTest_ = TEST_PREROLL;
+    nonBlockingDelay_.start(PREROLL_CAPTURE_MS);
 }
 
 void RTRDebug::clearBuffer() {
@@ -207,10 +208,8 @@ void RTRDebug::sendAxisState(uint8_t state, bool useRTR, bool preserveTimestamp)
     frame.data[2] = 0;
     frame.data[3] = 0;
     
-    // Mark command send time (T=0) - only if not preserving
-    if (!preserveTimestamp) {
-        commandSentTime_us_ = micros();
-    }
+    // Mark command send time (T=0)
+    commandSentTime_us_ = micros();
     
     // Send via ESP32Can
     ESP32Can.writeFrame(frame);
@@ -244,57 +243,142 @@ void RTRDebug::testSetModes() {
     Serial.println("Starting SET controller_modes test (3=Position, 1=Passthrough)...");
     clearBuffer();
     startCapture();
-    
-    delay(PREROLL_CAPTURE_MS);
-    
-    sendControllerModes(3, 1);
+    currentAxisState_ = 255;  // Marker for set_modes
+    currentUseRTR_ = 0x80;  // Single-send marker
+    activeTest_ = TEST_PREROLL;
+    nonBlockingDelay_.start(PREROLL_CAPTURE_MS);
 }
 
 void RTRDebug::testSetPosShort() {
     Serial.println("Starting SET position SHORT test (+1 turn, ~50ms)...");
     clearBuffer();
     startCapture();
-    
-    delay(PREROLL_CAPTURE_MS);
-    
-    sendSetPosition(1.0f);
+    currentAxisState_ = 254;  // Marker for set_pos (1.0f)
+    currentUseRTR_ = 0x80;  // Single-send marker
+    activeTest_ = TEST_PREROLL;
+    nonBlockingDelay_.start(PREROLL_CAPTURE_MS);
 }
 
 void RTRDebug::testSetPosLong() {
     Serial.println("Starting SET position LONG test (+5 turns, ~500ms)...");
     clearBuffer();
     startCapture();
-    
-    delay(PREROLL_CAPTURE_MS);
-    
-    sendSetPosition(5.0f);
+    currentAxisState_ = 253;  // Marker for set_pos_long (5.0f)
+    currentUseRTR_ = 0x80;  // Single-send marker
+    activeTest_ = TEST_PREROLL;
+    nonBlockingDelay_.start(PREROLL_CAPTURE_MS);
 }
 
 void RTRDebug::testGetPosNoRTR() {
     Serial.println("Starting GET position WITHOUT RTR test (DLC=0)...");
     clearBuffer();
     startCapture();
-    
-    delay(PREROLL_CAPTURE_MS);
-    
-    sendGetPosition(false);
+    currentAxisState_ = 252;  // Marker for get_pos
+    currentUseRTR_ = 0x80;  // false + single-send marker
+    activeTest_ = TEST_PREROLL;
+    nonBlockingDelay_.start(PREROLL_CAPTURE_MS);
 }
 
 // ===============================================
-// ===== TRIPLE-SEND TESTS (5ms spacing for collision avoidance) =====
+// STATE MACHINE UPDATE (called every loop for continuous polling)
+// ===============================================
+
+void RTRDebug::updateTestStateMachine() {
+    if (activeTest_ == TEST_IDLE) return;
+    
+    // Only allow one state transition per call - prevents cascade execution
+    static TestState lastProcessedState = TEST_IDLE;
+    if (activeTest_ == lastProcessedState) return;  // Already processed this state this tick
+    
+    // Check if timer expired (skip for TEST_SEND_SINGLE and TEST_COMPLETE)
+    if (activeTest_ != TEST_SEND_SINGLE && activeTest_ != TEST_COMPLETE) {
+        if (!nonBlockingDelay_.justFinished()) {
+            lastProcessedState = TEST_IDLE;  // Reset for next timer expiry
+            return;
+        }
+    }
+    
+    lastProcessedState = activeTest_;  // Mark this state as processed
+    
+    switch (activeTest_) {
+        case TEST_PREROLL:
+            // Pre-roll complete, send command(s)
+            if (currentAxisState_ == 255) {
+                sendControllerModes(3, 1);  // set_modes
+            } else if (currentAxisState_ == 254) {
+                sendSetPosition(1.0f);  // set_pos
+            } else if (currentAxisState_ == 253) {
+                sendSetPosition(5.0f);  // set_pos_long (marker 253)
+            } else if (currentAxisState_ == 252) {
+                sendGetPosition(currentUseRTR_ & 0x01);  // get_pos (extract RTR from low bit)
+            } else {
+                sendAxisState(currentAxisState_, currentUseRTR_ & 0x01);  // axis_state 1/7/8 (extract RTR)
+            }
+            
+            // Check if this is a single-send test (high bit set as marker)
+            if (currentUseRTR_ & 0x80) {
+                activeTest_ = TEST_SEND_SINGLE;
+            } else {
+                activeTest_ = TEST_WAIT1;
+                nonBlockingDelay_.start(TRIPLE_SEND_SPACING_MS);
+            }
+            break;
+        
+        case TEST_SEND_SINGLE:
+            // Single-send test complete immediately
+            activeTest_ = TEST_COMPLETE;
+            break;
+            
+        case TEST_WAIT1:
+            // First delay complete, send second command
+            if (currentAxisState_ == 7 || currentAxisState_ == 8) {
+                sendAxisState(currentAxisState_, currentUseRTR_ & 0x01, true);  // Extract RTR, preserve T=0
+            } else if (currentAxisState_ == 255) {
+                sendControllerModes(3, 1, true);
+            } else if (currentAxisState_ == 254) {
+                sendSetPosition(1.0f, true);
+            }
+            activeTest_ = TEST_WAIT2;
+            nonBlockingDelay_.start(TRIPLE_SEND_SPACING_MS);
+            break;
+            
+        case TEST_WAIT2:
+            // Second delay complete, send third command
+            if (currentAxisState_ == 7 || currentAxisState_ == 8) {
+                sendAxisState(currentAxisState_, currentUseRTR_ & 0x01, true);  // Extract RTR, preserve T=0
+            } else if (currentAxisState_ == 255) {
+                sendControllerModes(3, 1, true);
+            } else if (currentAxisState_ == 254) {
+                sendSetPosition(1.0f, true);
+            }
+            activeTest_ = TEST_COMPLETE;
+            break;
+            
+        case TEST_COMPLETE:
+            // Test complete, do nothing (capturing still active until buffer full or manual stop)
+            activeTest_ = TEST_IDLE;
+            break;
+            
+        default:
+            break;
+    }
+}
+
+// ===============================================
+// TRIPLE-SEND TESTS (5ms spacing for collision avoidance)
+// ===============================================
 
 void RTRDebug::testNoRTRTriple() {
     Serial.printf("Starting TRIPLE axis_state 7 (calibration) test (3x sends, %dms apart)...\n", TRIPLE_SEND_SPACING_MS);
     clearBuffer();
     startCapture();
     
-    delay(PREROLL_CAPTURE_MS);
-    
-    sendAxisState(7, false);
-    delay(TRIPLE_SEND_SPACING_MS);
-    sendAxisState(7, false, true);  // preserve timestamp
-    delay(TRIPLE_SEND_SPACING_MS);
-    sendAxisState(7, false, true);  // preserve timestamp
+    // Initialize state machine
+    currentAxisState_ = 7;
+    currentUseRTR_ = false;
+    activeTest_ = TEST_PREROLL;
+    nonBlockingDelay_.start(PREROLL_CAPTURE_MS);
+    // Return immediately, loop() will handle state progression with continuous polling
 }
 
 void RTRDebug::testState8Triple() {
@@ -302,13 +386,12 @@ void RTRDebug::testState8Triple() {
     clearBuffer();
     startCapture();
     
-    delay(PREROLL_CAPTURE_MS);
-    
-    sendAxisState(8, false);
-    delay(TRIPLE_SEND_SPACING_MS);
-    sendAxisState(8, false, true);
-    delay(TRIPLE_SEND_SPACING_MS);
-    sendAxisState(8, false, true);
+    // Initialize state machine
+    currentAxisState_ = 8;
+    currentUseRTR_ = false;
+    activeTest_ = TEST_PREROLL;
+    nonBlockingDelay_.start(PREROLL_CAPTURE_MS);
+    // Return immediately, loop() will handle state progression with continuous polling
 }
 
 void RTRDebug::testSetModesTriple() {
@@ -316,27 +399,25 @@ void RTRDebug::testSetModesTriple() {
     clearBuffer();
     startCapture();
     
-    delay(PREROLL_CAPTURE_MS);
-    
-    sendControllerModes(3, 1);
-    delay(TRIPLE_SEND_SPACING_MS);
-    sendControllerModes(3, 1, true);
-    delay(TRIPLE_SEND_SPACING_MS);
-    sendControllerModes(3, 1, true);
+    // Initialize state machine (use marker value 255 for set_modes)
+    currentAxisState_ = 255;
+    currentUseRTR_ = false;
+    activeTest_ = TEST_PREROLL;
+    nonBlockingDelay_.start(PREROLL_CAPTURE_MS);
+    // Return immediately, loop() will handle state progression with continuous polling
 }
 
 void RTRDebug::testSetPosShortTriple() {
-    Serial.printf("Starting TRIPLE set_pos_short test (3x sends, %dms apart)...\n", TRIPLE_SEND_SPACING_MS);
+    Serial.printf("Starting TRIPLE set_pos_short test (3x sends, %dms apart)...\\n", TRIPLE_SEND_SPACING_MS);
     clearBuffer();
     startCapture();
     
-    delay(PREROLL_CAPTURE_MS);
-    
-    sendSetPosition(1.0f);
-    delay(TRIPLE_SEND_SPACING_MS);
-    sendSetPosition(1.0f, true);
-    delay(TRIPLE_SEND_SPACING_MS);
-    sendSetPosition(1.0f, true);
+    // Initialize state machine (use marker value 254 for set_pos)
+    currentAxisState_ = 254;
+    currentUseRTR_ = false;
+    activeTest_ = TEST_PREROLL;
+    nonBlockingDelay_.start(PREROLL_CAPTURE_MS);
+    // Return immediately, loop() will handle state progression with continuous polling
 }
 
 // ===== CAN MESSAGE BUILDERS =====

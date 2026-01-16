@@ -7,7 +7,7 @@
     "selectedEnumObject": "[injector_initial_layout.eez-project]:/variables/enums/1",
     "selectedLvglGroupObject": "[injector_initial_layout.eez-project]:/lvglGroups/groups/0",
     "subnavigationSelectedItems": {
-      "variables-tab/sub-navigation/selected-item": "Structs"
+      "variables-tab/sub-navigation/selected-item": "Enums"
     }
   },
   "layoutModel": {
@@ -205,9 +205,21 @@
               "type": "tabset",
               "id": "EDITORS",
               "weight": 56.3865789374363,
+              "selected": 1,
               "enableDeleteWhenEmpty": false,
               "enableClose": false,
               "children": [
+                {
+                  "type": "tab",
+                  "id": "#b2ae9a09-b20a-458b-969f-bbcc15b35c50",
+                  "name": "common_settings",
+                  "component": "editor",
+                  "config": {
+                    "objectPath": "[injector_initial_layout.eez-project]:/userPages/2",
+                    "permanent": false
+                  },
+                  "icon": "svg:page"
+                },
                 {
                   "type": "tab",
                   "id": "#8724af26-b1a3-4782-8717-76974a65d378",
@@ -1034,14 +1046,18 @@
   "objects": {
     "[injector_initial_layout.eez-project]:/userPages/0[flow-state]": {
       "selection": {
-        "0": {}
+        "0": {
+          "1": {
+            "$selected": true
+          }
+        }
       },
       "transform": {
         "translate": {
-          "x": -227,
-          "y": -282
+          "x": -189.20000000000005,
+          "y": -278.1304687500001
         },
-        "scale": 1
+        "scale": 0.8
       },
       "timeline": {
         "isEditorActive": false,
@@ -1059,7 +1075,7 @@
           "x": -185.92132568359375,
           "y": -257.2077513926144
         },
-        "scale": 1
+        "scale": 0.8
       },
       "timeline": {
         "isEditorActive": false,
@@ -1080,7 +1096,7 @@
           "x": -65,
           "y": -400
         },
-        "scale": 1
+        "scale": 0.8
       },
       "timeline": {
         "isEditorActive": false,
@@ -1132,7 +1148,7 @@
           "x": -240,
           "y": -400
         },
-        "scale": 1
+        "scale": 0.8
       },
       "timeline": {
         "isEditorActive": false,
@@ -1148,7 +1164,7 @@
           "x": -180,
           "y": -227
         },
-        "scale": 1
+        "scale": 0.8
       },
       "timeline": {
         "isEditorActive": false,
@@ -1179,6 +1195,6 @@
   ],
   "showInactiveFlowsInDebugger": true,
   "globalFlowZoom": true,
-  "flowZoom": 1,
+  "flowZoom": 0.8,
   "implementationLanguage": "C"
 }

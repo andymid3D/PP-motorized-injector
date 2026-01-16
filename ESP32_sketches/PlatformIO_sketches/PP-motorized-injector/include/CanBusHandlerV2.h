@@ -384,6 +384,47 @@ public:
      * @return Number of messages waiting in ring buffer (0-8)
      */
     uint8_t getQueueDepth() const { return getQueueCount(); }
+    
+    // ===== RAW CAN ACCESS (for RTRDebug module) =====
+    
+    /**
+     * Send raw CAN message WITH RTR flag set (DLC must be 0 for RTR)
+     * @param canId CAN message ID (use base ID like 0x007, NOT with node ID offset)
+     * @return true if queued, false if queue full
+     */
+    bool sendRawRTR(uint32_t canId);
+    
+    /**
+     * Send raw CAN message WITHOUT RTR flag, DLC=0 (test if ODrive responds anyway)
+     * @param canId CAN message ID (use base ID like 0x007, NOT with node ID offset)
+     * @return true if queued, false if queue full
+     */
+    bool sendRawNoRTR(uint32_t canId);
+    
+    /**
+     * Send raw CAN message with data bytes (no RTR)
+     * @param canId CAN message ID (use base ID like 0x007, NOT with node ID offset)
+     * @param data Data bytes to send (up to 8 bytes)
+     * @param dlc Data length code (0-8)
+     * @return true if queued, false if queue full
+     */
+    bool sendRawData(uint32_t canId, const uint8_t* data, uint8_t dlc);
+    
+    /**
+     * Check if raw CAN message is available (not yet processed by handlers)
+     * @return true if raw message available in RX buffer
+     */
+    bool hasRawMessage() const;
+    
+    /**
+     * Get next raw CAN message from RX buffer (bypass normal handlers)
+     * @param id Output: CAN message ID
+     * @param data Output: Data bytes (caller must provide 8-byte buffer)
+     * @param dlc Output: Data length code
+     * @param rtr Output: RTR flag state
+     * @return true if message retrieved, false if buffer empty
+     */
+    bool getRawMessage(uint32_t& id, uint8_t* data, uint8_t& dlc, bool& rtr);
 
 private:
     static constexpr uint8_t NODE_ID = 0;  // ODrive node ID

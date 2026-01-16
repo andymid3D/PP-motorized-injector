@@ -18,6 +18,7 @@ void logError(uint32_t axis, uint32_t motor, uint32_t encoder, uint32_t controll
     
     errorHistoryIndex = (errorHistoryIndex + 1) % ERROR_HISTORY_SIZE;
     
+    #if DEBUG_ENABLED
     // Print to serial for immediate debug visibility
     Serial.print("ERROR LOGGED | State: ");
     Serial.print(static_cast<int>(state));
@@ -31,6 +32,7 @@ void logError(uint32_t axis, uint32_t motor, uint32_t encoder, uint32_t controll
     Serial.print(controller, HEX);
     Serial.print(" | Time: ");
     Serial.println(millis());
+    #endif
 }
 
 void printErrorHistory() {

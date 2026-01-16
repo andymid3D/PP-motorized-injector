@@ -1,5 +1,4 @@
 #include "Injection.h"
-#include "SerialMessaging.h"  // For logMessage()
 #include "config.h"
 #include "MotorWrapper.h"
 
@@ -71,7 +70,7 @@ namespace Injection {
             snprintf(logBuf, sizeof(logBuf), "Inject: Start=%.1f Target=%.1f MoveAmt=%.1f turns (%.1fcm3)",
                      injectStartPos, targetInjectPos, 
                      volToTurns(currentMould.fillVolume), currentMould.fillVolume);
-            logMessage(logBuf);
+            MessageBuffer::getInstance().sendMessage(logBuf);
             
             // Queue all commands - ring buffer handles timing
             MotorWrapper::setMotorLimits(motor, INJECT_FILL_CONTROLLER_VEL_LIMIT, INJECT_FILL_CURRENT, "Inject Fill");

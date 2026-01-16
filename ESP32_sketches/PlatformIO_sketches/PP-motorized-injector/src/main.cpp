@@ -3,6 +3,8 @@
 #include <Adafruit_NeoPixel.h>
 #include <Bounce2.h>
 #include <SafeString.h>
+#include <loopTimer.h>  // PHASE 1: Loop performance monitoring
+#include <ESP32-TWAI-CAN.hpp>  // PHASE 1: CAN bus for testing
 
 #include "config.h"
 #include "injector_fsm.h"
@@ -12,9 +14,10 @@
 #include "UI.h"
 #include "Homing.h"
 #include "BroadcastDataStore.h"
-#include "SerialMessaging.h"
 #include "MessageBuffer.h"
 #include "MotorWrapper.h"  // Centralized motor control
+#include "GPTimer.h"  // PHASE 1: Hardware timer (Step 1.1)
+#include "CanRxHandler.h"  // PHASE 1: Core 0 ISR + Queue (Step 1.3)
 
 // ===== MODULAR STATE MACHINES (Phase 1 Integration) =====
 #include "Refill.h"
@@ -24,6 +27,11 @@
 #include "PurgeZero.h"
 #include "ReadyToInject.h"
 // ===== END MODULE INCLUDES =====
+
+// ===== DEBUG MODULES =====
+#include "DebugCommands.h"
+// #include "RTRDebug.h"  // DEPRECATED - files moved to .old
+// ===== END DEBUG MODULES =====
 
 // ===== ERROR MANAGEMENT (Centralized Logging & Classification) =====
 #include "ErrorManager.h"
@@ -40,16 +48,24 @@ CanBusHandlerV2 motor;
 Adafruit_NeoPixel ledsButtons(LED_COUNT_BUTTONS, PIN_LED_BUTTONS, NEO_GRB + NEO_KHZ800);
 Adafruit_NeoPixel ledsRing(LED_COUNT_RING, PIN_LED_RING, NEO_GRB + NEO_KHZ800);
 
+// NOTE: loopTimer global instance created automatically by <loopTimer.h> include
+
 // --- Debug Mode ---
 // CRITICAL: Only ONE debug mode can be enabled at a time
-// Enabling both will cause unpredictable machine behavior
-bool debugCommandsEnabled = false;  // Set to false to run normal FSM, true for serial debug commands
-bool debugHomingEnabled = false;   // Set to true to debug homing sequence step-by-step
+// Enabling multiple will cause unpredictable machine behavior
+bool debugCommandsEnabled = false;   // Serial debug commands (DebugCommands module)
+bool debugHomingEnabled = false;    // Debug homing sequence step-by-step
+bool debugRTREnabled = false;       // RTR flag testing (RTRDebug module) - DEPRECATED, files moved to .old
 
 // Runtime check: Ensure mutual exclusion
 void validateDebugModes() {
-    if (debugCommandsEnabled && debugHomingEnabled) {
-        MessageBuffer::getInstance().sendMessage("CRITICAL ERROR: Both debugCommandsEnabled AND debugHomingEnabled are TRUE!");
+    uint8_t enabledCount = 0;
+    if (debugCommandsEnabled) enabledCount++;
+    if (debugHomingEnabled) enabledCount++;
+    if (debugRTREnabled) enabledCount++;
+    
+    if (enabledCount > 1) {
+        MessageBuffer::getInstance().sendMessage("CRITICAL ERROR: Multiple debug modes enabled!");
         MessageBuffer::getInstance().sendMessage("Only ONE debug mode allowed at a time!");
         MessageBuffer::getInstance().sendMessage("Machine will NOT run until this is fixed!");
         while (true) {
@@ -59,6 +75,7 @@ void validateDebugModes() {
 }
 
 DebugCommands debugCmds;
+// RTRDebug rtrDebug;  // DEPRECATED - module disabled
 
 // --- Input Debouncers ---
 Bounce2::Button btnCenter = Bounce2::Button(); 
@@ -198,6 +215,257 @@ void updateLeds() {
     for(int i=0; i<LED_COUNT_RING; i++) ledsRing.setPixelColor(i, colRing); ledsRing.show();
 }
 
+// ===== PHASE 1 TESTING: CanRxHandler Queue Validation (Step 1.4) =====
+// TEMPORARY: Remove after validation complete
+/**
+ * @brief Test CanRxHandler ISR operation with real CAN data
+ * 
+ * Tests (Step 1.6):
+ * 1. Queue initialization
+ * 2. CAN bus initialization (ESP32Can)
+ * 3. ISR registration and alert callback
+ * 4. Real CAN message reception from ODrive
+ * 5. Message retrieval with timestamp validation
+ * 6. Queue statistics (depth, overflows, messages received)
+ * 
+ * Expected: ODrive broadcasts heartbeat (~10ms interval) and encoder estimates
+ * 
+ * NOTE: Requires hardware - ODrive must be powered and broadcasting
+ */
+void testCanRxISR() {
+    Serial.println("\n=== CanRxHandler ISR Test Start ===");
+    Serial.println("NOTE: Requires ODrive powered and broadcasting on CAN bus");
+    
+    CanRxHandler& canRx = CanRxHandler::getInstance();
+    
+    // Test 1: Initialize CAN bus BEFORE CanRxHandler
+    Serial.println("\n[1] Initializing CAN bus (ESP32Can)...");
+    ESP32Can.setPins(PIN_CAN_TX, PIN_CAN_RX);
+    ESP32Can.setSpeed(TWAI_SPEED_250KBPS);
+    if (!ESP32Can.begin()) {
+        Serial.println("FAIL: CAN bus initialization");
+        return;
+    }
+    Serial.println("PASS: CAN bus initialized (250kbps)");
+    
+    // Diagnostic: Check TWAI driver state
+    twai_status_info_t twai_status;
+    if (twai_get_status_info(&twai_status) == ESP_OK) {
+        Serial.print("     TWAI state: ");
+        Serial.print(twai_status.state);
+        Serial.print(" (0=STOPPED, 1=RUNNING, 2=BUS_OFF, 3=RECOVERING)");
+        Serial.println();
+        Serial.print("     TX queue: ");
+        Serial.print(twai_status.msgs_to_tx);
+        Serial.print(", RX queue: ");
+        Serial.println(twai_status.msgs_to_rx);
+        Serial.print("     TX failed: ");
+        Serial.print(twai_status.tx_failed_count);
+        Serial.print(", RX missed: ");
+        Serial.print(twai_status.rx_missed_count);
+        Serial.print(", Bus errors: ");
+        Serial.println(twai_status.bus_error_count);
+    }
+    
+    // Test 2: Try direct frame read (bypass CanRxHandler)
+    Serial.println("\n[2] Testing direct CAN frame reception (3 second test)...");
+    uint32_t directTestStart = millis();
+    uint32_t directFramesReceived = 0;
+    while (millis() - directTestStart < 3000) {
+        CanFrame rxFrame;
+        if (ESP32Can.readFrame(rxFrame, 0)) {  // 0 = non-blocking
+            directFramesReceived++;
+            if (directFramesReceived == 1) {
+                Serial.print("     FIRST FRAME: ID=0x");
+                Serial.print(rxFrame.identifier, HEX);
+                Serial.print(" DLC=");
+                Serial.print(rxFrame.data_length_code);
+                Serial.print(" Data: ");
+                for (int i = 0; i < rxFrame.data_length_code && i < 8; i++) {
+                    if (rxFrame.data[i] < 0x10) Serial.print("0");
+                    Serial.print(rxFrame.data[i], HEX);
+                    Serial.print(" ");
+                }
+                Serial.println();
+            }
+        }
+        delayMicroseconds(100);
+    }
+    Serial.print("     Direct frames received: ");
+    Serial.println(directFramesReceived);
+    
+    if (directFramesReceived == 0) {
+        Serial.println("FAIL: No frames with ESP32Can.readFrame()");
+        Serial.println("      Issue: CAN bus wiring, termination, or ODrive not broadcasting");
+        Serial.println("      Check: CAN_H/CAN_L connected? 120Ω termination? ODrive LED blinking?");
+        return;  // Stop test - no point continuing
+    } else {
+        Serial.println("PASS: Direct frame reception working!");
+    }
+    
+    // Test 3: Initialize CanRxHandler (registers alerts)
+    Serial.println("\n[3] Initializing CanRxHandler (queue + alerts)...");
+    if (!canRx.begin()) {
+        Serial.println("FAIL: CanRxHandler initialization");
+        return;
+    }
+    Serial.println("PASS: CanRxHandler initialized");
+    Serial.print("     Queue size: ");
+    Serial.print(32);  // QUEUE_SIZE
+    Serial.println(" messages");
+    
+    // Test 4: Wait for CAN messages via CanRxHandler polling
+    Serial.println("\n[4] Testing CanRxHandler.pollAndQueue() (10 second test)...");
+    Serial.println("     Measuring real-time loop overhead WITH polling active");
+    
+    uint32_t testStartTime = millis();
+    uint32_t testDuration = 10000;  // 10 seconds
+    uint32_t lastPrintTime = millis();
+    uint32_t messagesProcessed = 0;
+    uint32_t pollCalls = 0;
+    uint32_t lastMessagesReceived = 0;
+    
+    // REAL-TIME LOOP TIME MEASUREMENT (hardware timestamp precision)
+    uint64_t minLoopTime = UINT64_MAX;
+    uint64_t maxLoopTime = 0;
+    uint64_t totalLoopTime = 0;
+    uint32_t loopIterations = 0;
+    uint64_t lastLoopEnd = hwTimer.micros();
+    
+    while (millis() - testStartTime < testDuration) {
+        // === START LOOP TIMING ===
+        uint64_t loopStart = hwTimer.micros();
+        
+        // Poll TWAI and queue new messages (non-blocking, fast)
+        canRx.pollAndQueue();
+        pollCalls++;
+        
+        // Check for messages in queue (non-blocking)
+        CANRxMessage msg;
+        while (canRx.receiveMessage(msg, 0)) {  // 0 timeout = non-blocking
+            messagesProcessed++;
+            
+            // Print message details every 500ms
+            if (millis() - lastPrintTime >= 500) {
+                Serial.print("     [");
+                Serial.print(messagesProcessed);
+                Serial.print("] CAN ID: 0x");
+                Serial.print(msg.canId, HEX);
+                Serial.print("  DLC: ");
+                Serial.print(msg.dlc);
+                Serial.print("  TS: ");
+                Serial.print((uint32_t)msg.timestamp);
+                Serial.print("us  Data: ");
+                for (int i = 0; i < msg.dlc && i < 8; i++) {
+                    if (msg.data[i] < 0x10) Serial.print("0");
+                    Serial.print(msg.data[i], HEX);
+                    Serial.print(" ");
+                }
+                Serial.println();
+                lastPrintTime = millis();
+            }
+        }
+        
+        // === END LOOP TIMING ===
+        uint64_t loopEnd = hwTimer.micros();
+        uint64_t loopDuration = loopEnd - loopStart;
+        
+        // Track statistics (excluding Serial.print overhead)
+        if (loopDuration < minLoopTime) minLoopTime = loopDuration;
+        if (loopDuration > maxLoopTime) maxLoopTime = loopDuration;
+        totalLoopTime += loopDuration;
+        loopIterations++;
+        
+        // Print progress every 2 seconds
+        if (millis() - lastPrintTime >= 2000) {
+            uint32_t currentReceived = canRx.getMessagesReceived();
+            uint32_t newMessages = currentReceived - lastMessagesReceived;
+            uint32_t avgLoopTime = (uint32_t)(totalLoopTime / loopIterations);
+            
+            Serial.print("     Progress: ");
+            Serial.print(messagesProcessed);
+            Serial.print(" processed, ");
+            Serial.print(newMessages);
+            Serial.print(" new, ");
+            Serial.print(avgLoopTime);
+            Serial.print("us avg loop");
+            Serial.println();
+            
+            lastMessagesReceived = currentReceived;
+            pollCalls = 0;
+            lastPrintTime = millis();
+        }
+        
+        // Small delay to prevent tight loop
+        delayMicroseconds(100);
+        lastLoopEnd = loopEnd;
+    }
+    
+    // Calculate final loop time statistics
+    uint32_t avgLoopTime = (uint32_t)(totalLoopTime / loopIterations);
+    
+    Serial.println("\n[4b] Real-Time Loop Performance (DURING polling):");
+    Serial.print("     Loop iterations: ");
+    Serial.println(loopIterations);
+    Serial.print("     Min loop time: ");
+    Serial.print((uint32_t)minLoopTime);
+    Serial.println(" us");
+    Serial.print("     Max loop time: ");
+    Serial.print((uint32_t)maxLoopTime);
+    Serial.println(" us");
+    Serial.print("     Avg loop time: ");
+    Serial.print(avgLoopTime);
+    Serial.println(" us");
+    Serial.print("     Poll frequency: ");
+    Serial.print(loopIterations / 10);
+    Serial.println(" Hz");
+    Serial.println("     NOTE: Includes pollAndQueue() + receiveMessage() overhead");
+    Serial.println("     NOTE: Excludes Serial.print() time (measured separately)");
+    
+    // Test 5: Validate statistics
+    Serial.println("\n[5] Test Results:");
+    Serial.print("     Messages processed: ");
+    Serial.println(messagesProcessed);
+    Serial.print("     ISR total received: ");
+    Serial.println(canRx.getMessagesReceived());
+    Serial.print("     Queue overflows: ");
+    Serial.println(canRx.getQueueOverflows());
+    Serial.print("     Final queue depth: ");
+    Serial.println(canRx.getQueueDepth());
+    
+    // Expected: ~2000 messages in 10s (ODrive broadcasts ~5 msgs every 10ms = 500/sec per node)
+    // With NodeID=0: Heartbeat + Encoder = ~200 messages/sec = ~2000 messages in 10s
+    Serial.println("\n[6] Validation:");
+    if (messagesProcessed == 0) {
+        Serial.println("FAIL: No messages via CanRxHandler.pollAndQueue()");
+        Serial.println("      But direct ESP32Can.readFrame() worked!");
+        Serial.println("      Issue: TWAI alerts not triggering OR pollAndQueue() logic error");
+        return;
+    }
+    
+    if (canRx.getQueueOverflows() > 0) {
+        Serial.print("WARN: Queue overflows detected (");
+        Serial.print(canRx.getQueueOverflows());
+        Serial.println(")");
+        Serial.println("      Consider increasing queue size or processing faster");
+    } else {
+        Serial.println("PASS: Zero queue overflows (queue sizing OK)");
+    }
+    
+    if (messagesProcessed >= 100) {
+        Serial.println("PASS: Message reception working (>100 msgs in 10s)");
+    } else {
+        Serial.println("WARN: Low message rate (<100 msgs in 10s)");
+        Serial.println("      Expected ~200/sec from ODrive NodeID=0");
+    }
+    
+    Serial.println("\n=== CanRxHandler ISR Test Complete ===");
+    Serial.println("PASS: ISR connection validated");
+    Serial.println("NOTE: Check loopTimer stats for ISR overhead measurement\n");
+}
+// ===== END PHASE 1 TESTING =====
+
+
 // --- MOTOR CONTROL WRAPPERS ---
 // All motor commands now go through MotorWrapper namespace (see MotorWrapper.h/cpp)
 // This section intentionally empty - functions moved to shared MotorWrapper for module access
@@ -216,7 +484,7 @@ void updateLeds() {
 bool runCompressionCycle() {
     static unsigned long compressStart = 0;
     if (stateEntry) {
-        logMessage("Compression: Start Torque Ramp");
+        MessageBuffer::getInstance().sendMessage("Compression: Start Torque Ramp");
         safety.setContext(CTX_BLOCKED);
         compressStart = millis();
     }
@@ -226,8 +494,8 @@ bool runCompressionCycle() {
     
     MotorWrapper::setModeAndMove(motor, 1, 1, targetTorque, "TorqueMode");
 
-    if (elapsed > 15.0f) { logMessage("Compression: Timeout"); MotorWrapper::setModeAndMove(motor, 2, 1, 0, "Stop"); return true; }
-    if (elapsed > 1.0f && abs(motor.getVelocity()) < 0.5f) { logMessage("Compression: Stall Detected"); MotorWrapper::setModeAndMove(motor, 2, 1, 0, "Stop"); return true; }
+    if (elapsed > 15.0f) { MessageBuffer::getInstance().sendMessage("Compression: Timeout"); MotorWrapper::setModeAndMove(motor, 2, 1, 0, "Stop"); return true; }
+    if (elapsed > 1.0f && abs(motor.getVelocity()) < 0.5f) { MessageBuffer::getInstance().sendMessage("Compression: Stall Detected"); MotorWrapper::setModeAndMove(motor, 2, 1, 0, "Stop"); return true; }
     return false;
 }
 
@@ -270,16 +538,73 @@ void printDebugReport(unsigned long currentLoopTime, unsigned long maxLoopTimeSi
 void setup() {
     Serial.begin(115200); 
     delay(2000); 
+    
     MessageBuffer::getInstance().sendMessage("SYSTEM START");
     SafeString::setOutput(Serial); 
-    SerialMessaging::begin();  // Initialize non-blocking serial messaging
     MotorWrapper::init();  // Initialize motor wrapper tracking variables
     
+    // Initialize GPTimer (PHASE 1: Step 1.1)
+    if (!hwTimer.begin()) {
+        Serial.println("ERROR: GPTimer init failed");
+        while(1) { delay(1000); }  // Halt - timer critical for CAN RX
+    }
+    
+#if TEST_MODE_PHASE1
+    // ===== PHASE 1 TEST MODE: Isolated Module Testing =====
+    Serial.println("\n========================================");
+    Serial.println("PHASE 1 TEST MODE ACTIVE");
+    Serial.println("FSM bypassed - testing new modules only");
+    Serial.println("========================================\n");
+    
+    // Initialize safety manager (required for contactor control)
+    safety.begin();
+    
+    // Enable DC Contactor (power ODrive for CAN messages)
+    safety.enableMotorPower(true);
+    delay(500);  // Allow ODrive to boot
+    
+    // Initialize CAN bus hardware
+    ESP32Can.setPins(PIN_CAN_TX, PIN_CAN_RX);
+    ESP32Can.setSpeed(TWAI_SPEED_250KBPS);
+    if (!ESP32Can.begin()) {
+        Serial.println("ERROR: CAN bus init failed");
+        while(1) { delay(1000); }
+    }
+    
+    // Initialize CanRxHandler
+    CanRxHandler& canRx = CanRxHandler::getInstance();
+    if (!canRx.begin()) {
+        Serial.println("ERROR: CanRxHandler init failed");
+        while(1) { delay(1000); }
+    }
+    
+    // Launch Core 0 polling task
+    if (!canRx.startCore0Task()) {
+        Serial.println("ERROR: Failed to start Core 0 task");
+        while(1) { delay(1000); }
+    }
+    
+    // Print test info AFTER task running (minimal startup delay)
+    Serial.println("\n========================================");
+    Serial.println("PHASE 1: Dual-Core CAN RX Test Active");
+    Serial.println("Core 0: Polling task | Core 1: Queue drain");
+    Serial.println("========================================\n");
+    
+    return;  // Skip normal FSM initialization
+#endif
+    
+    // ===== NORMAL MODE: FSM Initialization =====
     if (debugCommandsEnabled) {
         // DEBUG MODE: Skip FSM initialization, only init DebugCommands
         motor.begin();
         debugCmds.begin(motor);
         MessageBuffer::getInstance().sendMessage("Debug mode activated - FSM disabled");
+    } else if (debugRTREnabled) {
+        // RTR DEBUG MODE: Test RTR flag behavior (isolated from CanBusHandlerV2)
+        // DEPRECATED: RTRDebug module disabled, files moved to .old
+        motor.begin();  // Initialize CAN bus
+        // rtrDebug.begin();
+        MessageBuffer::getInstance().sendMessage("RTR Debug mode DEPRECATED - ignored");
     } else {
         // NORMAL MODE: Full FSM initialization
         safety.begin(); motor.begin(); pinMode(PIN_TEMP_ANALOG, INPUT);
@@ -297,6 +622,101 @@ void setup() {
 }
 
 void loop() {
+    // ===== PHASE 1: PERFORMANCE MONITORING =====
+    // loopTimer.check() measures loop execution time, prints stats every 5 seconds
+    // Output: "loop us Latency / 5sec max:XXX avg:YYY / sofar max:ZZZ avg:WWW max - prt:PPP"
+    // NOTE: Adds ~1-2ms overhead, remove after performance validation
+    loopTimer.check(Serial);
+    
+#if TEST_MODE_PHASE1
+    // ===== PHASE 1 TEST MODE: FSM Load Simulation =====
+    // Simulate typical FSM loop overhead to test queue drain under load
+    
+    static uint32_t msgCount = 0;
+    static unsigned long lastStatsTime = millis();
+    static uint32_t drainCycles = 0;
+    static uint32_t maxMsgsPerDrain = 0;
+    static uint32_t maxDrainTime = 0;
+    
+    // SIMULATE FSM WORK (comment out to test bare performance)
+    // Uncomment sections progressively to see impact
+    
+    // 1. Simulate sensor reads (~30µs)
+    delayMicroseconds(30);
+    
+    // 2. Simulate thermocouple read (~100µs) - happens every loop in production
+    delayMicroseconds(100);
+    
+    // 3. Simulate button debounce (~15µs)
+    delayMicroseconds(15);
+    
+    // 4. Simulate module state machine checks (~20µs)
+    delayMicroseconds(20);
+    
+    // TOTAL simulated overhead: ~165µs (realistic FSM baseline)
+    // Uncomment next line to test with full simulated load:
+    delayMicroseconds(165);
+
+    // user added delay for threshld discovery
+    delayMicroseconds(700000);
+
+    
+    CanRxHandler& canRx = CanRxHandler::getInstance();
+    CANRxMessage msg;
+    
+    // Check queue depth BEFORE draining (shows accumulation during previous loop)
+    uint8_t queueDepthBefore = canRx.getQueueDepth();
+    
+    // Measure drain cycle (when queue has messages)
+    uint32_t msgsThisDrain = 0;
+    uint64_t drainStart = hwTimer.micros();
+    
+    while (canRx.receiveMessage(msg, 0)) {
+        msgCount++;
+        msgsThisDrain++;
+    }
+    
+    // If we drained messages, record stats
+    if (msgsThisDrain > 0) {
+        uint32_t drainTime = hwTimer.micros() - drainStart;
+        drainCycles++;
+        if (msgsThisDrain > maxMsgsPerDrain) maxMsgsPerDrain = msgsThisDrain;
+        if (drainTime > maxDrainTime) maxDrainTime = drainTime;
+    }
+    
+    // Track max queue depth observed
+    static uint8_t maxQueueDepth = 0;
+    if (queueDepthBefore > maxQueueDepth) maxQueueDepth = queueDepthBefore;
+    
+    // Print stats every 5 seconds
+    if (millis() - lastStatsTime >= 5000) {
+        Serial.print("[Stats] Messages: ");
+        Serial.print(msgCount);
+        Serial.print(" | Rate: ");
+        Serial.print(msgCount / 5.0, 1);
+        Serial.print(" msg/s | Drain cycles: ");
+        Serial.print(drainCycles);
+        Serial.print(" | Max burst: ");
+        Serial.print(maxMsgsPerDrain);
+        Serial.print(" msgs in ");
+        Serial.print(maxDrainTime);
+        Serial.print(" µs | Queue depth: ");
+        Serial.print(maxQueueDepth);
+        Serial.print(" | Overflows: ");
+        Serial.println(canRx.getQueueOverflows());
+        
+        msgCount = 0;
+        drainCycles = 0;
+        maxMsgsPerDrain = 0;
+        maxDrainTime = 0;
+        maxQueueDepth = 0;
+        lastStatsTime = millis();
+    }
+    
+    return;  // Skip all FSM processing
+#endif
+    
+    // ===== NORMAL MODE: FSM Processing =====
     // ===== LOOP TIMING INSTRUMENTATION =====
     unsigned long loopStart = millis();
     static unsigned long lastLoopReportTime = 0;
@@ -316,6 +736,13 @@ void loop() {
     if (debugCommandsEnabled) {
         debugCmds.loop();
         return;  // Skip all FSM code when in debug mode
+    }
+    
+    // ===== RTR DEBUG MODE: Test RTR flag behavior =====
+    // DEPRECATED: RTRDebug module disabled
+    if (debugRTREnabled) {
+        // rtrDebug.loop();  // DEPRECATED - commented out
+        return;  // Skip all FSM code when in RTR debug mode
     }
     
     // ===== DEBUG HOMING MODE: Run non-blocking homing state machine =====
@@ -414,6 +841,8 @@ void loop() {
         uint32_t controllerErr = motor.getControllerErrorDetails().controller_error;
         
         if (hasAnyError(axisErr, motorErr, encoderErr, controllerErr) && 
+            fsm_state.currentState != INIT_HEATING &&           // Allow boot-time error clearing
+            fsm_state.currentState != INIT_HOT_NOT_HOMED &&     // Allow warmup with cleared errors
             fsm_state.currentState != INIT_HOMING && 
             fsm_state.currentState != ERROR_STATE) {
             
@@ -473,18 +902,25 @@ void loop() {
             }
             if (safety.isEStopPressed() || safety.isBarrelOpen()) safety.enableMotorPower(false); else safety.enableMotorPower(true);
             if (!ignoreButtons && !buttonLock && btnCenter.released()) { 
-                if (!safety.isEStopPressed() && !safety.isBarrelOpen()) { logMessage("User Reset."); safety.resetError(); motor.clearErrors(); fsm_state.currentState = InjectorStates::INIT_HEATING; } 
+                if (!safety.isEStopPressed() && !safety.isBarrelOpen()) { MessageBuffer::getInstance().sendMessage("User Reset."); safety.resetError(); motor.clearErrors(); fsm_state.currentState = InjectorStates::INIT_HEATING; } 
             }
             break;
 
         case InjectorStates::INIT_HEATING: 
+            if (stateEntry) {
+                // Clear any pre-existing ODrive errors from previous session
+                // This prevents stale errors from blocking startup
+                MessageBuffer::getInstance().sendMessage("Boot: Clearing ODrive errors");
+                motor.clearErrors();
+                delay(100);  // Allow ODrive to process clear command
+            }
             if (fsm_inputs.nozzleTemperature >= TEMP_CRITICAL) fsm_state.currentState = InjectorStates::INIT_HOT_NOT_HOMED; else safety.enableMotorPower(false);
             break;
 
         case InjectorStates::INIT_HOT_NOT_HOMED: 
             safety.enableMotorPower(true); 
             if (!ignoreButtons && !buttonLock && btnUpper.released()) { 
-                if (fsm_inputs.nozzleTemperature >= TEMP_MIN_MOVE) fsm_state.currentState = InjectorStates::INIT_HOMING; else logMessage("Temp too low!"); 
+                if (fsm_inputs.nozzleTemperature >= TEMP_MIN_MOVE) fsm_state.currentState = InjectorStates::INIT_HOMING; else MessageBuffer::getInstance().sendMessage("Temp too low!"); 
             }
             break;
 
@@ -520,23 +956,6 @@ void loop() {
 
 
         case InjectorStates::REFILL:
-            /*
-            ===== COMMENTED OUT: Old FSM Logic (replaced by modular pattern) =====
-            if (stateEntry) {
-                char logBuf[80];
-                snprintf(logBuf, sizeof(logBuf), "Refill: Move to %.1f turns", OFFSET_REFILL_GAP);
-                logMessage(logBuf);
-                setModeAndMove(3, 1, OFFSET_REFILL_GAP, "Pos Refill");
-                //motor.setControllerMode(3, 1);     // Mode 3 (Position), InputMode 1 (PASSTHROUGH)
-                //motor.setPosition(OFFSET_REFILL_GAP);  // Send target position once
-                lastMotorCmdTime = millis();
-            }
-            
-            safety.setContext(CTX_IDLE); 
-            if (!ignoreButtons && btnUpper.read() == LOW && btnLower.read() == LOW) { flags.endOfDay = !flags.endOfDay; delay(500); }
-            else if (!ignoreButtons && !buttonLock && btnCenter.released()) { fsm_state.currentState = InjectorStates::COMPRESSION; }
-            ===== END COMMENTED REFILL =====
-            */
             // ===== NEW: Modular Refill =====
             if (stateEntry) {
                 Refill::begin();
@@ -586,30 +1005,6 @@ void loop() {
             break;
 
         case InjectorStates::COMPRESSION:
-            /*
-            ===== COMMENTED OUT: Old FSM Logic (replaced by modular pattern) =====
-            if (!ignoreButtons && !buttonLock && btnUpper.released()) { 
-                logMessage("Compression: User aborted, returning to Refill");
-                motor.setInputVel(0);  // CRITICAL: Stop motor immediately
-                lastMotorCmdTime = millis();
-                fsm_state.currentState = InjectorStates::REFILL; 
-            }
-            else if (!ignoreButtons && !buttonLock && btnLower.released()) { 
-                logMessage("Compression: Complete, ready to inject");
-                motor.setInputVel(0);  // CRITICAL: Stop motor immediately
-                lastMotorCmdTime = millis();
-                fsm_state.currentState = InjectorStates::READY_TO_INJECT; 
-                lastAutoCompress = millis(); 
-            }
-            else if (runCompressionCycle()) { 
-                logMessage("Compression: Cycle finished");
-                motor.setInputVel(0);  // CRITICAL: Stop motor
-                lastMotorCmdTime = millis();
-                fsm_state.currentState = InjectorStates::READY_TO_INJECT; 
-                lastAutoCompress = millis(); 
-            }
-            ===== END COMMENTED COMPRESSION =====
-            */
             // ===== NEW: Modular Compression =====
             if (stateEntry) {
                 Compression::begin(Compression::MODE_1_TRAVEL);  // Full travel mode post-refill
@@ -620,13 +1015,13 @@ void loop() {
                 lastAutoCompress = millis();
             }
             if (!ignoreButtons && !buttonLock && btnUpper.released()) { 
-                logMessage("Compression: User aborted, returning to Refill");
+                MessageBuffer::getInstance().sendMessage("Compression: User aborted, returning to Refill");
                 fsm_state.currentState = InjectorStates::REFILL;
                 moveLockActive = true;  // Lock buttons until Refill position reached
                 Compression::reset();
             }
             if (!ignoreButtons && !buttonLock && btnLower.released()) { 
-                logMessage("Compression: User confirmed, ready to inject");
+                MessageBuffer::getInstance().sendMessage("Compression: User confirmed, ready to inject");
                 fsm_state.currentState = InjectorStates::READY_TO_INJECT;
                 lastAutoCompress = millis();
                 Compression::reset();
@@ -638,19 +1033,6 @@ void loop() {
             break;
 
         case InjectorStates::READY_TO_INJECT:
-            /*
-            ===== COMMENTED OUT: Old FSM Logic (replaced by modular pattern) =====
-            safety.setContext(CTX_IDLE); 
-            if (millis() - lastAutoCompress > TIME_AUTO_COMPRESS) fsm_state.currentState = InjectorStates::COMPRESSION; 
-            if (!ignoreButtons && btnUpper.read() == LOW && btnLower.read() == LOW) { fsm_state.currentState = InjectorStates::PURGE_ZERO; }
-            else if (!ignoreButtons && !buttonLock && btnCenter.released()) { 
-                logMessage("Ready: Returning to Refill");
-                motor.setInputVel(0);  // Stop motor
-                lastMotorCmdTime = millis();
-                fsm_state.currentState = InjectorStates::REFILL; 
-            }
-            ===== END COMMENTED READY_TO_INJECT =====
-            */
             // ===== NEW: Modular ReadyToInject =====
             if (stateEntry) {
                 ReadyToInject::begin();
@@ -660,12 +1042,12 @@ void loop() {
                 // ReadyToInject runs indefinitely, check for user input to proceed
             }
             if (!ignoreButtons && btnUpper.read() == LOW && btnLower.read() == LOW) { 
-                logMessage("Ready: User confirms, moving to Purge");
+                MessageBuffer::getInstance().sendMessage("Ready: User confirms, moving to Purge");
                 fsm_state.currentState = InjectorStates::PURGE_ZERO;
                 ReadyToInject::reset();
             }
             else if (!ignoreButtons && !buttonLock && btnCenter.released()) { 
-                logMessage("Ready: User abort, returning to Refill");
+                MessageBuffer::getInstance().sendMessage("Ready: User abort, returning to Refill");
                 fsm_state.currentState = InjectorStates::REFILL;
                 moveLockActive = true;  // Lock buttons until Refill position reached
                 ReadyToInject::reset();
@@ -677,31 +1059,13 @@ void loop() {
             break;
 
         case InjectorStates::PURGE_ZERO:
-            /*
-            ===== COMMENTED OUT: Old FSM Logic (replaced by modular pattern) =====
-            safety.setContext(CTX_PURGE); 
-            static bool buttonsReleased = false;
-            if (stateEntry) buttonsReleased = false;
-            if (!buttonsReleased) { if (btnUpper.read() == HIGH && btnLower.read() == HIGH) { buttonsReleased = true; logMessage("Purge: Buttons Released."); } } 
-            else {
-                if (btnUpper.read() == LOW) MotorWrapper::setModeAndMove(motor, 2, 1, PURGE_VEL_UP, "Purge Up");       // PURGE_VEL_UP is negative (up)
-                else if (btnLower.read() == LOW) MotorWrapper::setModeAndMove(motor, 2, 1, PURGE_VEL_DOWN, "Purge Down");  // PURGE_VEL_DOWN is positive (down)
-                else MotorWrapper::setModeAndMove(motor, 2, 1, 0, "Stop");
-                if (btnCenter.pressed()) { 
-                    logMessage("Purge: Entering AntiDrip");
-                    fsm_state.currentState = InjectorStates::ANTIDRIP; 
-                    antiDripTimer = millis(); 
-                }
-            }
-            ===== END COMMENTED PURGE_ZERO =====
-            */
-            // ===== NEW: Modular PurgeZero =====
+           // ===== NEW: Modular PurgeZero =====
             if (stateEntry) {
                 PurgeZero::begin();
                 stateEntry = false;
             }
             if (PurgeZero::update(motor, btnUpper.read(), btnLower.read(), btnCenter.released())) {
-                logMessage("PurgeZero: Complete, moving to AntiDrip");
+                MessageBuffer::getInstance().sendMessage("PurgeZero: Complete, moving to AntiDrip");
                 fsm_state.currentState = InjectorStates::ANTIDRIP;
                 PurgeZero::reset();
             }
@@ -712,42 +1076,6 @@ void loop() {
             break;
 
         case InjectorStates::ANTIDRIP:
-            /*
-            ===== COMMENTED OUT: Old FSM Logic (replaced by modular pattern) =====
-            {
-                safety.setContext(CTX_MOVING_FREE); 
-                if (stateEntry) {
-                    logMessage("AntiDrip: Decompression (slow retract, 15s timeout)");
-                    motor.setControllerModes(ODriveCANProtocol::ControlMode::VELOCITY_CONTROL,
-                                            ODriveCANProtocol::InputMode::PASSTHROUGH);
-                    lastMotorCmdTime = 0;              // Force immediate command
-                }
-                // Move UP (negative velocity) to decompress
-                MotorWrapper::setModeAndMove(motor, 2, 1, ANTIDRIP_VEL, "AntiDrip Vel");  // ANTIDRIP_VEL is negative (up)
-                
-                // Check buttons FIRST - allow interrupt at any time
-                if (!ignoreButtons && btnCenter.read() == LOW && btnLower.read() == LOW) { 
-                    logMessage("AntiDrip: User confirmed, moving to Inject");
-                    motor.setInputVel(0);  // Stop
-                    lastMotorCmdTime = millis();
-                    fsm_state.currentState = InjectorStates::INJECT; 
-                }
-                else if (!ignoreButtons && !buttonLock && btnUpper.released()) { 
-                    logMessage("AntiDrip: User abort, returning to Ready");
-                    motor.setInputVel(0);  // Stop
-                    lastMotorCmdTime = millis();
-                    fsm_state.currentState = InjectorStates::READY_TO_INJECT; 
-                }
-                // Timeout - return to READY_TO_INJECT (don't auto-inject)
-                else if (millis() - stateTimer > TIME_ANTIDRIP_TIMEOUT) {
-                    logMessage("AntiDrip: Timeout, returning to Ready");
-                    motor.setInputVel(0);  // Stop
-                    lastMotorCmdTime = millis();
-                    fsm_state.currentState = InjectorStates::READY_TO_INJECT; 
-                }
-            }
-            ===== END COMMENTED ANTIDRIP =====
-            */
             // ===== NEW: Modular AntiDrip =====
             if (stateEntry) {
                 AntiDrip::begin();
@@ -757,12 +1085,12 @@ void loop() {
                 // AntiDrip complete, handle user button responses
             }
             if (!ignoreButtons && btnCenter.read() == LOW && btnLower.read() == LOW) { 
-                logMessage("AntiDrip: User confirmed, moving to Inject");
+                MessageBuffer::getInstance().sendMessage("AntiDrip: User confirmed, moving to Inject");
                 fsm_state.currentState = InjectorStates::INJECT;
                 AntiDrip::reset();
             }
             else if (!ignoreButtons && !buttonLock && btnUpper.released()) { 
-                logMessage("AntiDrip: User abort, returning to Ready");
+                MessageBuffer::getInstance().sendMessage("AntiDrip: User abort, returning to Ready");
                 fsm_state.currentState = InjectorStates::READY_TO_INJECT;
                 AntiDrip::reset();
             }
@@ -773,36 +1101,6 @@ void loop() {
             break;
 
         case InjectorStates::INJECT:
-            /*
-            ===== COMMENTED OUT: Old FSM Logic (replaced by modular pattern) =====
-            {
-                safety.setContext(CTX_BLOCKED); 
-                if (stateEntry) {
-                    injectStartPos = motor.getPosition(); // Capture start position
-                    motor.setLimits(currentMould.fillSpeed + 5.0f, currentMould.fillPressure);
-                    float targetPos = injectStartPos + volToTurns(currentMould.fillVolume);
-                    if (targetPos > POS_BOTTOM_MAX) targetPos = POS_BOTTOM_MAX;
-                    char logBuf[80];
-                    snprintf(logBuf, sizeof(logBuf), "Inject: Start=%.1f Tgt=%.1f Vol=%.1f", injectStartPos, targetPos, currentMould.fillVolume);
-                    logMessage(logBuf);
-                    motor.setControllerModes(ODriveCANProtocol::ControlMode::POSITION_CONTROL,
-                                            ODriveCANProtocol::InputMode::PASSTHROUGH);
-                    motor.setInputPos(targetPos);  // Send target position once
-                    lastMotorCmdTime = millis();
-                }
-                if (!ignoreButtons && !buttonLock && btnUpper.released()) { 
-                    logMessage("Inject: User abort, releasing mould");
-                    fsm_state.currentState = InjectorStates::RELEASE; 
-                }
-                if (millis() - stateTimer > 500 && abs(motor.getVelocity()) < 0.1) { 
-                    char logBuf[64];
-                    snprintf(logBuf, sizeof(logBuf), "Inject: Done, traveled %.1f turns", motor.getPosition() - injectStartPos);
-                    logMessage(logBuf);
-                    fsm_state.currentState = InjectorStates::HOLD_INJECTION; 
-                }
-            }
-            ===== END COMMENTED INJECT =====
-            */
             // ===== NEW: Modular Injection (FILLING phase) =====
             if (stateEntry) {
                 Injection::begin(currentMould);
@@ -814,7 +1112,7 @@ void loop() {
                 // DO NOT reset() here - module needs to stay active for PACKING phase!
             }
             if (!ignoreButtons && !buttonLock && btnUpper.released()) { 
-                logMessage("Inject: User abort, releasing mould");
+                MessageBuffer::getInstance().sendMessage("Inject: User abort, releasing mould");
                 fsm_state.currentState = InjectorStates::RELEASE;
                 Injection::reset();
             }
@@ -825,74 +1123,24 @@ void loop() {
             break;
 
         case InjectorStates::HOLD_INJECTION:
-            /*
-            ===== COMMENTED OUT: Old FSM Logic (replaced by modular pattern) =====
-            {
-                if (stateEntry) {
-                    packStartPos = motor.getPosition(); // Capture pack start position
-                    motor.setLimits(currentMould.packSpeed + 2.0f, currentMould.packPressure);
-                    char logBuf[80];
-                    snprintf(logBuf, sizeof(logBuf), "Pack: Start=%.1f Vol=%.1f Time=%.1fs", 
-                        packStartPos, currentMould.packVolume, currentMould.packTime);
-                    logMessage(logBuf);
-                    motor.setControllerModes(ODriveCANProtocol::ControlMode::POSITION_CONTROL,
-                                            ODriveCANProtocol::InputMode::PASSTHROUGH);
-                    float holdTarget = packStartPos + volToTurns(currentMould.packVolume);
-                    if (holdTarget > POS_BOTTOM_MAX) holdTarget = POS_BOTTOM_MAX;
-                    motor.setInputPos(holdTarget);  // Send target position once
-                    lastMotorCmdTime = millis();
-                }
-                if (!ignoreButtons && !buttonLock && btnUpper.released()) { 
-                    logMessage("Pack: User abort, releasing mould");
-                    fsm_state.currentState = InjectorStates::RELEASE; 
-                }
-                if (millis() - stateTimer > (currentMould.packTime * 1000)) {
-                    char logBuf[64];
-                    snprintf(logBuf, sizeof(logBuf), "Pack: Done, traveled %.1f turns", motor.getPosition() - packStartPos);
-                    logMessage(logBuf);
-                    fsm_state.currentState = InjectorStates::RELEASE;
-                }
-            }
-            ===== END COMMENTED HOLD_INJECTION =====
-            */
-            // ===== NEW: Modular Injection (PACKING phase, handled by same module) =====
+           // ===== NEW: Modular Injection (PACKING phase, handled by same module) =====
             Injection::update(motor);  // CRITICAL: Must call update() to check pack timer
             if (Injection::isComplete()) {
-                logMessage("Hold: Pack time complete, releasing mould");
+                MessageBuffer::getInstance().sendMessage("Hold: Pack time complete, releasing mould");
                 fsm_state.currentState = InjectorStates::RELEASE;
                 Injection::reset();  // Reset module when DONE (exiting injection sequence)
             }
             if (!ignoreButtons && !buttonLock && btnUpper.released()) { 
-                logMessage("Pack: User abort, releasing mould");
+                MessageBuffer::getInstance().sendMessage("Pack: User abort, releasing mould");
                 fsm_state.currentState = InjectorStates::RELEASE;
                 Injection::reset();  // Reset module on abort
             }
             break;
 
         case InjectorStates::RELEASE: 
-            /*
-            ===== COMMENTED OUT: Old FSM Logic (replaced by modular pattern) =====
-            {
-                if (stateEntry) {
-                    motor.setLimits(VEL_LIMIT_INJECT, 30.0f);
-                    motor.setControllerModes(ODriveCANProtocol::ControlMode::POSITION_CONTROL, 
-                                            ODriveCANProtocol::InputMode::PASSTHROUGH);
-                    float releaseTarget = motor.getPosition() + DIST_RELEASE_MOULD;  // POSITIVE = DOWN, so we ADD to go down and relieve
-                    motor.setInputPos(releaseTarget);  // Send target position once
-                    lastMotorCmdTime = millis();
-                }
-                if (millis() - stateTimer > 2000) { 
-                    logMessage("Release: Complete, confirming mould removal");
-                    motor.setInputVel(0);  // Stop
-                    lastMotorCmdTime = millis();
-                    fsm_state.currentState = InjectorStates::CONFIRM_MOULD_REMOVAL; 
-                }
-            }
-            ===== END COMMENTED RELEASE =====
-            */
-            // ===== NEW: Release (simple auto-transition) =====
+           // ===== NEW: Release (simple auto-transition) =====
             if (stateEntry) {
-                logMessage("Release: Unloading mould");
+                MessageBuffer::getInstance().sendMessage("Release: Unloading mould");
                 
                 // Queue all commands - ring buffer handles timing
                 MotorWrapper::setMotorLimits(motor, RELEASE_CONTROLLER_VEL_LIMIT, RELEASE_CURRENT_LIMIT, "RELEASE");
@@ -904,21 +1152,13 @@ void loop() {
                 stateEntry = false;
             }
             if (millis() - stateTimer > 2000) { 
-                logMessage("Release: Complete, confirming mould removal");
+                MessageBuffer::getInstance().sendMessage("Release: Complete, confirming mould removal");
                 fsm_state.currentState = InjectorStates::CONFIRM_MOULD_REMOVAL; 
             }
             break;
 
         case InjectorStates::CONFIRM_MOULD_REMOVAL:
-             /*
-             ===== COMMENTED OUT: Old FSM Logic (replaced by modular pattern) =====
-             if (!ignoreButtons && !buttonLock && (btnCenter.released() || btnUpper.released() || btnLower.released())) { 
-                 if(flags.endOfDay) fsm_state.currentState = InjectorStates::READY_TO_INJECT; 
-                 else fsm_state.currentState = InjectorStates::REFILL; 
-             }
-             ===== END COMMENTED CONFIRM =====
-             */
-             // ===== NEW: Confirm (button-driven state return) =====
+            // ===== NEW: Confirm (button-driven state return) =====
              static unsigned long confirmButtonTime = 0;
              
              // Only accept UPPER or LOWER buttons (not center to avoid carry-over)
@@ -931,11 +1171,11 @@ void loop() {
              // After 1 second delay, proceed to next state
              if (confirmButtonTime > 0 && millis() - confirmButtonTime >= 1000) {
                  if(flags.endOfDay) {
-                     logMessage("Confirm: Returning to ReadyToInject");
+                     MessageBuffer::getInstance().sendMessage("Confirm: Returning to ReadyToInject");
                      fsm_state.currentState = InjectorStates::READY_TO_INJECT; 
                  }
                  else {
-                     logMessage("Confirm: Returning to Refill");
+                     MessageBuffer::getInstance().sendMessage("Confirm: Returning to Refill");
                      fsm_state.currentState = InjectorStates::REFILL;
                      moveLockActive = true;  // Lock buttons until Refill position reached
                  }
@@ -955,9 +1195,11 @@ void loop() {
         lastDebugTime = millis(); 
         printDebugReport(loopTime, maxLoopTime);  // Pass timing values as parameters
         maxLoopTime = 0;  // Reset max after reporting (tracks max over ~1 second)
+        #if DEBUG_ENABLED
         // Flush buffered messages: output 1Hz status + accumulated event messages
         const char* output = MessageBuffer::getInstance().getOutput();
         Serial.println(output);
         MessageBuffer::getInstance().clearBuffer();  // Clear events for next cycle
+        #endif
     }
 }

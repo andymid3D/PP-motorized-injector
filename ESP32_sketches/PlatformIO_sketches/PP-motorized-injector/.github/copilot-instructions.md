@@ -23,6 +23,71 @@ Apply these "Symbolic Shortcuts" to minimize token drift and maximize precision:
 - **Communication:** All modules communicate through the SafeString central data store, not direct function calls.
 - **Timing:** Use `millisDelay` for non-blocking timeouts. Change timings ONLY in `config.h`.
 
+# SAFESTRING LIBRARY EXPERTISE (MANDATORY)
+**Local Documentation:** `/docs/SafeString/SAFESTRING_COMPLETE_REFERENCE.md`
+
+**CRITICAL RULE:** ALWAYS consult local SafeString documentation BEFORE making claims about SafeString capabilities, methods, or usage patterns.
+
+**Proactive Usage Pattern:**
+- Whenever you see code that could benefit from SafeString features (string manipulation, timers, serial I/O, tokenizing, etc.), **ACTIVELY SUGGEST** SafeString alternatives
+- Review local documentation to find appropriate methods/classes
+- Better to proactively suggest SafeString usage than miss optimization opportunities
+
+**Core Classes (SafeString V4.1.42):**
+1. **SafeString** - Safe string manipulation (200+ methods)
+   - Replaces Arduino String, prevents buffer overflow
+   - Methods: `concat()`, `substring()`, `nextToken()`, `toInt()`, `toFloat()`, etc.
+   - **Wrapping:** `cSFA(name, charArray)`, `cSFP(name, charPtr)`, `cSFPS(name, charPtr, size)`
+   - UTF-8 support: `utf8index()`, `utf8nextIndex()`
+
+2. **millisDelay** - Non-blocking timers (part of SafeString library, NOT SR Library)
+   - **Methods:** `start()`, `stop()`, `repeat()`, `restart()`, `finish()`
+   - **Query:** `justFinished()`, `isRunning()`, `remaining()`, `getStartTime()`, `delay()`
+   - **Key:** `justFinished()` returns true ONCE, must call every loop()
+   - **Drift:** Use `repeat()` not `restart()` to prevent timer drift
+
+3. **BufferedOutput** - Non-blocking serial output (prevents loop blocking)
+   - **CRITICAL:** MUST call `output.connect(Serial)` in setup()
+   - **CRITICAL:** MUST call `output.nextByteOut()` every loop()
+   - **Modes:** `DROP_UNTIL_EMPTY` (recommended), `DROP_IF_FULL`, `BLOCK_IF_FULL`
+   - Use instead of `Serial.print()` in loop() to prevent blocking
+
+4. **loopTimer** - Performance monitoring (part of SafeString library)
+   - Tracks min/max/avg loop() execution times
+   - `loopTimer.check(bufferedOut)` - prints stats every 5sec
+   - Excludes print time from measurements
+   - **Remove after testing** (adds 1-2ms overhead)
+
+5. **SafeStringReader** - Non-blocking text input
+   - Replaces blocking `Serial.readString()`, `Serial.parseInt()`, etc.
+   - `sfReader.connect(Serial)`, `sfReader.read()` returns true when delimiter found
+   - Supports non-blocking timeout with `setTimeout()`
+
+6. **PinFlasher** - Non-blocking pin control
+   - `flasher.setOnOff(ms)` - flash at rate, or `PIN_ON`, `PIN_OFF`
+   - `flasher.update()` - call every loop()
+
+**Common Mistakes to AVOID:**
+1. ❌ Claiming millisDelay lacks `remaining()` or `getStartTime()` - THESE EXIST
+2. ❌ Attributing loopTimer to "SR Library" - It's part of SafeString
+3. ❌ Forgetting `output.connect(Serial)` for BufferedOutput - REQUIRED
+4. ❌ Not calling `output.nextByteOut()` every loop() - REQUIRED
+5. ❌ Using `Serial.print()` in loop() - Use BufferedOutput instead
+6. ❌ Using `delay()` - Use millisDelay instead
+7. ❌ Passing SafeString by value - Must use SafeString& reference
+8. ❌ Using const SafeString& - Not allowed (SafeString cleans wrapped arrays)
+
+**Verification Protocol:**
+- Before claiming a SafeString feature doesn't exist: Check local documentation
+- Before suggesting alternatives to SafeString: Review what SafeString already provides
+- When you're uncertain about SafeString capabilities: Admit it and suggest checking documentation
+- When seeing string operations, timers, or Serial I/O: Proactively suggest SafeString equivalents
+
+**Performance Targets:**
+- Loop time: <1ms for 1000 steps/sec stepper motor control
+- Serial baud: 115200 minimum (not 9600)
+- BufferedOutput: Size ≥ max single message length
+
 # HARDWARE TRUTH: ODRIVE & PINOUTS
 - **Motor Direction:** NON-INVERTED. Positive Position = Down (Inject). Negative Position = Up (Retract).
 - **Control Modes:** PREFER ramped modes (VEL_RAMP, POS_FILTER, TRAP_TRAJ) over PASSTHROUGH to reduce EMI and motor stress.

@@ -2,6 +2,7 @@
 #define MESSAGE_BUFFER_H
 
 #include <Arduino.h>
+#include "config.h"  // For DEBUG_ENABLED
 
 /**
  * @class MessageBuffer
@@ -17,6 +18,10 @@
  * Usage:
  *   MessageBuffer::getInstance().sendMessage("Motor error: 0x%X", error_code);
  *   // Output appears in next main loop flush
+ * 
+ * DEBUG_ENABLED Control:
+ * - When DEBUG_ENABLED = 0: All methods compile to no-ops (zero overhead)
+ * - When DEBUG_ENABLED = 1: Full message buffering and output
  */
 class MessageBuffer {
 public:
@@ -25,6 +30,7 @@ public:
         return instance;
     }
     
+#if DEBUG_ENABLED
     /**
      * Queue a message for output (thread-safe, non-blocking)
      * Formatted similarly to sprintf/printf
@@ -48,6 +54,13 @@ public:
      * These appear at top of output block every second
      */
     void set1HzMessage(const char* format, ...);
+#else
+    // Production mode: All methods are no-ops (compiled out)
+    inline void sendMessage(const char* format, ...) { (void)format; }
+    inline const char* getOutput() { return ""; }
+    inline void clearBuffer() {}
+    inline void set1HzMessage(const char* format, ...) { (void)format; }
+#endif
     
 private:
     MessageBuffer();
@@ -57,6 +70,7 @@ private:
     MessageBuffer(const MessageBuffer&) = delete;
     MessageBuffer& operator=(const MessageBuffer&) = delete;
     
+#if DEBUG_ENABLED
     // Buffer sizes
     static constexpr size_t MESSAGE_1HZ_SIZE = 512;
     static constexpr size_t EVENT_MESSAGE_SIZE = 2048;
@@ -69,6 +83,7 @@ private:
     
     // Track current positions
     size_t eventMessageLen_;
+#endif
 };
 
 #endif  // MESSAGE_BUFFER_H

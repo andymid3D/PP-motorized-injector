@@ -1,6 +1,5 @@
 #include "DisplayComms.h"
 #include "MessageBuffer.h"
-#include "SerialMessaging.h"  // For logMessage()
 #include "injector_fsm.h"
 #include "config.h"
 #include "BroadcastDataStore.h"
@@ -55,7 +54,7 @@ void begin() {
     state.lastStateBroadcast = InjectorStates::ERROR_STATE;  // Force initial broadcast
     state.lastErrorBroadcast = 0xFFFF;  // Force initial broadcast
     
-    logMessage("DisplayComms: UART2 initialized (TX=17, RX=16, 115200 baud)");
+    MessageBuffer::getInstance().sendMessage("DisplayComms: UART2 initialized (TX=17, RX=16, 115200 baud)");
 }
 
 // ===== PERIODIC UPDATES =====
@@ -74,7 +73,7 @@ void update() {
         } else {
             // Buffer overflow, discard and reset
             rxBuffer.clear();
-            logMessage("DisplayComms: RX buffer overflow, message discarded");
+            MessageBuffer::getInstance().sendMessage("DisplayComms: RX buffer overflow, message discarded");
         }
     }
     
@@ -121,7 +120,7 @@ void broadcastState(InjectorStates state_val) {
     createSafeString(logMsg, 64);
     logMsg = "State→Display: ";
     logMsg += getStateName(state_val);
-    logMessage(logMsg.c_str());
+    MessageBuffer::getInstance().sendMessage(logMsg.c_str());
 }
 
 // ===== TX: BROADCAST ERROR =====
@@ -145,7 +144,7 @@ void broadcastError(uint16_t errorCode, const char* errorMsg) {
     logMsg += " (";
     logMsg += errorMsg;
     logMsg += ")";
-    logMessage(logMsg.c_str());
+    MessageBuffer::getInstance().sendMessage(logMsg.c_str());
 }
 
 // ===== TX: SEND MOULD PARAMS CONFIRMATION =====
@@ -180,7 +179,7 @@ void sendMouldParamsConfirm(const actualMouldParams_t& params) {
     msg += "\n";
     
     DisplaySerial.print(msg.c_str());
-    logMessage("Mould params confirmed→Display");
+    MessageBuffer::getInstance().sendMessage("Mould params confirmed→Display");
 }
 
 // ===== TX: SEND COMMON PARAMS CONFIRMATION =====
@@ -223,7 +222,7 @@ void sendCommonParamsConfirm() {
     msg += "\n";
     
     DisplaySerial.print(msg.c_str());
-    logMessage("Common params confirmed→Display");
+    MessageBuffer::getInstance().sendMessage("Common params confirmed→Display");
 }
 
 // ===== RX: PARSE INCOMING MESSAGE =====
@@ -284,9 +283,9 @@ void parseIncomingMessage(const char* message) {
             createSafeString(logMsg, 64);
             logMsg = "Mould params updated: ";
             logMsg += currentMould.mouldName;
-            logMessage(logMsg.c_str());
+            MessageBuffer::getInstance().sendMessage(logMsg.c_str());
         } else {
-            logMessage("DisplayComms: MOULD command parsing failed (insufficient fields)");
+            MessageBuffer::getInstance().sendMessage("DisplayComms: MOULD command parsing failed (insufficient fields)");
         }
     }
     
@@ -336,9 +335,9 @@ void parseIncomingMessage(const char* message) {
         if (fieldIdx >= 17) {  // All required fields
             commonParams = newParams;
             sendCommonParamsConfirm();
-            logMessage("Common params updated from Display");
+            MessageBuffer::getInstance().sendMessage("Common params updated from Display");
         } else {
-            logMessage("DisplayComms: COMMON command parsing failed (insufficient fields)");
+            MessageBuffer::getInstance().sendMessage("DisplayComms: COMMON command parsing failed (insufficient fields)");
         }
     }
     
@@ -368,7 +367,7 @@ void parseIncomingMessage(const char* message) {
         createSafeString(logMsg, 80);
         logMsg = "DisplayComms: Unknown command: ";
         logMsg += cmd;
-        logMessage(logMsg.c_str());
+        MessageBuffer::getInstance().sendMessage(logMsg.c_str());
     }
 }
 

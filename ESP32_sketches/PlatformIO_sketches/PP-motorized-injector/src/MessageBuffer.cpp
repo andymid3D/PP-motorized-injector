@@ -2,6 +2,8 @@
 #include <cstdarg>
 #include <cstring>
 
+#if DEBUG_ENABLED
+
 MessageBuffer::MessageBuffer() : eventMessageLen_(0) {
     message1Hz_[0] = '\0';
     eventMessages_[0] = '\0';
@@ -73,3 +75,10 @@ void MessageBuffer::clearBuffer() {
     eventMessages_[0] = '\0';
     eventMessageLen_ = 0;
 }
+
+#else
+
+// Production mode: Empty constructor only
+MessageBuffer::MessageBuffer() {}
+
+#endif  // DEBUG_ENABLED

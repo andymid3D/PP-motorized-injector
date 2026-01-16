@@ -203,6 +203,11 @@ bool CanBusHandlerV2::_queueCommand(const can_Message_t& cmd) {
 // BLOCKS for up to RTR_TIMEOUT_MS * RTR_RETRY_COUNT milliseconds
 // Returns true if RTR response received, false on timeout/error
 bool CanBusHandlerV2::_queueCommandWithRTR(const can_Message_t& msg) {
+    // If RTR is disabled (RTR_RETRY_COUNT = 0), send as regular command
+    if (RTR_RETRY_COUNT == 0) {
+        return _queueCommand(msg);  // Send without RTR flag, no blocking wait
+    }
+    
     // Create RTR message (copy input, set RTR flag)
     can_Message_t rtrMsg = msg;
     rtrMsg.rtr = true;  // Set RTR flag (request remote transmission)
@@ -414,3 +419,54 @@ void CanBusHandlerV2::onCanMessageReceived(const can_Message_t& msg) {
             break;
     }
 }
+
+
+// ===== RAW CAN ACCESS (for RTRDebug module) =====
+/*
+bool CanBusHandlerV2::sendRawRTR(uint32_t canId) {
+    can_Message_t cmd = ODriveCANProtocol::makeEmptyMessage(NODE_ID, canId);
+    cmd.rtr = true;  // Set RTR flag
+    cmd.len = 0;     // RTR messages must have DLC=0
+    return _queueCommand(cmd);
+}
+
+bool CanBusHandlerV2::sendRawNoRTR(uint32_t canId) {
+    can_Message_t cmd = ODriveCANProtocol::makeEmptyMessage(NODE_ID, canId);
+    cmd.rtr = false; // No RTR flag
+    cmd.len = 0;     // DLC=0 (ODrive 0.5.5+ responds to DLC=0 without RTR)
+    return _queueCommand(cmd);
+}
+
+bool CanBusHandlerV2::sendRawData(uint32_t canId, const uint8_t* data, uint8_t dlc) {
+    can_Message_t cmd = ODriveCANProtocol::makeEmptyMessage(NODE_ID, canId);
+    cmd.rtr = false;
+    cmd.len = (dlc > 8) ? 8 : dlc;  // Clamp to max 8 bytes
+    std::memcpy(cmd.buf, data, cmd.len);
+    return _queueCommand(cmd);
+}
+
+// Raw message buffer for RTRDebug (simple circular buffer)
+static can_Message_t rawMsgBuffer[16];
+static size_t rawMsgWriteIdx = 0;
+static size_t rawMsgReadIdx = 0;
+static size_t rawMsgCount = 0;
+
+bool CanBusHandlerV2::hasRawMessage() const {
+    return (rawMsgCount > 0);
+}
+
+bool CanBusHandlerV2::getRawMessage(uint32_t& id, uint8_t* data, uint8_t& dlc, bool& rtr) {
+    if (rawMsgCount == 0) return false;
+    
+    can_Message_t& msg = rawMsgBuffer[rawMsgReadIdx];
+    id = msg.id;
+    dlc = msg.len;
+    rtr = msg.rtr;
+    std::memcpy(data, msg.buf, 8);
+    
+    rawMsgReadIdx = (rawMsgReadIdx + 1) % 16;
+    rawMsgCount--;
+    
+    return true;
+}
+*/

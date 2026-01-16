@@ -11,6 +11,16 @@
 // Change to 0 for production builds to eliminate serial message overhead
 #define DEBUG_ENABLED 1
 
+// ==========================================
+// 0B. PHASE 1 TEST MODE (ISOLATED MODULE TESTING)
+// ==========================================
+// When TEST_MODE_PHASE1 = true: Bypass FSM, run only Phase 1 module tests
+// - Minimal loop() for clean performance baseline
+// - loopTimer measures without FSM noise
+// - Allows measurement of ISR overhead (<5µs)
+// When TEST_MODE_PHASE1 = false: Normal FSM operation
+#define TEST_MODE_PHASE1  true  // TEMPORARY: Set false after Phase 1 complete
+
 #if DEBUG_ENABLED
   #define DEBUG_PRINT(...) Serial.print(__VA_ARGS__)
   #define DEBUG_PRINTLN(...) Serial.println(__VA_ARGS__)
@@ -85,18 +95,18 @@
 
 // Safety & Debugging
 #define IGNORE_NOZZLE_BLOCK     true        // Disables pressure sensor errors for testing
-#define TEMP_MIN_MOVE           16          // Minimum temperature to allow movement (°C)
-#define TEMP_CRITICAL           13          // Critical low temperature (°C)
+#define TEMP_MIN_MOVE           20          // Minimum temperature to allow movement (°C)
+#define TEMP_CRITICAL           15          // Critical low temperature (°C)
 #define DEBOUNCE_MS_SAFETY      150         // Safety input debounce time (ms)
 
 // CAN Bus Timing
-#define CAN_COMMAND_GAP_MS          0       // RTR eliminates need for timing gap (was 50ms)
+#define CAN_COMMAND_GAP_MS          50       // Minimum gap between CAN commands (prevents buffer overflow)
 #define ERROR_CLEAR_DELAY_MS        50      // Delay after error clear command (ms)
 #define BROADCAST_STALE_TIMEOUT_MS  100     // No broadcast = CAN failure (matches heartbeat interval)
 
-// RTR Response Tracking
+// RTR Response Tracking (DISABLED - retry storm causes ODrive crashes)
 #define RTR_TIMEOUT_MS              5       // Per-attempt timeout for RTR response (ms)
-#define RTR_RETRY_COUNT             3       // Number of retry attempts (total 15ms detection)
+#define RTR_RETRY_COUNT             0       // DISABLED: Retries cause CAN buffer overflow (was 3)
 
 // ==========================================
 // 4. MOTOR CONTROL PARAMETERS BY STATE
