@@ -3,113 +3,6 @@
 
 #include <Arduino.h>
 #include <SafeString.h>
-#include "RingBuffer.h"
-#include "GPTimer.h"
-
-// =============================================================================
-// RING BUFFER HISTORY SIZES (Phase 1.7 BDS v2)
-// =============================================================================
-// Size calculations based on broadcast intervals:
-// - Encoder (10ms): 10 samples = 100ms history
-// - Heartbeat (100ms): 10 samples = 1000ms (1s) history
-// - Iq/BusVI (100ms): 10 samples = 1000ms history
-// - Errors (10ms): 10 samples = 100ms history (recent errors only)
-// =============================================================================
-#define BDS_ENCODER_HISTORY_SIZE      10
-#define BDS_HEARTBEAT_HISTORY_SIZE    10
-#define BDS_IQ_HISTORY_SIZE           10
-#define BDS_BUSVI_HISTORY_SIZE        10
-#define BDS_MOTOR_ERROR_HISTORY_SIZE  10
-#define BDS_ENCODER_ERROR_HISTORY_SIZE 10
-#define BDS_CONTROLLER_ERROR_HISTORY_SIZE 10
-
-// =============================================================================
-// TIMESTAMPED MESSAGE STRUCTS (Phase 1.7 BDS v2)
-// =============================================================================
-// These structs store ODrive broadcast data with high-resolution timestamps
-// for staleness detection and TX response correlation.
-//
-// Design Notes:
-// - timestamp: 64-bit microseconds from GPTimer (1µs resolution)
-// - isResponse: true if message correlates to recent TX command (for filtering)
-// - Backward compatible: Keep existing non-timestamped structs for now
-// - Ring buffer storage: RingBuffer<TimestampedXXX, HISTORY_SIZE>
-// =============================================================================
-
-/**
- * Heartbeat (CAN 0x001, 100ms interval)
- * Contains axis error, axis state, procedure result
- */
-struct TimestampedHeartbeat {
-    uint32_t axisError;         // Axis error flags
-    uint8_t axisState;          // Current state (IDLE=1, CLOSED_LOOP=8, etc)
-    uint8_t procedureResult;    // Procedure completion status
-    uint64_t timestamp;         // GPTimer microseconds
-    bool isResponse;            // True if correlates to recent TX command
-};
-
-/**
- * Encoder Estimates (CAN 0x009, 10ms interval)
- * High-frequency position/velocity data
- */
-struct TimestampedEncoder {
-    float position;             // Position in turns
-    float velocity;             // Velocity in turns/second
-    uint64_t timestamp;         // GPTimer microseconds
-    bool isResponse;            // True if correlates to recent TX command
-};
-
-/**
- * Iq Readings (CAN 0x014, 100ms interval)
- * Current setpoint and measured values
- */
-struct TimestampedIq {
-    float iqSetpoint;           // Setpoint current (A)
-    float iqMeasured;           // Measured current (A)
-    uint64_t timestamp;         // GPTimer microseconds
-    bool isResponse;            // True if correlates to recent TX command
-};
-
-/**
- * Bus Voltage/Current (CAN 0x017, 100ms interval)
- * Power supply monitoring
- */
-struct TimestampedBusVI {
-    float busVoltage;           // Bus voltage (V)
-    float busCurrent;           // Bus current (A)
-    uint64_t timestamp;         // GPTimer microseconds
-    bool isResponse;            // True if correlates to recent TX command
-};
-
-/**
- * Motor Error (CAN 0x003, 10ms interval)
- * Motor-specific error flags
- */
-struct TimestampedMotorError {
-    uint32_t motorError;        // Motor error flags
-    uint64_t timestamp;         // GPTimer microseconds
-    bool isResponse;            // True if correlates to recent TX command
-};
-
-/**
- * Encoder Error (CAN 0x004, 10ms interval)
- * Encoder-specific error flags
- */
-struct TimestampedEncoderError {
-    uint32_t encoderError;      // Encoder error flags
-    uint64_t timestamp;         // GPTimer microseconds
-    bool isResponse;            // True if correlates to recent TX command
-};
-
-/**
- * Controller Error (CAN 0x01D, 10ms interval)
- * Controller-specific error flags
- */
-struct TimestampedControllerError {
-    uint32_t controllerError;   // Controller error flags
-    uint64_t timestamp;         // GPTimer microseconds
-    bool isResponse;            // True if correlates to recent TX command
-};
 
 /**
  * BroadcastDataStore - Central Repository for ODrive Broadcast Data
@@ -181,32 +74,6 @@ public:
     
     // ===== SINGLETON PATTERN =====
     static BroadcastDataStore& getInstance();
-    
-    // ===== BDS V2: RING BUFFER STORAGE (Phase 1.7) =====
-    // Store timestamped message history for staleness detection and TX correlation
-    void storeHeartbeat(uint32_t axisError, uint8_t axisState, uint8_t procedureResult, uint64_t timestamp, bool isResponse = false);
-    void storeEncoder(float position, float velocity, uint64_t timestamp, bool isResponse = false);
-    void storeIq(float iqSetpoint, float iqMeasured, uint64_t timestamp, bool isResponse = false);
-    void storeBusVI(float busVoltage, float busCurrent, uint64_t timestamp, bool isResponse = false);
-    void storeMotorError(uint32_t motorError, uint64_t timestamp, bool isResponse = false);
-    void storeEncoderError(uint32_t encoderError, uint64_t timestamp, bool isResponse = false);
-    void storeControllerError(uint32_t controllerError, uint64_t timestamp, bool isResponse = false);
-    
-    // ===== BDS V2: HISTORICAL DATA ACCESS =====
-    const TimestampedHeartbeat* getLatestHeartbeat() const;
-    const TimestampedEncoder* getLatestEncoder() const;
-    const TimestampedIq* getLatestIq() const;
-    const TimestampedBusVI* getLatestBusVI() const;
-    const TimestampedMotorError* getLatestMotorError() const;
-    const TimestampedEncoderError* getLatestEncoderError() const;
-    const TimestampedControllerError* getLatestControllerError() const;
-    
-    // ===== BDS V2: STALENESS DETECTION (µs resolution) =====
-    bool isEncoderStale(uint64_t maxAgeMicros = 500000) const;  // Default 500ms
-    bool isHeartbeatStale(uint64_t maxAgeMicros = 500000) const;
-    bool isIqStale(uint64_t maxAgeMicros = 500000) const;
-    uint64_t getEncoderAgeMicros(uint64_t currentTime) const;
-    uint64_t getHeartbeatAgeMicros(uint64_t currentTime) const;
     
     /**
      * Check if broadcast data is stale (no updates in 50ms)
@@ -298,21 +165,11 @@ private:
     BroadcastDataStore(const BroadcastDataStore&) = delete;  // No copies
     BroadcastDataStore& operator=(const BroadcastDataStore&) = delete;  // No assignment
     
-    // ===== V1 STORAGE (backward compatibility, still used by existing code) =====
     AxisData axis_;
     PowerData power_;
     SensorData sensors_;
     ErrorData errors_;
     EncoderEstimatesData estimates_;
-    
-    // ===== V2 STORAGE (ring buffers with timestamps) =====
-    RingBuffer<TimestampedHeartbeat, BDS_HEARTBEAT_HISTORY_SIZE> heartbeatHistory_;
-    RingBuffer<TimestampedEncoder, BDS_ENCODER_HISTORY_SIZE> encoderHistory_;
-    RingBuffer<TimestampedIq, BDS_IQ_HISTORY_SIZE> iqHistory_;
-    RingBuffer<TimestampedBusVI, BDS_BUSVI_HISTORY_SIZE> busVIHistory_;
-    RingBuffer<TimestampedMotorError, BDS_MOTOR_ERROR_HISTORY_SIZE> motorErrorHistory_;
-    RingBuffer<TimestampedEncoderError, BDS_ENCODER_ERROR_HISTORY_SIZE> encoderErrorHistory_;
-    RingBuffer<TimestampedControllerError, BDS_CONTROLLER_ERROR_HISTORY_SIZE> controllerErrorHistory_;
 };
 
 #endif // BROADCAST_DATA_STORE_H

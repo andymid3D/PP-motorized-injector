@@ -96,6 +96,46 @@ Apply these "Symbolic Shortcuts" to minimize token drift and maximize precision:
   - CAN Protocol: https://docs.odriverobotics.com/v/0.5.6/can-protocol.html
   - State Machine: https://docs.odriverobotics.com/v/0.5.6/fibre_types/com_odriverobotics_ODrive.html#ODrive.Axis.AxisState
 
+# ⚠️ CRITICAL: CAN MESSAGE TIMESTAMP ARCHITECTURE
+**ALL CAN RX messages include a `timestamp` field captured at message arrival time.**
+
+**MANDATORY RULES:**
+1. **NEVER ignore the timestamp field** - it's part of the message data
+2. **NEVER call `micros()` or `hwTimer.micros()` to re-timestamp** an existing RX message
+3. **ALWAYS use `msg.timestamp` from CANRxMessage** - it's captured when message is polled from CAN peripheral
+4. **Timestamps are absolute GPTimer values** - convert to relative if needed (subtract reference time)
+5. **For TX messages:** Capture timestamp WHEN SENDING, not when planning or queuing
+
+**Timestamp Capture Points:**
+- **RX messages:** `CanRxHandler::processIncomingMessages()` calls `hwTimer.micros()` when polling `ESP32Can.readFrame()`
+- **TX messages:** When calling `writeFrame()` (record time at actual send, not queue time)
+
+**Example (CORRECT):**
+```cpp
+CANRxMessage msg;
+if (canRx.receiveMessage(msg, 0)) {
+    // ✅ Use msg.timestamp (already captured at arrival)
+    int32_t relativeTime = msg.timestamp - captureStartTime;
+    storeMessage(msg.canId, msg.data, relativeTime);
+}
+```
+
+**Example (WRONG):**
+```cpp
+CANRxMessage msg;
+if (canRx.receiveMessage(msg, 0)) {
+    // ❌ WRONG - creates NEW timestamp (current time, not arrival time)
+    int32_t relativeTime = hwTimer.micros() - captureStartTime;
+    storeMessage(msg.canId, msg.data, relativeTime);
+}
+```
+
+**Why This Matters:**
+- Messages sit in FreeRTOS queue before being processed
+- Re-timestamping gives "when read from queue", not "when arrived on bus"
+- Timing analysis (bundle detection, response pairing) requires accurate arrival times
+
+
 # CRITICAL HARDWARE OVERRIDES
 - **Homing (12-Step Flow):** Step 0 (Clear/Wait) -> Step 1 (Check Calibration) -> Step 2-3 (Calib State 7, once per power cycle) -> Step 4 (Loop State 8) -> Step 5 (Fast retract) -> Step 6 (Decel) -> Step 7 (Backoff 1.5s) -> Step 8 (Slow approach) -> Step 9 (Wait stop) -> Step 10 (Zero encoder).
 - **SafetyManager:** Must be checked every loop. Context-aware safety:
@@ -121,6 +161,29 @@ Each module namespace must include: `begin()`, `update(motor)`, `isComplete()`, 
 # ERROR HANDLING
 - Check `motor.getAxisError()` and `fsm_state.error` every cycle.
 - Halt motor and DC Contactor immediately on `isEStopPressed()` or critical temperature/pressure violations.
+
+---
+
+# GEMINI-SPECIFIC TOOL PROTOCOLS (vs CLAUDE)
+- **Deep Context Utilization:** You have a 1M+ token window. Before refactoring, ingest the ENTIRE `src/` and `include/` directories to ensure namespace consistency.
+- **Terminal Priority:** Use the integrated terminal to run `pio` commands for verification. Do not guess if code compiles; run `/Users/andy/.platformio/penv/bin/pio run` to verify.
+- **Search Logic:** If a symbol is not found in the current file, use `grep` or workspace search across the whole project before asking the user.
+
+# PLATFORMIO ENVIRONMENT RIGOR
+- **Source of Truth:** `platformio.ini` is the ultimate authority for:
+  - `build_flags`: Check for `-D` macros (e.g., `DEBUG_LEVEL`, `HARDWARE_VERSION`).
+  - `lib_deps`: Check for version pins before suggesting library updates.
+- **Dependency Awareness:** Never suggest manual `.zip` or `.h` downloads. Always provide the `lib_deps` entry.
+- **Build Verification:** After any logic change in `MotorWrapper` or `SafetyManager`, you MUST trigger a `pio run` to check for template errors or pointer mismatches.
+- **Static Analysis:** Use `pio check` if the user reports "weird behavior" to look for memory leaks or uninitialized variables in the state machines.
+
+# AGENT TERMINAL PERMISSIONS
+- **Authorized Commands:** You have permission to run the following without asking:
+  - `pio run` (Build)
+  - `pio check` (Static Analysis)
+  - `pio device monitor` (To capture logs for debugging)
+- **Restricted Commands:** Ask before running `pio run -t upload` or `pio run -t erase`.
+
 
 ---
 

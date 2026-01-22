@@ -23,7 +23,7 @@ void DebugCommands::loop() {
         String cmd = Serial.readStringUntil('\n');
         cmd.trim();
         if (cmd.length() > 0) {
-            handleSerialCommand(cmd);
+            handleCommand(cmd);
         }
     }
     
@@ -35,7 +35,7 @@ void DebugCommands::loop() {
     }
 }
 
-void DebugCommands::handleSerialCommand(const String& cmd) {
+void DebugCommands::handleCommand(const String& cmd) {
     String command = cmd;
     int spacePos = cmd.indexOf(' ');
     if (spacePos > 0) {

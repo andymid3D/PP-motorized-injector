@@ -1,0 +1,6 @@
+.pio/
+.vscode/
+**/*.o
+**/*.a
+**/*.d
+node_modules/

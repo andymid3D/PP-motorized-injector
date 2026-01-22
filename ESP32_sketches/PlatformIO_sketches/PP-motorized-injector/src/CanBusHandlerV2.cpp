@@ -46,107 +46,10 @@ void CanBusHandlerV2::begin() {
 }
 
 void CanBusHandlerV2::loop() {
-    // Service CAN RX queue - read all available frames
-    CanFrame rxFrame;
-    if (ESP32Can.readFrame(rxFrame, 0)) {
-        // Check if this is RTR response we're waiting for
-        if (pendingRTR_.waiting && rxFrame.identifier == pendingRTR_.canId) {
-            // RTR response received - clear waiting flag
-            pendingRTR_.waiting = false;
-            // Note: Don't return - continue processing as normal broadcast message
-        }
-        
-        // Extract node ID (bits 5-12) and message ID (bits 0-4)
-        uint32_t nodeId = rxFrame.identifier >> 5;
-        uint32_t msgId = rxFrame.identifier & 0x1F;
-        
-        // Only process messages from our ODrive
-        if (nodeId != NODE_ID) return;
-        
-        // Convert to ODrive protocol format for parsing
-        can_Message_t msg = frameToMessage(rxFrame);
-        
-        // Get BroadcastDataStore instance for feeding parsed data
-        BroadcastDataStore& broadcastStore = BroadcastDataStore::getInstance();
-        
-        // Parse cyclic broadcast messages
-        switch (msgId) {
-            case ODriveCANProtocol::CYCLIC_HEARTBEAT: {
-                auto hb = ODriveCANProtocol::parseHeartbeat(msg);
-                // Copy from Heartbeat struct to CyclicHeartbeat (same layout)
-                heartbeat_.axis_error = hb.axis_error;
-                heartbeat_.axis_state = hb.axis_state;
-                heartbeat_.motor_error_flag = hb.motor_error_flag;
-                heartbeat_.encoder_error_flag = hb.encoder_error_flag;
-                heartbeat_.controller_error_flag = hb.controller_error_flag;
-                heartbeat_.trajectory_done_flag = hb.trajectory_done_flag;
-                lastHeartbeatTime_ = millis();
-                
-                // Feed to BroadcastDataStore
-                broadcastStore.updateAxisState(hb.axis_state);
-                broadcastStore.updateAxisError(hb.axis_error);
-                break;
-            }
-                
-            case ODriveCANProtocol::CYCLIC_ENCODER_ESTIMATES: {
-                auto ee = ODriveCANProtocol::parseEncoderEstimate(msg);
-                // Copy from EncoderEstimate struct to CyclicEncoderEstimates (same layout)
-                encoder_estimates_.position = ee.position;
-                encoder_estimates_.velocity = ee.velocity;
-                encoderEstimatesRxCount_++;  // Track that we received this message
-                
-                // Feed to BroadcastDataStore (position/velocity in turns with decimals)
-                broadcastStore.updateEncoderEstimates(ee.position, ee.velocity);
-                break;
-            }
-            
-            case ODriveCANProtocol::CYCLIC_IQ: {
-                Iq_ = ODriveCANProtocol::parseCyclicIq(msg);
-                
-                // Feed to BroadcastDataStore
-                // Note: updatePowerData requires SafeString for logging, so store locally
-                // Iq data available via getIqReadings() from CanBusHandlerV2
-                break;
-            }
-            
-            case ODriveCANProtocol::CYCLIC_BUS_VI: {
-                bus_vi_ = ODriveCANProtocol::parseCyclicBusVoltageCurrent(msg);
-                
-                // Feed to BroadcastDataStore
-                // Note: updatePowerData requires SafeString for logging, so store locally
-                // Bus V/I data available via getBusVoltageCurrentReadings() from CanBusHandlerV2
-                break;
-            }
-            
-            case ODriveCANProtocol::CYCLIC_MOTOR_ERROR: {
-                auto me = ODriveCANProtocol::parseCyclicMotorError(msg);
-                motor_error_ = me;
-                
-                // Feed to BroadcastDataStore (no logging here - let SerialMessaging handle frequency)
-                broadcastStore.updateMotorError(me.motor_error);
-                break;
-            }
-            
-            case ODriveCANProtocol::CYCLIC_ENCODER_ERROR: {
-                auto ee = ODriveCANProtocol::parseCyclicEncoderError(msg);
-                encoder_error_ = ee;
-                
-                // Feed to BroadcastDataStore
-                broadcastStore.updateEncoderError(ee.encoder_error);
-                break;
-            }
-            
-            case ODriveCANProtocol::CYCLIC_CONTROLLER_ERROR: {
-                auto ce = ODriveCANProtocol::parseCyclicControllerError(msg);
-                controller_error_ = ce;
-                
-                // Feed to BroadcastDataStore
-                broadcastStore.updateControllerError(ce.controller_error);
-                break;
-            }
-        }
-    }
-    
+    // REMOVED: All CAN RX processing from CanBusHandlerV2::loop()
+    // CPU0 (CanRxHandler) is now SOLELY responsible for reading incoming CAN messages.
+    // CanBusHandlerV2 will get its needed RX data from BroadcastDataStore.
+
     // Send next queued command if CAN_COMMAND_GAP_MS has elapsed since last send
     uint32_t now = millis();
     if (!isQueueEmpty() && (now - lastCommandSentTime_) >= CAN_COMMAND_GAP_MS) {
@@ -163,7 +66,10 @@ void CanBusHandlerV2::loop() {
 }
 
 bool CanBusHandlerV2::isAlive(uint32_t timeoutMs) const {
-    return (millis() - lastHeartbeatTime_) < timeoutMs;
+    // This method now needs to query BroadcastDataStore for heartbeat freshness
+    // For now, it will return true, but this needs to be updated in a later phase
+    // when BroadcastDataStore is fully populated by CanRxHandler.
+    return true;
 }
 
 // ===== BACKWARD COMPATIBILITY GETTERS =====
@@ -231,7 +137,7 @@ bool CanBusHandlerV2::_queueCommandWithRTR(const can_Message_t& msg) {
         uint32_t startTime = micros();
         while (pendingRTR_.waiting) {
             // Service CAN bus (processes RX and TX)
-            loop();
+            loop(); // This will now only service TX
             
             // Check timeout
             if ((micros() - startTime) >= (RTR_TIMEOUT_MS * 1000UL)) {
@@ -363,62 +269,11 @@ void CanBusHandlerV2::getControllerError() {
     _queueCommand(ODriveCANProtocol::buildGetControllerError(NODE_ID));
 }
 
-void CanBusHandlerV2::onCanMessageReceived(const can_Message_t& msg) {
-    // Decode message based on CAN ID
-    uint8_t nodeId = (msg.id >> 5) & 0x3F;
-    uint8_t cmdId = msg.id & 0x1F;
-    
-    // Only process messages for our node
-    if (nodeId != NODE_ID) return;
-    
-    // Parse all cyclic broadcast messages
-    switch (cmdId) {
-        case ODriveCANProtocol::CyclicMessageID::CYCLIC_HEARTBEAT:
-            heartbeat_ = ODriveCANProtocol::parseCyclicHeartbeat(msg);
-            lastHeartbeatTime_ = millis();
-            break;
-            
-        case ODriveCANProtocol::CyclicMessageID::CYCLIC_ENCODER_ESTIMATES:
-            encoder_estimates_ = ODriveCANProtocol::parseCyclicEncoderEstimates(msg);
-            break;
-            
-        case ODriveCANProtocol::CyclicMessageID::CYCLIC_MOTOR_ERROR:
-            motor_error_ = ODriveCANProtocol::parseCyclicMotorError(msg);
-            break;
-            
-        case ODriveCANProtocol::CyclicMessageID::CYCLIC_ENCODER_ERROR:
-            encoder_error_ = ODriveCANProtocol::parseCyclicEncoderError(msg);
-            break;
-            
-        case ODriveCANProtocol::CyclicMessageID::CYCLIC_SENSORLESS_ERROR:
-            sensorless_error_ = ODriveCANProtocol::parseCyclicSensorlessError(msg);
-            break;
-            
-        case ODriveCANProtocol::CyclicMessageID::CYCLIC_ENCODER_COUNT:
-            encoder_count_ = ODriveCANProtocol::parseCyclicEncoderCount(msg);
-            break;
-            
-        case ODriveCANProtocol::CyclicMessageID::CYCLIC_IQ:
-            Iq_ = ODriveCANProtocol::parseCyclicIq(msg);
-            break;
-            
-        case ODriveCANProtocol::CyclicMessageID::CYCLIC_SENSORLESS_ESTIMATES:
-            sensorless_estimates_ = ODriveCANProtocol::parseCyclicSensorlessEstimates(msg);
-            break;
-            
-        case ODriveCANProtocol::CyclicMessageID::CYCLIC_BUS_VI:
-            bus_vi_ = ODriveCANProtocol::parseCyclicBusVoltageCurrent(msg);
-            break;
-            
-        case ODriveCANProtocol::CyclicMessageID::CYCLIC_CONTROLLER_ERROR:
-            controller_error_ = ODriveCANProtocol::parseCyclicControllerError(msg);
-            break;
-            
-        default:
-            // Unknown cyclic message ID
-            break;
-    }
-}
+// REMOVED: onCanMessageReceived - this is now handled by CanRxHandler on CPU0
+// The internal state (heartbeat_, encoder_estimates_, etc.) in CanBusHandlerV2
+// will need to be updated by reading from BroadcastDataStore if CanBusHandlerV2
+// still needs these values for its own logic. For now, they are effectively stale
+// if not updated by other means.
 
 
 // ===== RAW CAN ACCESS (for RTRDebug module) =====

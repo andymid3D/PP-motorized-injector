@@ -107,6 +107,12 @@ public:
      * @return true if debug mode is active
      */
     bool isActive() const { return active_; }
+    
+    /**
+     * Handle a command string (for use in tests/external callers)
+     * @param cmd Command string to parse and execute
+     */
+    void handleCommand(const String& cmd);
 
 private:
     CanBusHandlerV2* can_ = nullptr;
@@ -121,8 +127,7 @@ private:
     
     bool active_ = true;
     
-    // Command parsing
-    void handleSerialCommand(const String& cmd);
+    // Status output formatting
     void printStatusHeader();
     void printStatusLine();
     String getControlModeName(int mode) const;
