@@ -354,7 +354,7 @@ void loop() {
                 broadcast.getPosition(), broadcast.getVelocity(),
                 Homing::getLastControlMode(), Homing::getLastInputMode(),
                 motor.getEncoderEstimatesRxCount(),
-                motor.getEncoderEstimates().position, motor.getEncoderEstimates().velocity,
+                motor.getEncoderEstimatesFromBroadcastDataStore().position, motor.getEncoderEstimatesFromBroadcastDataStore().velocity,
                 (int)fsm_inputs.nozzleTemperature,
                 Homing::getStateString());
             serialOutput.println(debugBuf);

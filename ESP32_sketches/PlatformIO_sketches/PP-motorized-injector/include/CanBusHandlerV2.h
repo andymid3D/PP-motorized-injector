@@ -79,10 +79,10 @@ public:
     // Most are disabled by default (0ms broadcast rate) - enable via ODrive config
     
     // Heartbeat (0x01, ~100ms): axis state, errors, flags
-    const ODriveCANProtocol::CyclicHeartbeat& getHeartbeat() const { return heartbeat_; }
+    const ODriveCANProtocol::CyclicHeartbeat& getHeartbeatFromBroadcastDataStore() const { return heartbeat_; }
     
     // Encoder estimates (0x09, ~10ms): position + velocity
-    const ODriveCANProtocol::CyclicEncoderEstimates& getEncoderEstimates() const { return encoder_estimates_; }
+    const ODriveCANProtocol::CyclicEncoderEstimates& getEncoderEstimatesFromBroadcastDataStore() const { return encoder_estimates_; }
     
     // Motor error details (0x03, disabled by default)
     const ODriveCANProtocol::CyclicMotorError& getMotorErrorDetails() const { return motor_error_; }
@@ -240,6 +240,22 @@ public:
      * @return true if queued, false if queue full
      */
     bool getEncoderError();
+    
+    /**
+     * Request encoder estimates (position + velocity) from ODrive via RTR
+     * Forces ODrive to respond immediately with latest encoder data
+     * Uses Remote Transfer Request (RTR) - no data payload sent
+     * @return true if queued, false if queue full
+     */
+    bool requestEncoderEstimatesFromOdrive();
+    
+    /**
+     * Request encoder estimates (position + velocity) from ODrive without RTR
+     * Tests if ODrive responds without Remote Transfer Request flag
+     * Relies on Command Acknowledge flag being enabled in ODrive
+     * @return true if queued, false if queue full
+     */
+    bool requestEncoderEstimatesFromOdriveNoRTR();
     
     /**
      * Request sensorless estimator error from ODrive (diagnostic)

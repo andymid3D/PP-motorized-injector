@@ -1,0 +1,6 @@
+# Exclude binary and build noise to save context
+.pio/
+build/
+bin/
+# Optional: Exclude large data logs
+*.log

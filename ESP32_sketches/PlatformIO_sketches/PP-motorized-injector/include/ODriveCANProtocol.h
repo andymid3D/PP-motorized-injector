@@ -612,6 +612,9 @@ public:
 
     /** Build GET_ENCODER_ESTIMATES request (Remote Transfer Request) */
     static can_Message_t buildGetEncoderEstimates(uint8_t node_id);
+    
+    /** Build GET_ENCODER_ESTIMATES request (No Remote Transfer Request) */
+    static can_Message_t buildGetEncoderEstimatesNoRTR(uint8_t node_id);
 
     // ===== COMMAND BUILDERS - REQUEST-ONLY (RTR) =====
     // These request data from ODrive; used with Remote Transfer Request (RTR) bit

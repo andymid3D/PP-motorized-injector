@@ -221,6 +221,14 @@ bool CanBusHandlerV2::getEncoderError() {
     return _queueCommand(ODriveCANProtocol::buildGetEncoderError(NODE_ID));
 }
 
+bool CanBusHandlerV2::requestEncoderEstimatesFromOdrive() {
+    return _queueCommand(ODriveCANProtocol::buildGetEncoderEstimates(NODE_ID));
+}
+
+bool CanBusHandlerV2::requestEncoderEstimatesFromOdriveNoRTR() {
+    return _queueCommand(ODriveCANProtocol::buildGetEncoderEstimatesNoRTR(NODE_ID));
+}
+
 bool CanBusHandlerV2::getSensorlessError() {
     return _queueCommand(ODriveCANProtocol::buildGetSensorlessError(NODE_ID));
 }

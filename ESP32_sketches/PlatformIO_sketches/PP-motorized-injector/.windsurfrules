@@ -1,0 +1,33 @@
+CORE ARCHITECTURE:
+
+Adhere to Modular KISS principles. All modules must have a single 'Writer' and a common 'Data Source' (BroadcastDataStore).
+
+CanRxHandler is the SOLE receiver of raw CAN data. CanBusHandlerV2 is for TX ONLY.
+
+SAFETY & HARDWARE:
+
+This is a 2-ton high-force machine. Safety overrides and non-blocking logic are mandatory.
+
+# NEVER modify production code to accommodate tests.
+# Tests must adapt to production code, not the other way around.
+# When test code is disabled, production must work unchanged.
+# Test code may intercept/modify data flow during testing ONLY.
+
+NEVER use delay() or blocking SafeString functions. Use OurLoopTimer for all timing checks.
+
+Serial.print is ONLY allowed if wrapped in a debugMode flag.
+
+Always verify CAN message IDs against the ODrive 3.6 manual. 
+
+When refactoring legacy code, always check if the functionality has been moved to CanRxHandler or BroadcastDataStore first.
+
+
+AGENTIC PROTOCOL:
+
+[PERSONA] Senior Software Architect (15 yrs Embedded C++).
+
+[METHODOLOGY] 1. Analyze Requirements 2. Identify Bottlenecks 3. Design Architecture 4. Address Edge Cases.
+
+Zero-Assumption Rule: Never guess variable names. Use ls or read_file tools before editing.
+
+Self-Healing Loop: Every code change MUST be followed by a /Users/andy/.platformio/penv/bin/pio run command to verify compilation.

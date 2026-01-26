@@ -36,9 +36,9 @@ private:
 
     // --- Test Configuration ---
     static const uint32_t TEST_COMMAND_ID = ODriveCANProtocol::MSG_SET_CONTROLLER_MODES; // Using Set_Controller_Modes
-    static const uint32_t PRE_ROLL_DURATION_US = 250000; // MODIFIED: 250ms before TX
-    static const uint32_t POST_ROLL_DURATION_US = 500000; // MODIFIED: 500ms after TX
-    static const uint32_t MESSAGE_BUFFER_CAPACITY = 200; // MODIFIED: Increased capacity for larger window (approx 750ms * 180 msg/s = 135 messages + TX)
+    static const uint32_t PRE_ROLL_DURATION_US = 200000; // MODIFIED: 250ms before TX
+    static const uint32_t POST_ROLL_DURATION_US = 300000; // MODIFIED: 300ms after TX
+    static const uint32_t MESSAGE_BUFFER_CAPACITY = 150; // MODIFIED: Increased capacity for larger window (approx 750ms * 180 msg/s = 135 messages + TX)
 
     // --- Automated Sweep Parameters (for future use) ---
     static const uint32_t TEST_OFFSET_INCREMENT_US = 5000; // 5ms increment for offset

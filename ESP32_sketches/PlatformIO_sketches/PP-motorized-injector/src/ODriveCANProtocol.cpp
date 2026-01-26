@@ -119,6 +119,14 @@ can_Message_t ODriveCANProtocol::buildGetEncoderEstimates(uint8_t node_id) {
     return msg;
 }
 
+can_Message_t ODriveCANProtocol::buildGetEncoderEstimatesNoRTR(uint8_t node_id) {
+    can_Message_t msg;
+    msg.id = makeCanId(node_id, MSG_GET_ENCODER_ESTIMATES);
+    msg.rtr = false;  // No Remote Transfer Request
+    msg.len = 0;
+    return msg;
+}
+
 // ===== RTR Request Functions (Remote Transfer Request - No Parameters) =====
 
 can_Message_t ODriveCANProtocol::buildHeartbeatRequest(uint8_t node_id) {

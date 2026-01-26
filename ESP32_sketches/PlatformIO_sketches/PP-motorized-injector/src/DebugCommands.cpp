@@ -274,12 +274,12 @@ void DebugCommands::printStatusLine() {
     static uint32_t startTime = millis();
     uint32_t elapsed = (millis() - startTime) / 1000;
     
-    auto encoder = can_->getEncoderEstimates();
+    auto encoder = can_->getEncoderEstimatesFromBroadcastDataStore();
     auto iq = can_->getIqReadings();
     auto bus = can_->getBusVoltageCurrentReadings();
     
     // Get current heartbeat for axis state (to track mode changes)
-    auto heartbeat = can_->getHeartbeat();
+    auto heartbeat = can_->getHeartbeatFromBroadcastDataStore();
     
     char buffer[200];
     snprintf(buffer, sizeof(buffer),

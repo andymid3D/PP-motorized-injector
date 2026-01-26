@@ -121,29 +121,19 @@ void ProtectedWindowTest::startTestRun() {
 void ProtectedWindowTest::sendTestCommand() {
     _commandSentTime_us = hwTimer.micros();
 
-    // Define the parameters for Set_Controller_Modes
-    ODriveCANProtocol::ControlMode controlMode = _sentCommandParams.control_mode;
-    ODriveCANProtocol::InputMode inputMode = _sentCommandParams.input_mode;
-
-    // RE-ENABLE TX Sending for this micro-step
-    // The buildSetControllerModes function is not directly called here,
-    // as _motor->setControllerModes() handles building the message internally.
-    _motor->setControllerModes(controlMode, inputMode); // UNCOMMENTED
-
-    // Create a CANRxMessage for the TX event and add it to collected messages
+    // Send 1x set_controller_modes command (3, 1) per test block
+    // Testing if single SET commands get responses when not repeated
+    _motor->setControllerModes(ODriveCANProtocol::ControlMode::POSITION_CONTROL, ODriveCANProtocol::InputMode::PASSTHROUGH);
+    
+    // Create a CANRxMessage for the TX event
     CANRxMessage txMsg;
-    txMsg.canId = TEST_COMMAND_ID;
-    txMsg.dlc = 8; // Assuming 8 bytes for SetControllerModes, though not strictly needed for analysis
-    // For simplicity, we'll just put dummy data for now, actual data not needed for timeline
+    txMsg.canId = ODriveCANProtocol::MSG_SET_CONTROLLER_MODES;
+    txMsg.dlc = 8; // SET commands have 8 bytes payload
     memset(txMsg.data, 0, 8);
-    txMsg.timestamp = _commandSentTime_us;
-    // Mark as a TX event for easier identification in analysis if needed
-    // (This requires adding an 'isTx' flag to CANRxMessage, which we don't have yet.
-    // For now, we'll rely on the print format to distinguish.)
+    txMsg.timestamp = hwTimer.micros();
     _collectedMessages.push(txMsg);
-
-
-    Serial.printf("TX:%llu:%u:0x%X:%d:%d\n", _commandSentTime_us, _testOffset_us, TEST_COMMAND_ID, (int)controlMode, (int)inputMode); // MODIFIED: Removed "TX Suspended" text
+    
+    Serial.printf("TX:%llu:%u:0x%X:1\n", txMsg.timestamp, _testOffset_us, txMsg.canId);
 }
 
 void ProtectedWindowTest::collectMessages() {
