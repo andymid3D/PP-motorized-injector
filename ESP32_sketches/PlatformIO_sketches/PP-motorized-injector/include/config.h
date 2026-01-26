@@ -18,7 +18,7 @@
 #define TEST_RINGBUFFER_ENABLED          false
 #define TEST_STRESS_QUEUE_ENABLED        false
 #define TEST_BDS_STORAGE_ENABLED         false
-#define TEST_BDS_INTEGRATION_ENABLED     false
+#define TEST_BDS_INTEGRATION_ENABLED     true
 #define TEST_BASELINE_TIMING_ENABLED     false
 #define TEST_PROTECTED_WINDOW_ENABLED    true
 
@@ -101,6 +101,28 @@
 
 #define RTR_TIMEOUT_MS              5
 #define RTR_RETRY_COUNT             0
+
+// ==========================================
+// 3.5. CYCLIC-BASED TIMING SYSTEM
+// ==========================================
+// Timing constants for deterministic command windows
+// Aligned with 10ms cyclic message bundles (encoder + IQ current)
+
+// Command timing windows (microseconds)
+#define CMD_WINDOW_OFFSET_US        4000    // 4ms after encoder bundle start
+#define CMD_WINDOW_DURATION_US      1000    // 1ms window for command execution
+#define CMD_GAP_US                  10000   // 10ms gap between commands
+
+// Movement verification thresholds
+#define MOVEMENT_IQ_THRESHOLD_MA    50      // 50mA minimum IQ current change
+#define MOVEMENT_POS_THRESHOLD_TICKS 10     // 10 encoder ticks minimum position change
+#define MOVEMENT_TIMEOUT_MS         100     // 100ms timeout for movement detection
+
+// Adaptive timing parameters
+#define TIMING_BASE_WINDOW_US       5000    // Base timing window (5ms)
+#define TIMING_ADAPTIVE_FACTOR      0.8f    // Adaptive scaling factor
+#define TIMING_MIN_WINDOW_US        2000    // Minimum window (2ms)
+#define TIMING_MAX_WINDOW_US        8000    // Maximum window (8ms)
 
 // ==========================================
 // 4. MOTOR CONTROL PARAMETERS BY STATE

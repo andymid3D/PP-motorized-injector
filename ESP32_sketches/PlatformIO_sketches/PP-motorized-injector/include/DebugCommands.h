@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include "CanBusHandlerV2.h"
+#include "TimingSystemTest.h"
 
 /**
  * Debug Commands Module - CAN Command Testing via Serial
@@ -116,6 +117,9 @@ public:
 
 private:
     CanBusHandlerV2* can_ = nullptr;
+    
+    // Timing system test instance
+    TimingSystemTest timingTest_;
     
     // Status output timing
     uint32_t lastStatusTime_ = 0;

@@ -7,6 +7,7 @@
 #include "GPTimer.h"
 #include "RingBuffer.h"
 #include "ODriveCANProtocol.h" // Include for enums
+#include "TimingSystemTest.h"  // For timing system test commands
 
 // The CANRxMessage struct is defined in CanRxHandler.h, which is included.
 // No need to redefine it here.
@@ -33,6 +34,9 @@ private:
     uint32_t _testOffset_us; // Offset from bundle start to send TX
     uint64_t _bundleStartTime_us; // Timestamp of the bundle marker (Heartbeat)
     uint32_t _tests_run;
+
+    // Timing system test instance
+    TimingSystemTest timingTest_;
 
     // --- Test Configuration ---
     static const uint32_t TEST_COMMAND_ID = ODriveCANProtocol::MSG_SET_CONTROLLER_MODES; // Using Set_Controller_Modes

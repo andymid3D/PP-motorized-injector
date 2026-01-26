@@ -242,17 +242,18 @@ void setup() {
     
 #if TEST_MODE_PHASE1
     Serial.println("\n========================================");
-    Serial.println("PHASE 1 TEST MODE ACTIVE");
-    Serial.println("[INIT] RTR Removal Test:");
+    Serial.println("TIMING SYSTEM TEST MODE ACTIVE");
+    Serial.println("[INIT] RTR Removal Complete:");
     Serial.println("  - All RTR methods removed");
     Serial.println("  - SET commands use _queueCommand only");
     Serial.println("  - All SET commands have rtr = false");
     Serial.println("  - GET commands removed (use cyclic data)");
-    Serial.println("  - Ready for timing system implementation");
+    Serial.println("  - Timing system accessors implemented");
+    Serial.println("  - Ready for timing window validation");
     Serial.println();
     Serial.println("========================================");
-    Serial.println("PHASE 1 TEST MODE ACTIVE");
-    Serial.println("FSM bypassed - testing new modules only");
+    Serial.println("TIMING SYSTEM TEST MODE ACTIVE");
+    Serial.println("FSM bypassed - testing timing modules only");
     Serial.println("========================================\n");
     
     initLoopTimer(); // Initialize our custom dual-core timer
@@ -291,6 +292,10 @@ void setup() {
         while(1) { delay(1000); }
     }
     
+    // Initialize debug commands for timing system test
+    motor.begin();
+    debugCmds.begin(motor);
+    
     return;
 #endif
     
@@ -326,6 +331,7 @@ void loop() {
 #else
     PhaseTests::runLoopTests(); // No longer needs serialOutput passed
 #endif
+    
     return;
 #endif
     

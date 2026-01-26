@@ -4,6 +4,7 @@
 #include "CanRxHandler.h"      // For draining messages
 #include "GPTimer.h"           // For high-resolution timestamps
 #include "config.h"            // To get ODRIVE_NODE_ID
+#include "TimingSystemTest.h"  // For timing system test commands
 #include <algorithm>           // For std::sort
 #include <vector>              // For std::vector
 
@@ -19,12 +20,18 @@ ProtectedWindowTest::ProtectedWindowTest() :
     _captureWindowStart_us(0),
     _commandSentTime_us(0),
     _sentCommandParams(ODriveCANProtocol::ControlMode::POSITION_CONTROL, ODriveCANProtocol::InputMode::PASSTHROUGH), // Default benign command
-    _bundleDetectedForRun(false) // Initialize new flag
+    _bundleDetectedForRun(false), // Initialize new flag
+    timingTest_() // Initialize timing system test
 {}
 
 void ProtectedWindowTest::begin(CanBusHandlerV2& motor) {
     _motor = &motor;
+    
+    // Initialize timing system test
+    timingTest_.begin();
+    
     Serial.println("ProtectedWindowTest initialized. Type 'start' to begin a test run.");
+    Serial.println("Timing commands available: timing_start, timing_baseline, timing_check, timing_window, timing_status");
 }
 
 void ProtectedWindowTest::loop() {
@@ -32,8 +39,13 @@ void ProtectedWindowTest::loop() {
     if (Serial.available() > 0) {
         String command = Serial.readStringUntil('\n');
         command.trim();
+        
         if (command == "start" && (_state == IDLE || _state == FINISHED)) {
             startTestRun();
+        }
+        // ===== TIMING SYSTEM TEST COMMANDS =====
+        else if (command.startsWith("timing_")) {
+            timingTest_.handleCommand(command);
         }
     }
 

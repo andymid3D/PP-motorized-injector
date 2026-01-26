@@ -1,5 +1,6 @@
 #include "BroadcastDataStore.h"
 #include "config.h"
+#include "GPTimer.h"
 
 BroadcastDataStore& BroadcastDataStore::getInstance() {
     // Meyer's singleton - thread-safe, lazy initialization
@@ -411,4 +412,78 @@ void BroadcastDataStore::resetAllData() {
     sensors_ = {};
     errors_ = {0, 0, 0, 0, 0, false};
     estimates_ = {0.0f, 0.0f, 0};
+}
+
+// =============================================================================
+// TIMING SYSTEM ACCESSORS (NEW)
+// =============================================================================
+
+uint64_t BroadcastDataStore::getEncoderTimestamp() const {
+    const TimestampedEncoder* latest = getLatestEncoder();
+    return latest ? latest->timestamp : 0;
+}
+
+uint64_t BroadcastDataStore::getIqTimestamp() const {
+    const TimestampedIq* latest = getLatestIq();
+    return latest ? latest->timestamp : 0;
+}
+
+uint32_t BroadcastDataStore::getTimingOffset(uint64_t currentTime) const {
+    uint64_t encoderTime = getEncoderTimestamp();
+    if (encoderTime == 0) return UINT32_MAX; // No encoder data
+    return (currentTime > encoderTime) ? (uint32_t)(currentTime - encoderTime) : 0;
+}
+
+bool BroadcastDataStore::isInCommandWindow(uint64_t currentTime, uint32_t offsetUs, uint32_t durationUs) const {
+    uint32_t offset = getTimingOffset(currentTime);
+    if (offset == UINT32_MAX) return false; // No encoder data
+    
+    return (offset >= offsetUs) && (offset < (offsetUs + durationUs));
+}
+
+bool BroadcastDataStore::getMovementData(float& iqSetpoint, float& iqMeasured, float& position, float& velocity) const {
+    const TimestampedIq* iqData = getLatestIq();
+    const TimestampedEncoder* encData = getLatestEncoder();
+    
+    if (!iqData || !encData) return false;
+    
+    // Check if data is fresh (within 50ms)
+    uint64_t currentTime = hwTimer.micros();
+    if ((currentTime - iqData->timestamp) > 50000 || (currentTime - encData->timestamp) > 50000) {
+        return false;
+    }
+    
+    iqSetpoint = iqData->iqSetpoint;
+    iqMeasured = iqData->iqMeasured;
+    position = encData->position;
+    velocity = encData->velocity;
+    
+    return true;
+}
+
+bool BroadcastDataStore::hasMovementOccurred(float baselinePos, float baselineIq, float posThreshold, float iqThreshold) const {
+    float iqSetpoint, iqMeasured, position, velocity;
+    if (!getMovementData(iqSetpoint, iqMeasured, position, velocity)) return false;
+    
+    // Check position change
+    float posDelta = fabs(position - baselinePos);
+    if (posDelta >= posThreshold) return true;
+    
+    // Check IQ current change
+    float iqDelta = fabs(iqMeasured - baselineIq);
+    if (iqDelta >= iqThreshold) return true;
+    
+    return false;
+}
+
+bool BroadcastDataStore::isDataFresh(uint64_t maxAgeUs) const {
+    uint64_t currentTime = hwTimer.micros();
+    
+    const TimestampedEncoder* encData = getLatestEncoder();
+    const TimestampedIq* iqData = getLatestIq();
+    
+    if (!encData || !iqData) return false;
+    
+    return ((currentTime - encData->timestamp) <= maxAgeUs) && 
+           ((currentTime - iqData->timestamp) <= maxAgeUs);
 }

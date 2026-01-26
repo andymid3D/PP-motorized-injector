@@ -5,6 +5,7 @@
 #include <SafeString.h>
 #include "RingBuffer.h"
 #include "GPTimer.h"
+#include "config.h"
 
 // =============================================================================
 // RING BUFFER HISTORY SIZES (Phase 1.7 BDS v2)
@@ -197,6 +198,66 @@ public:
     const TimestampedEncoder* getLatestEncoder() const;
     const TimestampedIq* getLatestIq() const;
     const TimestampedBusVI* getLatestBusVI() const;
+    
+    // ===== TIMING SYSTEM ACCESSORS (NEW) =====
+    // Accessors for cyclic-based timing window system
+    
+    /**
+     * Get latest encoder bundle timestamp (for timing window calculations)
+     * @return Microsecond timestamp of last encoder message (0 if none)
+     */
+    uint64_t getEncoderTimestamp() const;
+    
+    /**
+     * Get latest IQ current bundle timestamp (for movement verification)
+     * @return Microsecond timestamp of last IQ message (0 if none)
+     */
+    uint64_t getIqTimestamp() const;
+    
+    /**
+     * Calculate timing offset from encoder bundle start
+     * @param currentTime Current time in microseconds
+     * @return Offset in microseconds from last encoder bundle
+     */
+    uint32_t getTimingOffset(uint64_t currentTime) const;
+    
+    /**
+     * Check if we're in a valid command timing window
+     * @param currentTime Current time in microseconds
+     * @param offsetUs Window offset from encoder start (default CMD_WINDOW_OFFSET_US)
+     * @param durationUs Window duration (default CMD_WINDOW_DURATION_US)
+     * @return True if current time is within command window
+     */
+    bool isInCommandWindow(uint64_t currentTime, uint32_t offsetUs = CMD_WINDOW_OFFSET_US, uint32_t durationUs = CMD_WINDOW_DURATION_US) const;
+    
+    /**
+     * Get movement verification data (IQ current and position)
+     * @param iqSetpoint Output: IQ setpoint current (A)
+     * @param iqMeasured Output: IQ measured current (A)
+     * @param position Output: Current position (turns)
+     * @param velocity Output: Current velocity (turns/sec)
+     * @return True if data is available (recent), false if stale
+     */
+    bool getMovementData(float& iqSetpoint, float& iqMeasured, float& position, float& velocity) const;
+    
+    /**
+     * Check if movement has occurred since baseline
+     * @param baselinePos Baseline position (turns)
+     * @param baselineIq Baseline IQ current (A)
+     * @param posThreshold Position threshold (default MOVEMENT_POS_THRESHOLD_TICKS/8192)
+     * @param iqThreshold IQ threshold (default MOVEMENT_IQ_THRESHOLD_MA/1000)
+     * @return True if movement detected, false otherwise
+     */
+    bool hasMovementOccurred(float baselinePos, float baselineIq, 
+                            float posThreshold = (float)MOVEMENT_POS_THRESHOLD_TICKS/8192.0f,
+                            float iqThreshold = (float)MOVEMENT_IQ_THRESHOLD_MA/1000.0f) const;
+    
+    /**
+     * Get data staleness for timing validation
+     * @param maxAgeUs Maximum acceptable age in microseconds
+     * @return True if data is fresh, false if stale
+     */
+    bool isDataFresh(uint64_t maxAgeUs = 50000) const; // Default 50ms
     const TimestampedMotorError* getLatestMotorError() const;
     const TimestampedEncoderError* getLatestEncoderError() const;
     const TimestampedControllerError* getLatestControllerError() const;

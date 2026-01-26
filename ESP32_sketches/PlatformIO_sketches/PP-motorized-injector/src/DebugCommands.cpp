@@ -1,6 +1,7 @@
 #include "DebugCommands.h"
 #include "config.h"
 #include "MessageBuffer.h"
+#include "TimingSystemTest.h"
 #include <Arduino.h>
 
 void DebugCommands::begin(CanBusHandlerV2& canHandler) {
@@ -13,12 +14,11 @@ void DebugCommands::begin(CanBusHandlerV2& canHandler) {
     
     MessageBuffer::getInstance().sendMessage("=== DEBUG COMMANDS MODE ACTIVE ===");
     MessageBuffer::getInstance().sendMessage("Type commands to test CAN messages. Use 'help' for command list.");
-    MessageBuffer::getInstance().sendMessage("Monitoring ODrive via serial every 1 second.");
     printStatusHeader();
 }
 
 void DebugCommands::loop() {
-    // Read serial input
+    // Check for incoming serial commands
     if (Serial.available()) {
         String cmd = Serial.readStringUntil('\n');
         cmd.trim();
@@ -27,12 +27,8 @@ void DebugCommands::loop() {
         }
     }
     
-    // Print status every 1 second
-    uint32_t now = millis();
-    if (now - lastStatusTime_ >= STATUS_INTERVAL_MS) {
-        printStatusLine();
-        lastStatusTime_ = now;
-    }
+    // Disable 1Hz status output in timing test mode to reduce interference
+    // Status output handled by PhaseTests
 }
 
 void DebugCommands::handleCommand(const String& cmd) {
