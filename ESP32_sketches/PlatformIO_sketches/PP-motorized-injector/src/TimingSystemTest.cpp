@@ -35,6 +35,9 @@ void TimingSystemTest::handleCommand(const String& command) {
     else if (command == "timing_window") {
         testCommandWindow();
     }
+    else if (command == "timing_debug") {
+        printDebugData();
+    }
     else if (command == "timing_status") {
         showStatus();
     }
@@ -58,7 +61,11 @@ void TimingSystemTest::captureBaseline() {
     if (bds.getMovementData(iqSetpoint, iqMeasured, position, velocity)) {
         baselinePos_ = position;
         baselineIq_ = iqMeasured;
+        baselineBusCurrent_ = bds.getBusCurrent(); // Get BUS current separately
         baselineCaptured_ = true;
+        
+        uint64_t encoderTime = bds.getEncoderTimestamp();
+        uint64_t iqTime = bds.getIqTimestamp();
         
         Serial.println("[TIMING] Baseline captured:");
         Serial.print("  Position: ");
@@ -70,13 +77,12 @@ void TimingSystemTest::captureBaseline() {
         Serial.print("  IQ Setpoint: ");
         Serial.print(iqSetpoint, 3);
         Serial.println(" A");
+        Serial.print("  BUS Current: ");
+        Serial.print(baselineBusCurrent_, 3);
+        Serial.println(" A");
         Serial.print("  Velocity: ");
         Serial.print(velocity, 3);
         Serial.println(" turns/s");
-        
-        // Show timestamps
-        uint64_t encoderTime = bds.getEncoderTimestamp();
-        uint64_t iqTime = bds.getIqTimestamp();
         Serial.print("  Encoder timestamp: ");
         Serial.println(encoderTime);
         Serial.print("  IQ timestamp: ");
@@ -85,6 +91,7 @@ void TimingSystemTest::captureBaseline() {
         Serial.println(hwTimer.micros());
         
         Serial.println("[TIMING] Baseline ready - move motor and use 'timing_check'");
+        Serial.println("[TIMING] Compare: IQ_set (command) vs IQ_measured (actual) vs BUS_current (real-time)");
     } else {
         Serial.println("[TIMING] ERROR: No fresh data available");
     }
@@ -100,6 +107,8 @@ void TimingSystemTest::checkMovement() {
     
     float iqSetpoint, iqMeasured, position, velocity;
     if (bds.getMovementData(iqSetpoint, iqMeasured, position, velocity)) {
+        float currentBusCurrent = bds.getBusCurrent();
+        
         Serial.println("[TIMING] Movement check:");
         Serial.print("  Current position: ");
         Serial.print(position, 6);
@@ -111,20 +120,44 @@ void TimingSystemTest::checkMovement() {
         Serial.print(fabs(position - baselinePos_), 6);
         Serial.println(" turns");
         
-        Serial.print("  Current IQ: ");
+        Serial.println("[TIMING] Current comparison:");
+        Serial.print("  IQ_set (command): ");
+        Serial.print(iqSetpoint, 3);
+        Serial.print(" A (delta: ");
+        Serial.print(fabs(iqSetpoint - baselineIq_), 3);
+        Serial.println(" A)");
+        Serial.print("  IQ_measured (actual): ");
         Serial.print(iqMeasured, 3);
-        Serial.println(" A");
-        Serial.print("  Baseline IQ: ");
-        Serial.print(baselineIq_, 3);
-        Serial.println(" A");
-        Serial.print("  IQ delta: ");
+        Serial.print(" A (delta: ");
         Serial.print(fabs(iqMeasured - baselineIq_), 3);
-        Serial.println(" A");
+        Serial.println(" A)");
+        Serial.print("  BUS_current (real-time): ");
+        Serial.print(currentBusCurrent, 3);
+        Serial.print(" A (delta: ");
+        Serial.print(fabs(currentBusCurrent - baselineBusCurrent_), 3);
+        Serial.println(" A)");
         
-        // Check thresholds
-        float posThreshold = (float)MOVEMENT_POS_THRESHOLD_TICKS/8192.0f;
-        float iqThreshold = (float)MOVEMENT_IQ_THRESHOLD_MA/1000.0f;
+        // Check thresholds (convert to proper units)
+        float posThreshold = (float)MOVEMENT_POS_THRESHOLD_TICKS / 8192.0f;  // Convert ticks to turns
+        float iqThreshold = (float)MOVEMENT_IQ_THRESHOLD_MA / 1000.0f;       // Convert mA to A
         
+        bool posMoved = fabs(position - baselinePos_) > posThreshold;
+        bool iqSetMoved = fabs(iqSetpoint - baselineIq_) > iqThreshold;
+        bool iqMeasMoved = fabs(iqMeasured - baselineIq_) > iqThreshold;
+        bool busMoved = fabs(currentBusCurrent - baselineBusCurrent_) > iqThreshold;
+        
+        Serial.println("[TIMING] Detection results:");
+        Serial.print("  Position movement: ");
+        Serial.println(posMoved ? "DETECTED" : "none");
+        Serial.print("  IQ_set movement: ");
+        Serial.println(iqSetMoved ? "DETECTED" : "none");
+        Serial.print("  IQ_measured movement: ");
+        Serial.println(iqMeasMoved ? "DETECTED" : "none");
+        Serial.print("  BUS_current movement: ");
+        Serial.println(busMoved ? "DETECTED" : "none");
+        
+        // Show thresholds for debugging
+        Serial.println("[TIMING] Thresholds used:");
         Serial.print("  Position threshold: ");
         Serial.print(posThreshold, 6);
         Serial.println(" turns");
@@ -132,18 +165,124 @@ void TimingSystemTest::checkMovement() {
         Serial.print(iqThreshold, 3);
         Serial.println(" A");
         
-        bool movementDetected = bds.hasMovementOccurred(baselinePos_, baselineIq_, posThreshold, iqThreshold);
-        Serial.print("  Movement detected: ");
-        Serial.println(movementDetected ? "YES" : "NO");
-        
-        // Show data freshness
-        bool dataFresh = bds.isDataFresh();
-        Serial.print("  Data fresh: ");
-        Serial.println(dataFresh ? "YES" : "NO");
-        
+        if (posMoved || iqSetMoved || iqMeasMoved || busMoved) {
+            Serial.println("[TIMING] MOVEMENT DETECTED!");
+        } else {
+            Serial.println("[TIMING] No movement detected");
+        }
     } else {
         Serial.println("[TIMING] ERROR: No fresh data available");
     }
+}
+
+void TimingSystemTest::printDebugData() {
+    BroadcastDataStore& bds = BroadcastDataStore::getInstance();
+    
+    Serial.println("[TIMING] Debug - Raw data store status:");
+    
+    // Check struct sizes and alignment
+    Serial.println("  Struct alignment checks:");
+    Serial.print("    TimestampedEncoder size: ");
+    Serial.println(sizeof(TimestampedEncoder));
+    Serial.print("    TimestampedIq size: ");
+    Serial.println(sizeof(TimestampedIq));
+    Serial.print("    float size: ");
+    Serial.println(sizeof(float));
+    Serial.print("    uint64_t size: ");
+    Serial.println(sizeof(uint64_t));
+    Serial.print("    bool size: ");
+    Serial.println(sizeof(bool));
+    
+    // Check latest encoder data
+    const TimestampedEncoder* encData = bds.getLatestEncoder();
+    if (encData) {
+        uint64_t currentTime = hwTimer.micros();
+        uint64_t age = currentTime - encData->timestamp;
+        
+        Serial.println("  Encoder data:");
+        Serial.print("    Position: ");
+        Serial.print(encData->position, 6);
+        Serial.println(" turns");
+        Serial.print("    Velocity: ");
+        Serial.print(encData->velocity, 3);
+        Serial.println(" turns/s");
+        Serial.print("    Raw position bytes: ");
+        uint32_t* posBytes = (uint32_t*)&encData->position;
+        Serial.print("0x");
+        if (*posBytes < 0x1000) Serial.print("0");
+        if (*posBytes < 0x100) Serial.print("0");
+        if (*posBytes < 0x10) Serial.print("0");
+        Serial.print(*posBytes, HEX);
+        Serial.println();
+        Serial.print("    Raw velocity bytes: ");
+        uint32_t* velBytes = (uint32_t*)&encData->velocity;
+        Serial.print("0x");
+        if (*velBytes < 0x1000) Serial.print("0");
+        if (*velBytes < 0x100) Serial.print("0");
+        if (*velBytes < 0x10) Serial.print("0");
+        Serial.print(*velBytes, HEX);
+        Serial.println();
+        Serial.print("    Timestamp: ");
+        Serial.println(encData->timestamp);
+        Serial.print("    Age: ");
+        Serial.print(age);
+        Serial.println(" us");
+        Serial.print("    Fresh: ");
+        Serial.println(age < 50000 ? "YES" : "NO");
+    } else {
+        Serial.println("  Encoder data: NULL");
+    }
+    
+    // Check latest IQ data
+    const TimestampedIq* iqData = bds.getLatestIq();
+    if (iqData) {
+        uint64_t currentTime = hwTimer.micros();
+        uint64_t age = currentTime - iqData->timestamp;
+        
+        Serial.println("  IQ data:");
+        Serial.print("    IQ Setpoint: ");
+        Serial.print(iqData->iqSetpoint, 3);
+        Serial.println(" A");
+        Serial.print("    IQ Measured: ");
+        Serial.print(iqData->iqMeasured, 3);
+        Serial.println(" A");
+        Serial.print("    Raw setpoint bytes: ");
+        uint32_t* setBytes = (uint32_t*)&iqData->iqSetpoint;
+        Serial.print("0x");
+        if (*setBytes < 0x1000) Serial.print("0");
+        if (*setBytes < 0x100) Serial.print("0");
+        if (*setBytes < 0x10) Serial.print("0");
+        Serial.print(*setBytes, HEX);
+        Serial.println();
+        Serial.print("    Raw measured bytes: ");
+        uint32_t* measBytes = (uint32_t*)&iqData->iqMeasured;
+        Serial.print("0x");
+        if (*measBytes < 0x1000) Serial.print("0");
+        if (*measBytes < 0x100) Serial.print("0");
+        if (*measBytes < 0x10) Serial.print("0");
+        Serial.print(*measBytes, HEX);
+        Serial.println();
+        Serial.print("    Timestamp: ");
+        Serial.println(iqData->timestamp);
+        Serial.print("    Age: ");
+        Serial.print(age);
+        Serial.println(" us");
+        Serial.print("    Fresh: ");
+        Serial.println(age < 50000 ? "YES" : "NO");
+    } else {
+        Serial.println("  IQ data: NULL");
+    }
+    
+    // Check BUS data
+    Serial.println("  BUS data:");
+    Serial.print("    BUS Current: ");
+    Serial.print(bds.getBusCurrent(), 3);
+    Serial.println(" A");
+    Serial.print("    BUS Voltage: ");
+    Serial.print(bds.getBusVoltage(), 1);
+    Serial.println(" V");
+    
+    Serial.println("[TIMING] Debug complete");
 }
 
 void TimingSystemTest::testCommandWindow() {

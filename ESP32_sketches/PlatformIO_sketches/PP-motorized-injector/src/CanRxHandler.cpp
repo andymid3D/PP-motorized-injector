@@ -112,6 +112,108 @@ void CanRxHandler::pollAndProcess() {
         // Passing 0 for procedureResult as it's not directly available in CyclicHeartbeat
         bds.storeHeartbeat(hb_data.axis_error, hb_data.axis_state, 0, timestamp, false);
     }
+    // Store encoder data for timing system
+    else if (cmdId == ODriveCANProtocol::CYCLIC_ENCODER_ESTIMATES) {
+        // Manual float parsing to bypass broken CAN library
+        union { float f; uint8_t bytes[4]; } manual_pos, manual_vel;
+        manual_pos.bytes[0] = frame.data[0];
+        manual_pos.bytes[1] = frame.data[1];
+        manual_pos.bytes[2] = frame.data[2];
+        manual_pos.bytes[3] = frame.data[3];
+        manual_vel.bytes[0] = frame.data[4];
+        manual_vel.bytes[1] = frame.data[5];
+        manual_vel.bytes[2] = frame.data[6];
+        manual_vel.bytes[3] = frame.data[7];
+        
+        // Store manually parsed values
+        bds.storeEncoder(manual_pos.f, manual_vel.f, timestamp, false);
+        
+        // DEBUG: Commented out to reduce streaming noise
+        // Serial.print("[CAN-FIX] Manual: pos=");
+        // Serial.print(manual_pos.f, 6);
+        // Serial.print(" vel=");
+        // Serial.print(manual_vel.f, 6);
+        // Serial.print(" RAW: ");
+        // for (int i = 0; i < frame.data_length_code; i++) {
+        //     if (frame.data[i] < 0x10) Serial.print("0");
+        //     Serial.print(frame.data[i], HEX);
+        //     Serial.print(" ");
+        // }
+        // Serial.println();
+    }
+    // Store IQ data for timing system
+    else if (cmdId == ODriveCANProtocol::CYCLIC_IQ) {
+        // Manual float parsing to bypass broken CAN library
+        union { float f; uint8_t bytes[4]; } manual_setpoint, manual_measured;
+        manual_setpoint.bytes[0] = frame.data[0];
+        manual_setpoint.bytes[1] = frame.data[1];
+        manual_setpoint.bytes[2] = frame.data[2];
+        manual_setpoint.bytes[3] = frame.data[3];
+        manual_measured.bytes[0] = frame.data[4];
+        manual_measured.bytes[1] = frame.data[5];
+        manual_measured.bytes[2] = frame.data[6];
+        manual_measured.bytes[3] = frame.data[7];
+        
+        // Store manually parsed values
+        bds.storeIq(manual_setpoint.f, manual_measured.f, timestamp, false);
+        
+        // DEBUG: Commented out to reduce streaming noise
+        // Serial.print("[CAN-FIX] IQ: set=");
+        // Serial.print(manual_setpoint.f, 3);
+        // Serial.print(" meas=");
+        // Serial.print(manual_measured.f, 3);
+        // Serial.print(" RAW: ");
+        // for (int i = 0; i < frame.data_length_code; i++) {
+        //     if (frame.data[i] < 0x10) Serial.print("0");
+        //     Serial.print(frame.data[i], HEX);
+        //     Serial.print(" ");
+        // }
+        // Serial.println();
+    }
+    // Store motor error data
+    else if (cmdId == ODriveCANProtocol::CYCLIC_MOTOR_ERROR) {
+        ODriveCANProtocol::CyclicMotorError motor_data = ODriveCANProtocol::parseCyclicMotorError((const can_Message_t&)frame);
+        bds.storeMotorError(motor_data.motor_error, timestamp, false);
+    }
+    // Store encoder error data
+    else if (cmdId == ODriveCANProtocol::CYCLIC_ENCODER_ERROR) {
+        ODriveCANProtocol::CyclicEncoderError encoder_data = ODriveCANProtocol::parseCyclicEncoderError((const can_Message_t&)frame);
+        bds.storeEncoderError(encoder_data.encoder_error, timestamp, false);
+    }
+    // Store controller error data
+    else if (cmdId == ODriveCANProtocol::CYCLIC_CONTROLLER_ERROR) {
+        ODriveCANProtocol::CyclicControllerError controller_data = ODriveCANProtocol::parseCyclicControllerError((const can_Message_t&)frame);
+        bds.storeControllerError(controller_data.controller_error, timestamp, false);
+    }
+    // Store bus voltage/current data for movement detection comparison
+    else if (cmdId == ODriveCANProtocol::CYCLIC_BUS_VI) {
+        // Manual float parsing to bypass broken CAN library
+        union { float f; uint8_t bytes[4]; } manual_voltage, manual_current;
+        manual_voltage.bytes[0] = frame.data[0];
+        manual_voltage.bytes[1] = frame.data[1];
+        manual_voltage.bytes[2] = frame.data[2];
+        manual_voltage.bytes[3] = frame.data[3];
+        manual_current.bytes[0] = frame.data[4];
+        manual_current.bytes[1] = frame.data[5];
+        manual_current.bytes[2] = frame.data[6];
+        manual_current.bytes[3] = frame.data[7];
+        
+        // Store manually parsed values
+        bds.storeBusVI(manual_voltage.f, manual_current.f, timestamp, false);
+        
+        // DEBUG: Commented out to reduce streaming noise
+        // Serial.print("[CAN-FIX] BUS: V=");
+        // Serial.print(manual_voltage.f, 1);
+        // Serial.print(" I=");
+        // Serial.print(manual_current.f, 3);
+        // Serial.print(" RAW: ");
+        // for (int i = 0; i < frame.data_length_code; i++) {
+        //     if (frame.data[i] < 0x10) Serial.print("0");
+        //     Serial.print(frame.data[i], HEX);
+        //     Serial.print(" ");
+        // }
+        // Serial.println();
+    }
     // All other messages are NOT classified to BDS in this micro-step.
 
     // Always put the message into the CanRxHandler's internal queue

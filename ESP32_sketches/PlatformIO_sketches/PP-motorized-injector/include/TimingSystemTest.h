@@ -40,6 +40,7 @@ private:
     bool baselineCaptured_;
     float baselinePos_;
     float baselineIq_;
+    float baselineBusCurrent_;
     
     /**
      * Start timing system test
@@ -60,6 +61,11 @@ private:
      * Test command window timing
      */
     void testCommandWindow();
+    
+    /**
+     * Print debug data for troubleshooting
+     */
+    void printDebugData();
     
     /**
      * Show system status
