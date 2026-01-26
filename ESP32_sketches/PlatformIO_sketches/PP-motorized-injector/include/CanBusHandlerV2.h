@@ -235,29 +235,6 @@ public:
     bool getMotorError();
     
     /**
-     * Request encoder error flags from ODrive (diagnostic)
-     * ODrive will respond with encoder error value via CAN
-     * @return true if queued, false if queue full
-     */
-    bool getEncoderError();
-    
-    /**
-     * Request encoder estimates (position + velocity) from ODrive via RTR
-     * Forces ODrive to respond immediately with latest encoder data
-     * Uses Remote Transfer Request (RTR) - no data payload sent
-     * @return true if queued, false if queue full
-     */
-    bool requestEncoderEstimatesFromOdrive();
-    
-    /**
-     * Request encoder estimates (position + velocity) from ODrive without RTR
-     * Tests if ODrive responds without Remote Transfer Request flag
-     * Relies on Command Acknowledge flag being enabled in ODrive
-     * @return true if queued, false if queue full
-     */
-    bool requestEncoderEstimatesFromOdriveNoRTR();
-    
-    /**
      * Request sensorless estimator error from ODrive (diagnostic)
      * ODrive will respond with sensorless error value via CAN
      * @return true if queued, false if queue full
@@ -271,13 +248,6 @@ public:
      * @return true if queued, false if queue full
      */
     bool setAxisNodeId(uint32_t newNodeId);
-    
-    /**
-     * Request current encoder count from ODrive (diagnostic)
-     * ODrive will respond with encoder count value via CAN
-     * @return true if queued, false if queue full
-     */
-    bool getEncoderCount();
     
     /**
      * Start anticogging calibration procedure
@@ -372,6 +342,20 @@ public:
      */
     void setVelGains(float velGain, float velIntegratorGain);
     
+    // ===== DIAGNOSTIC & STATUS METHODS =====
+    
+    /**
+     * Get number of messages currently in command queue
+     * @return Number of queued commands (0-8)
+     */
+    uint8_t getQueueCount() const;
+    
+    /**
+     * Get number of messages currently in command queue (alias for compatibility)
+     * @return Number of queued commands (0-8)
+     */
+    uint8_t getQueueDepth() const { return getQueueCount(); }
+    
     /**
      * Request ADC voltage measurement (diagnostic)
      * Requires GPIO pin configured for analog input
@@ -395,12 +379,6 @@ public:
      */
     void onCanMessageReceived(const can_Message_t& msg);
 
-    /**
-     * Get current queue depth (for debugging)
-     * @return Number of messages waiting in ring buffer (0-8)
-     */
-    uint8_t getQueueDepth() const { return getQueueCount(); }
-    
     // ===== RAW CAN ACCESS (for RTRDebug module) =====
     
     /**
@@ -484,30 +462,11 @@ private:
     uint8_t queueTail_ = 0;  // Index where next command is read
     bool queueFull_ = false;  // Flag to detect overflow
     
-    // RTR Response Tracking
-    struct {
-        uint32_t canId;          // CAN ID we're waiting for response from
-        uint32_t sentTime;       // Time command was sent (microseconds)
-        bool waiting;            // True if waiting for RTR response
-        uint8_t retryCount;      // Number of retries attempted
-    } pendingRTR_;
-    
     // Helper: Check if queue is empty
     bool isQueueEmpty() const { return (queueHead_ == queueTail_) && !queueFull_; }
     
     // Helper: Check if queue has space
     bool isQueueFull() const { return queueFull_; }
-    
-    // Helper: Get number of messages in queue
-    uint8_t getQueueCount() const {
-        if (queueFull_) return CMD_QUEUE_SIZE;
-        if (queueHead_ >= queueTail_) return queueHead_ - queueTail_;
-        return CMD_QUEUE_SIZE - (queueTail_ - queueHead_);
-    }
-    
-    // Internal: Queue command with RTR flag and blocking wait for response
-    // Returns true if command queued + RTR received, false on timeout/error
-    bool _queueCommandWithRTR(const can_Message_t& msg);
 };
 
 #endif // __CANBUS_HANDLER_V2_H__

@@ -243,6 +243,15 @@ void setup() {
 #if TEST_MODE_PHASE1
     Serial.println("\n========================================");
     Serial.println("PHASE 1 TEST MODE ACTIVE");
+    Serial.println("[INIT] RTR Removal Test:");
+    Serial.println("  - All RTR methods removed");
+    Serial.println("  - SET commands use _queueCommand only");
+    Serial.println("  - All SET commands have rtr = false");
+    Serial.println("  - GET commands removed (use cyclic data)");
+    Serial.println("  - Ready for timing system implementation");
+    Serial.println();
+    Serial.println("========================================");
+    Serial.println("PHASE 1 TEST MODE ACTIVE");
     Serial.println("FSM bypassed - testing new modules only");
     Serial.println("========================================\n");
     

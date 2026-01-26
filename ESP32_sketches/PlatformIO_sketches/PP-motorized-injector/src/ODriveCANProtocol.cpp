@@ -33,6 +33,7 @@ ODriveCANProtocol::EncoderEstimate ODriveCANProtocol::parseEncoderEstimate(const
 can_Message_t ODriveCANProtocol::buildSetAxisState(uint8_t node_id, AxisState state) {
     can_Message_t msg;
     msg.id = makeCanId(node_id, MSG_SET_AXIS_STATE);
+    msg.rtr = false;  // Explicitly set to false for SET commands
     msg.len = 8;
     // Bytes 0-3: requested_state (int32, Intel byte order)
     can_setSignal<int32_t>(msg, static_cast<int32_t>(state), 0, 32, true);
@@ -42,6 +43,7 @@ can_Message_t ODriveCANProtocol::buildSetAxisState(uint8_t node_id, AxisState st
 can_Message_t ODriveCANProtocol::buildSetControllerModes(uint8_t node_id, ControlMode ctrl_mode, InputMode input_mode) {
     can_Message_t msg;
     msg.id = makeCanId(node_id, MSG_SET_CONTROLLER_MODES);
+    msg.rtr = false;  // Explicitly set to false for SET commands
     msg.len = 8;
     // Bytes 0-3: control_mode (int32, Intel byte order)
     can_setSignal<int32_t>(msg, static_cast<int32_t>(ctrl_mode), 0, 32, true);
@@ -53,6 +55,7 @@ can_Message_t ODriveCANProtocol::buildSetControllerModes(uint8_t node_id, Contro
 can_Message_t ODriveCANProtocol::buildSetInputPos(uint8_t node_id, float position, int16_t velocity, int16_t torque) {
     can_Message_t msg;
     msg.id = makeCanId(node_id, MSG_SET_INPUT_POS);
+    msg.rtr = false;  // Explicitly set to false for SET commands
     msg.len = 8;
     // Bytes 0-3: position (float32, Intel byte order)
     can_setSignal<float>(msg, position, 0, 32, true);
@@ -66,6 +69,7 @@ can_Message_t ODriveCANProtocol::buildSetInputPos(uint8_t node_id, float positio
 can_Message_t ODriveCANProtocol::buildSetInputVel(uint8_t node_id, float velocity, float torque) {
     can_Message_t msg;
     msg.id = makeCanId(node_id, MSG_SET_INPUT_VEL);
+    msg.rtr = false;  // Explicitly set to false for SET commands
     msg.len = 8;
     // Bytes 0-3: velocity (float32, Intel byte order)
     can_setSignal<float>(msg, velocity, 0, 32, true);
@@ -77,6 +81,7 @@ can_Message_t ODriveCANProtocol::buildSetInputVel(uint8_t node_id, float velocit
 can_Message_t ODriveCANProtocol::buildSetInputTorque(uint8_t node_id, float torque) {
     can_Message_t msg;
     msg.id = makeCanId(node_id, MSG_SET_INPUT_TORQUE);
+    msg.rtr = false;  // Explicitly set to false for SET commands
     msg.len = 8;
     // Bytes 0-3: torque (float32, Intel byte order)
     can_setSignal<float>(msg, torque, 0, 32, true);
@@ -86,6 +91,7 @@ can_Message_t ODriveCANProtocol::buildSetInputTorque(uint8_t node_id, float torq
 can_Message_t ODriveCANProtocol::buildSetLimits(uint8_t node_id, float vel_limit, float current_limit) {
     can_Message_t msg;
     msg.id = makeCanId(node_id, MSG_SET_LIMITS);
+    msg.rtr = false;  // Explicitly set to false for SET commands
     msg.len = 8;
     // Bytes 0-3: velocity limit (float32, Intel byte order)
     can_setSignal<float>(msg, vel_limit, 0, 32, true);
@@ -97,6 +103,7 @@ can_Message_t ODriveCANProtocol::buildSetLimits(uint8_t node_id, float vel_limit
 can_Message_t ODriveCANProtocol::buildSetLinearCount(uint8_t node_id, int32_t count) {
     can_Message_t msg;
     msg.id = makeCanId(node_id, MSG_SET_LINEAR_COUNT);
+    msg.rtr = false;  // Explicitly set to false for SET commands
     msg.len = 8;
     // Bytes 0-3: encoder count (int32, Intel byte order)
     can_setSignal<int32_t>(msg, count, 0, 32, true);
@@ -106,6 +113,7 @@ can_Message_t ODriveCANProtocol::buildSetLinearCount(uint8_t node_id, int32_t co
 can_Message_t ODriveCANProtocol::buildClearErrors(uint8_t node_id) {
     can_Message_t msg;
     msg.id = makeCanId(node_id, MSG_CLEAR_ERRORS);
+    msg.rtr = false;  // Explicitly set to false for SET commands
     msg.len = 8;
     // No payload
     return msg;
@@ -115,14 +123,6 @@ can_Message_t ODriveCANProtocol::buildGetEncoderEstimates(uint8_t node_id) {
     can_Message_t msg;
     msg.id = makeCanId(node_id, MSG_GET_ENCODER_ESTIMATES);
     msg.rtr = true;  // Remote Transfer Request
-    msg.len = 0;
-    return msg;
-}
-
-can_Message_t ODriveCANProtocol::buildGetEncoderEstimatesNoRTR(uint8_t node_id) {
-    can_Message_t msg;
-    msg.id = makeCanId(node_id, MSG_GET_ENCODER_ESTIMATES);
-    msg.rtr = false;  // No Remote Transfer Request
     msg.len = 0;
     return msg;
 }
@@ -230,6 +230,7 @@ can_Message_t ODriveCANProtocol::buildGetControllerError(uint8_t node_id) {
 can_Message_t ODriveCANProtocol::buildSetAxisNodeId(uint8_t node_id, uint32_t new_node_id) {
     can_Message_t msg;
     msg.id = makeCanId(node_id, MSG_SET_AXIS_NODE_ID);
+    msg.rtr = false;  // Explicitly set to false for SET commands
     msg.len = 8;
     // Bytes 0-3: new_node_id (uint32, Intel byte order)
     can_setSignal<uint32_t>(msg, new_node_id, 0, 32, true);
@@ -247,6 +248,7 @@ can_Message_t ODriveCANProtocol::buildStartAnticogging(uint8_t node_id) {
 can_Message_t ODriveCANProtocol::buildSetTrajVelLimit(uint8_t node_id, float vel_limit) {
     can_Message_t msg;
     msg.id = makeCanId(node_id, MSG_SET_TRAJ_VEL_LIMIT);
+    msg.rtr = false;  // Explicitly set to false for SET commands
     msg.len = 8;
     // Bytes 0-3: velocity limit (float32, Intel byte order)
     can_setSignal<float>(msg, vel_limit, 0, 32, true);
@@ -256,6 +258,7 @@ can_Message_t ODriveCANProtocol::buildSetTrajVelLimit(uint8_t node_id, float vel
 can_Message_t ODriveCANProtocol::buildSetTrajAccelLimits(uint8_t node_id, float accel, float decel) {
     can_Message_t msg;
     msg.id = makeCanId(node_id, MSG_SET_TRAJ_ACCEL_LIMITS);
+    msg.rtr = false;  // Explicitly set to false for SET commands
     msg.len = 8;
     // Bytes 0-3: accel limit (float32, Intel byte order)
     can_setSignal<float>(msg, accel, 0, 32, true);
@@ -267,6 +270,7 @@ can_Message_t ODriveCANProtocol::buildSetTrajAccelLimits(uint8_t node_id, float 
 can_Message_t ODriveCANProtocol::buildSetTrajInertia(uint8_t node_id, float inertia) {
     can_Message_t msg;
     msg.id = makeCanId(node_id, MSG_SET_TRAJ_INERTIA);
+    msg.rtr = false;  // Explicitly set to false for SET commands
     msg.len = 8;
     // Bytes 0-3: inertia (float32, Intel byte order)
     can_setSignal<float>(msg, inertia, 0, 32, true);
@@ -276,6 +280,7 @@ can_Message_t ODriveCANProtocol::buildSetTrajInertia(uint8_t node_id, float iner
 can_Message_t ODriveCANProtocol::buildSetPositionGain(uint8_t node_id, float gain) {
     can_Message_t msg;
     msg.id = makeCanId(node_id, MSG_SET_POSITION_GAIN);
+    msg.rtr = false;  // Explicitly set to false for SET commands
     msg.len = 8;
     // Bytes 0-3: position gain (float32, Intel byte order)
     can_setSignal<float>(msg, gain, 0, 32, true);
@@ -285,6 +290,7 @@ can_Message_t ODriveCANProtocol::buildSetPositionGain(uint8_t node_id, float gai
 can_Message_t ODriveCANProtocol::buildSetVelGains(uint8_t node_id, float p_gain, float i_gain) {
     can_Message_t msg;
     msg.id = makeCanId(node_id, MSG_SET_VEL_GAINS);
+    msg.rtr = false;  // Explicitly set to false for SET commands
     msg.len = 8;
     // Bytes 0-3: velocity proportional gain (float32, Intel byte order)
     can_setSignal<float>(msg, p_gain, 0, 32, true);

@@ -157,8 +157,8 @@ void DebugCommands::handleCommand(const String& cmd) {
     }
     
     else if (command == "get_encoder_error") {
-        can_->getEncoderError();
-        Serial.println("  Sent: GET_ENCODER_ERROR");
+        // Removed - use cyclic data instead
+        Serial.println("  GET_ENCODER_ERROR removed - use cyclic data");
     }
     
     else if (command == "get_sensorless_error") {
@@ -167,8 +167,8 @@ void DebugCommands::handleCommand(const String& cmd) {
     }
     
     else if (command == "get_encoder_count") {
-        can_->getEncoderCount();
-        Serial.println("  Sent: GET_ENCODER_COUNT");
+        // Removed - use cyclic data instead
+        Serial.println("  GET_ENCODER_COUNT removed - use cyclic data");
     }
     
     else if (command == "get_iq") {
