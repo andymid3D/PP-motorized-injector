@@ -1,6 +1,7 @@
 #include "CanBusHandlerV2.h"
 #include "BroadcastDataStore.h"
 #include "MessageBuffer.h"
+#include "GPTimer.h"
 #include "config.h"
 #include <Arduino.h>
 #include <ESP32-TWAI-CAN.hpp>
@@ -51,8 +52,8 @@ void CanBusHandlerV2::loop() {
     // CanBusHandlerV2 will get its needed RX data from BroadcastDataStore.
 
     // Send next queued command if CAN_COMMAND_GAP_MS has elapsed since last send
-    uint32_t now = millis();
-    if (!isQueueEmpty() && (now - lastCommandSentTime_) >= CAN_COMMAND_GAP_MS) {
+    uint64_t now = hwTimer.micros();
+    if (!isQueueEmpty() && (now - lastCommandSentTime_) >= (CAN_COMMAND_GAP_MS * 1000)) {
         // Dequeue command from tail
         can_Message_t cmd = commandQueue_[queueTail_];
         queueTail_ = (queueTail_ + 1) % CMD_QUEUE_SIZE;

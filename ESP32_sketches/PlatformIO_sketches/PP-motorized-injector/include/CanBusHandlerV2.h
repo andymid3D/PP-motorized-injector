@@ -453,7 +453,7 @@ private:
     
     // Track when last command was SENT (not queued)
     // Used to enforce CAN_COMMAND_GAP_MS between successive sends
-    uint32_t lastCommandSentTime_ = 0;
+    uint64_t lastCommandSentTime_ = 0;
     
     // Command ring buffer (8-message circular queue)
     static constexpr uint8_t CMD_QUEUE_SIZE = 8;

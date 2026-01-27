@@ -87,8 +87,8 @@ unsigned long lastAutoCompress = 0;
 unsigned long antiDripTimer = 0;
 unsigned long lastDebugTime = 0;
 unsigned long lastMotorCmdTime = 0; 
-unsigned long bootTime = 0;
-unsigned long stateTimer = 0; 
+uint64_t bootTime = 0;
+uint64_t stateTimer = 0; 
 bool tempErrorActive = false; 
 bool errorLogged = false; 
 bool buttonLock = false; 
@@ -241,21 +241,6 @@ void setup() {
     }
     
 #if TEST_MODE_PHASE1
-    Serial.println("\n========================================");
-    Serial.println("TIMING SYSTEM TEST MODE ACTIVE");
-    Serial.println("[INIT] RTR Removal Complete:");
-    Serial.println("  - All RTR methods removed");
-    Serial.println("  - SET commands use _queueCommand only");
-    Serial.println("  - All SET commands have rtr = false");
-    Serial.println("  - GET commands removed (use cyclic data)");
-    Serial.println("  - Timing system accessors implemented");
-    Serial.println("  - Ready for timing window validation");
-    Serial.println();
-    Serial.println("========================================");
-    Serial.println("TIMING SYSTEM TEST MODE ACTIVE");
-    Serial.println("FSM bypassed - testing timing modules only");
-    Serial.println("========================================\n");
-    
     initLoopTimer(); // Initialize our custom dual-core timer
 
     safety.begin();
@@ -317,7 +302,7 @@ void setup() {
     btnUpper.interval(10); btnCenter.interval(10); btnLower.interval(10);
     
     fsm_state.currentState = InjectorStates::INIT_HEATING;
-    bootTime = millis();
+    bootTime = hwTimer.micros();
 }
 
 void loop() {
@@ -359,8 +344,11 @@ void loop() {
             Homing::update(motor, safety);
         }
         
-        if (millis() - lastDebugTime >= 1000) {
-            lastDebugTime = millis();
+        // Use GPTimer for debug timing
+        static uint64_t lastDebugTime = 0;
+        uint64_t currentTime = hwTimer.micros();
+        if (currentTime - lastDebugTime >= 1000000) {  // 1 second in microseconds
+            lastDebugTime = currentTime;
             BroadcastDataStore& broadcast = BroadcastDataStore::getInstance();
             char debugBuf[256];
             snprintf(debugBuf, sizeof(debugBuf), 
@@ -400,7 +388,7 @@ void loop() {
         return;
     }
     
-    if (fsm_state.currentState != lastFsmState) { stateEntry = true; lastFsmState = fsm_state.currentState; stateTimer = millis(); }
+    if (fsm_state.currentState != lastFsmState) { stateEntry = true; lastFsmState = fsm_state.currentState; stateTimer = hwTimer.micros(); }
     else { stateEntry = false; }
 
     if (btnUpper.read() == LOW && btnLower.read() == LOW) buttonLock = true;
@@ -409,7 +397,8 @@ void loop() {
 
     static bool moveLockActive = false;
 
-    if (millis() - bootTime > 3000) {
+    // Use GPTimer for boot safety check
+    if (hwTimer.micros() - bootTime > 3000000) {  // 3 seconds in microseconds
         bool movingDown = motor.getVelocity() > 0.1f;
         if (!safety.check(motor.getVelocity(), movingDown)) { fsm_state.currentState = InjectorStates::ERROR_STATE; fsm_state.error = safety.getLastError(); }
         
@@ -451,7 +440,7 @@ void loop() {
         }
     }
 
-    bool ignoreButtons = (millis() - stateTimer < 500);
+    bool ignoreButtons = (hwTimer.micros() - stateTimer < 500000);  // 500ms in microseconds
 
     switch (fsm_state.currentState) {
         case InjectorStates::ERROR_STATE:

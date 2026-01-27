@@ -27,6 +27,9 @@ void DebugCommands::loop() {
         }
     }
     
+    // Check if timing test collection is complete
+    timingTest_.checkTestCompletion();
+    
     // Disable 1Hz status output in timing test mode to reduce interference
     // Status output handled by PhaseTests
 }

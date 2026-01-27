@@ -11,18 +11,18 @@
 // RING BUFFER HISTORY SIZES (Phase 1.7 BDS v2)
 // =============================================================================
 // Size calculations based on broadcast intervals:
-// - Encoder (10ms): 10 samples = 100ms history
+// - Encoder (10ms): 250 samples = 2.5s history
 // - Heartbeat (100ms): 10 samples = 1000ms (1s) history
-// - Iq/BusVI (100ms): 10 samples = 1000ms history
+// - Iq/BusVI (10ms): 250 samples = 2.5s history (upgraded from 100ms)
 // - Errors (10ms): 10 samples = 100ms history (recent errors only)
 // =============================================================================
-#define BDS_ENCODER_HISTORY_SIZE      10
+#define BDS_IQ_HISTORY_SIZE 400         // 4s at 10ms, 40s at 100ms
+#define BDS_ENCODER_HISTORY_SIZE 400    // 4s at 10ms, 40s at 100ms
+#define BDS_MOTOR_ERROR_HISTORY_SIZE  250
+#define BDS_ENCODER_ERROR_HISTORY_SIZE 250
+#define BDS_CONTROLLER_ERROR_HISTORY_SIZE 250
 #define BDS_HEARTBEAT_HISTORY_SIZE    10
-#define BDS_IQ_HISTORY_SIZE           10
 #define BDS_BUSVI_HISTORY_SIZE        10
-#define BDS_MOTOR_ERROR_HISTORY_SIZE  10
-#define BDS_ENCODER_ERROR_HISTORY_SIZE 10
-#define BDS_CONTROLLER_ERROR_HISTORY_SIZE 10
 
 // =============================================================================
 // TIMESTAMPED MESSAGE STRUCTS (Phase 1.7 BDS v2)
@@ -198,6 +198,10 @@ public:
     const TimestampedEncoder* getLatestEncoder() const;
     const TimestampedIq* getLatestIq() const;
     const TimestampedBusVI* getLatestBusVI() const;
+    
+    // History access methods
+    const TimestampedIq* getHistoryIq(size_t index) const;
+    const TimestampedEncoder* getHistoryEncoder(size_t index) const;
     
     // ===== TIMING SYSTEM ACCESSORS (NEW) =====
     // Accessors for cyclic-based timing window system

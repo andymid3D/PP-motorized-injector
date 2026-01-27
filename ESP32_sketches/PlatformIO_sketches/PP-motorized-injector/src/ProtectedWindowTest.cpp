@@ -3,6 +3,7 @@
 #include "ODriveCANProtocol.h" // For command IDs and parameters
 #include "CanRxHandler.h"      // For draining messages
 #include "GPTimer.h"           // For high-resolution timestamps
+#include "OurLoopTimer.h"      // For toggleLoopFlag function
 #include "config.h"            // To get ODRIVE_NODE_ID
 #include "TimingSystemTest.h"  // For timing system test commands
 #include <algorithm>           // For std::sort
@@ -27,11 +28,13 @@ ProtectedWindowTest::ProtectedWindowTest() :
 void ProtectedWindowTest::begin(CanBusHandlerV2& motor) {
     _motor = &motor;
     
-    // Initialize timing system test
-    timingTest_.begin();
+    // Initialize timing system test with CAN access
+    timingTest_.begin(motor);
     
     Serial.println("ProtectedWindowTest initialized. Type 'start' to begin a test run.");
-    Serial.println("Timing commands available: timing_start, timing_baseline, timing_check, timing_window, timing_status");
+    Serial.println("Timing commands available: timing_start, timing_baseline, timing_check, timing_window, timing_status, timing_auto, timing_iq_history");
+    Serial.println("Features: Position + IQ current movement detection (BUS current disabled)");
+    Serial.println("Note: timing_auto = movement test only (calibration via USB)");
 }
 
 void ProtectedWindowTest::loop() {
@@ -43,9 +46,30 @@ void ProtectedWindowTest::loop() {
         if (command == "start" && (_state == IDLE || _state == FINISHED)) {
             startTestRun();
         }
+        else if (command == "help") {
+            Serial.println("\n=== PROTECTED WINDOW TEST COMMANDS ===");
+            Serial.println("TIMING SYSTEM:");
+            Serial.println("  timing_start                   - Start timing test");
+            Serial.println("  timing_baseline                  - Capture baseline");
+            Serial.println("  timing_check                     - Check movement");
+            Serial.println("  timing_debug                     - Show raw data");
+            Serial.println("  timing_status                    - Show system status");
+            Serial.println("  timing_window                    - Test command windows");
+            Serial.println("  timing_auto                      - Movement test sequence (calibration via USB)");
+            Serial.println("  timing_iq_history                - Show IQ current profile");
+            Serial.println("\nPROTECTED WINDOW TEST:");
+            Serial.println("  start                           - Start protected window test");
+            Serial.println("  help                            - Show this help");
+            Serial.println("=====================================\n");
+        }
         // ===== TIMING SYSTEM TEST COMMANDS =====
         else if (command.startsWith("timing_")) {
+            toggleLoopFlag(); // Mark start of timing operation
             timingTest_.handleCommand(command);
+            toggleLoopFlag(); // Mark end of timing operation
+        }
+        else {
+            Serial.println("Unknown command. Type 'help' for available commands.");
         }
     }
 
@@ -55,6 +79,9 @@ void ProtectedWindowTest::loop() {
     if (_motor) { // Ensure _motor is initialized
         _motor->loop(); // <--- UNCOMMENTED: Re-enable TX sending
     }
+    
+    // Check if timing test collection is complete
+    timingTest_.checkTestCompletion();
 
     switch (_state) {
         case IDLE:

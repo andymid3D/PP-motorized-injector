@@ -97,6 +97,14 @@ const TimestampedIq* BroadcastDataStore::getLatestIq() const {
     return iqHistory_.getLatest();
 }
 
+const TimestampedIq* BroadcastDataStore::getHistoryIq(size_t index) const {
+    return iqHistory_.getHistory(index);
+}
+
+const TimestampedEncoder* BroadcastDataStore::getHistoryEncoder(size_t index) const {
+    return encoderHistory_.getHistory(index);
+}
+
 const TimestampedBusVI* BroadcastDataStore::getLatestBusVI() const {
     return busVIHistory_.getLatest();
 }

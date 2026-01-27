@@ -2,6 +2,8 @@
 #define TIMING_SYSTEM_TEST_H
 
 #include <Arduino.h>
+#include "CanBusHandlerV2.h"
+#include "ODriveCANProtocol.h"
 
 /**
  * TimingSystemTest - Test harness for new cyclic-based timing system
@@ -27,10 +29,21 @@ public:
     void begin();
     
     /**
+     * Initialize timing system test with CAN bus handler
+     * @param canHandler CAN bus handler reference
+     */
+    void begin(CanBusHandlerV2& canHandler);
+    
+    /**
      * Handle test commands
      * @param command Command string (timing_start, timing_baseline, timing_check, timing_window, timing_status)
      */
     void handleCommand(const String& command);
+    
+    /**
+     * Check if active test is complete (called from main loop)
+     */
+    void checkTestCompletion();
     
 private:
     bool enabled_;
@@ -40,7 +53,22 @@ private:
     bool baselineCaptured_;
     float baselinePos_;
     float baselineIq_;
-    float baselineBusCurrent_;
+    
+    // CAN bus handler for sending commands
+    CanBusHandlerV2* can_;
+    
+    // Test phase state machine
+    enum TestPhase {
+        TEST_PHASE_PRE_ROLL,
+        TEST_PHASE_POST_COMMAND,
+        TEST_PHASE_COMPLETE
+    };
+    TestPhase testPhase_;
+    uint64_t captureStartTime_;
+    uint64_t commandSendTime_;
+    uint64_t phaseStartTime_;
+    uint64_t collectionEndTime_;
+    bool testActive_;
     
     /**
      * Start timing system test
@@ -62,15 +90,17 @@ private:
      */
     void testCommandWindow();
     
+    // Auto-calibration functionality
+    void runAutoCalibration();
+    void showIQHistory(uint32_t durationMs);
+    void showIQHistoryFromTime(uint64_t startTime, uint32_t durationMs);
+    void analyzeCommandCenteredData();
+    void showStatus();
+    
     /**
      * Print debug data for troubleshooting
      */
     void printDebugData();
-    
-    /**
-     * Show system status
-     */
-    void showStatus();
 };
 
 #endif // TIMING_SYSTEM_TEST_H

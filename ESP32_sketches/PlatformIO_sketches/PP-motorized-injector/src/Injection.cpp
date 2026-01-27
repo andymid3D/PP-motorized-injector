@@ -109,21 +109,11 @@ namespace Injection {
                 // Set motor limits for packing (higher pressure, controller limit = machine max for TRAP_TRAJ authority)
                 MotorWrapper::setMotorLimits(motor, INJECT_PACK_CONTROLLER_VEL_LIMIT, INJECT_PACK_CURRENT, "Inject Pack");
                 
-                unsigned long waitStart = millis();
-                while (millis() - waitStart < (CAN_COMMAND_GAP_MS + 5)) {
-                    motor.loop();
-                }
-                
                 // Configure TRAP_TRAJ with mould-specific accel/decel for pack (trajectory limit - slower, controlled)
                 MotorWrapper::setTrapTrajParams(motor, commonParams.injectPackTrapVelLimit,
                                                commonParams.injectPackAccel,
                                                commonParams.injectPackDecel,
                                                "Pack Traj");
-                
-                waitStart = millis();
-                while (millis() - waitStart < (CAN_COMMAND_GAP_MS + 5)) {
-                    motor.loop();
-                }
                 
                 // Set lower pressure for packing - send ONCE
                 MotorWrapper::setModeAndMove(motor, 3, 5, targetPackPos, "Pos Pack");

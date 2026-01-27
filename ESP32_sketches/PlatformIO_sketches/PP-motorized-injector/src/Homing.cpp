@@ -357,19 +357,12 @@ void Homing::handleResetEncoder(CanBusHandlerV2& motor, SafetyManager& safety) {
         return;
     }
     
-    // One-time: Reset encoder to 0
-    if (previousState_ != HomingState::RESET_ENCODER) {
-        motor.setLinearCount(0);
-        encoderZeroed_ = true;
-        MessageBuffer::getInstance().sendMessage("Encoder zeroed to position 0");
-        
-        // Wait for command to be sent
-        unsigned long waitStart = millis();
-        while (millis() - waitStart < 100) {
-            motor.loop();  // Process queue during wait
-        }
-    }
+    // Set encoder to 0 immediately
+    motor.setLinearCount(0);
+    encoderZeroed_ = true;
+    MessageBuffer::getInstance().sendMessage("Encoder zeroed to position 0");
     
+    // Let main loop handle command processing naturally  
     nextState(HomingState::DONE);
 }
 
