@@ -95,7 +95,7 @@
 #define TEMP_CRITICAL           15
 #define DEBOUNCE_MS_SAFETY      150
 
-#define CAN_COMMAND_GAP_MS          50
+#define CAN_COMMAND_GAP_MS          10
 #define ERROR_CLEAR_DELAY_MS        50
 #define BROADCAST_STALE_TIMEOUT_MS  100
 
@@ -137,8 +137,8 @@
 
 #define REFILL_CONTROLLER_VEL_LIMIT  MACHINE_MAX_VEL_LIMIT
 #define REFILL_TRAP_VEL_LIMIT        15.0f
-#define REFILL_ACCEL            20.0f
-#define REFILL_DECEL            20.0f
+#define REFILL_ACCEL            500.0f
+#define REFILL_DECEL            500.0f
 #define REFILL_CURRENT_LIMIT    15.0f
 #define REFILL_TIMEOUT_MS       ((uint32_t)((POS_BOTTOM_MAX / REFILL_TRAP_VEL_LIMIT) * 1000.0f + 2000.0f))
 
@@ -169,14 +169,14 @@
 
 #define INJECT_FILL_CONTROLLER_VEL_LIMIT  MACHINE_MAX_VEL_LIMIT
 #define INJECT_FILL_TRAP_VEL_LIMIT        20.0f
-#define INJECT_FILL_ACCEL       20.0f
-#define INJECT_FILL_DECEL       20.0f
+#define INJECT_FILL_ACCEL       500.0f
+#define INJECT_FILL_DECEL       500.0f
 #define INJECT_FILL_CURRENT     31.0f
 #define INJECT_FILL_TIMEOUT_MS  30000
 #define INJECT_PACK_CONTROLLER_VEL_LIMIT  MACHINE_MAX_VEL_LIMIT
 #define INJECT_PACK_TRAP_VEL_LIMIT        10.0f
-#define INJECT_PACK_ACCEL       10.0f
-#define INJECT_PACK_DECEL       10.0f
+#define INJECT_PACK_ACCEL       500.0f
+#define INJECT_PACK_DECEL       500.0f
 #define INJECT_PACK_CURRENT     30.0f
 #define INJECT_VEL_THRESHOLD    0.1f
 #define INJECT_POS_TOLERANCE    1.0f
@@ -185,8 +185,8 @@
 #define RELEASE_DIST            -2.5f
 #define RELEASE_CONTROLLER_VEL_LIMIT  MACHINE_MAX_VEL_LIMIT
 #define RELEASE_TRAP_VEL_LIMIT        20.0f
-#define RELEASE_ACCEL           40.0f
-#define RELEASE_DECEL           40.0f
+#define RELEASE_ACCEL           500.0f
+#define RELEASE_DECEL           500.0f
 #define RELEASE_CURRENT_LIMIT   20.0f
 #define RELEASE_TIMEOUT_MS      2000
 

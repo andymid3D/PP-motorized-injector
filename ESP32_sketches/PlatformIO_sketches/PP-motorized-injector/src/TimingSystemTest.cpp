@@ -12,7 +12,8 @@ TimingSystemTest::TimingSystemTest()
     : enabled_(false), testStartTime_(0), baselineCaptured_(false), 
       baselinePos_(0.0f), baselineIq_(0.0f), can_(nullptr),
       testPhase_(TEST_PHASE_PRE_ROLL), captureStartTime_(0), 
-      commandSendTime_(0), phaseStartTime_(0), collectionEndTime_(0),
+      commandSendTime_(0), stopCommandTime_(0), phaseStartTime_(0), 
+      preCommandBaseline_(0.0f), collectionEndTime_(0),
       testActive_(false) {
 }
 
@@ -65,11 +66,19 @@ void TimingSystemTest::startTest() {
     enabled_ = true;
     testStartTime_ = hwTimer.micros();
     baselineCaptured_ = false;
+    testActive_ = true;
+    testPhase_ = TEST_PHASE_COMPLETE;  // No pre-roll phase needed
+    commandSendTime_ = 0;
+    stopCommandTime_ = 0;
+    collectionEndTime_ = 0;
     
-    Serial.println("[TIMING] Test started");
-    Serial.print("[TIMING] Test start time: ");
-    Serial.println(testStartTime_);
-    Serial.println("[TIMING] Use 'timing_baseline' to capture baseline");
+    Serial.println("[TIMING] === TX-TRIGGERED TIMING TEST STARTED ===");
+    Serial.println("[TIMING] Send any movement command to trigger automatic analysis:");
+    Serial.println("[TIMING]   - set_velocity 5.0 (START test)");
+    Serial.println("[TIMING]   - set_velocity 0.0 (STOP test)");
+    Serial.println("[TIMING]   - set_position 1.0 (START test)");
+    Serial.println("[TIMING]   - set_torque 0.5 (START test)");
+    Serial.println("[TIMING] Ready for Tx-triggered collection!");
 }
 
 void TimingSystemTest::captureBaseline() {
@@ -336,9 +345,6 @@ void TimingSystemTest::testCommandWindow() {
     
     bool inWindow = bds.isInCommandWindow(currentTime);
     Serial.print("  In command window: ");
-    Serial.println(inWindow ? "YES" : "NO");
-        
-    Serial.println("[TIMING] Command window test complete");
 }
 
 void TimingSystemTest::runAutoCalibration() {
@@ -388,63 +394,109 @@ void TimingSystemTest::checkTestCompletion() {
         if (currentTime - phaseStartTime_ >= 1000000) {
             // Send command now
             Serial.println("[TIMING] Pre-roll complete, sending command...");
-            Serial.println("[TIMING] Step 5: Sending set_position 1.0...");
+            Serial.println("[TIMING] Step 5: Setting vel_ramp parameters...");
+            // Set velocity ramp parameters (higher speed for clearer stop detection)
+            if (can_->setInputVel(5.0f)) {
+                Serial.println("[TIMING] ✓ Velocity ramp set to 5.0 rps");
+            } else {
+                Serial.println("[TIMING] ✗ Failed to set velocity ramp");
+                testActive_ = false;
+                return;
+            }
+            
+            Serial.println("[TIMING] Step 6: Setting vel_ramp mode...");
+            // Set modes: VELOCITY_CONTROL (2) + VEL_RAMP (2)
+            if (can_->setControllerModes(ODriveCANProtocol::ControlMode::VELOCITY_CONTROL, 
+                                       ODriveCANProtocol::InputMode::VEL_RAMP)) {
+                Serial.println("[TIMING] ✓ Vel_ramp mode set successfully");
+            } else {
+                Serial.println("[TIMING] ✗ Failed to set vel_ramp mode");
+                testActive_ = false;
+                return;
+            }
+            
+            Serial.println("[TIMING] Step 7: Sending vel_ramp 5.0 for 2s...");
             uint64_t commandSendTime = currentTime;
-            if (can_->setInputPos(1.0f)) {
-                Serial.println("[TIMING] ✓ set_position 1.0 command sent successfully");
+            if (can_->setInputVel(5.0f)) {
+                Serial.println("[TIMING] ✓ vel_ramp 5.0 command sent successfully");
                 Serial.printf("[TIMING] Command sent at: %llu (T+%llu us from start)\n", 
                              commandSendTime, commandSendTime - captureStartTime_);
                 commandSendTime_ = commandSendTime;
             } else {
-                Serial.println("[TIMING] ✗ Failed to send set_position 1.0 command");
+                Serial.println("[TIMING] ✗ Failed to send vel_ramp 5.0 command");
                 testActive_ = false;
                 return;
             }
             
             // Move to post-command collection
             testPhase_ = TEST_PHASE_POST_COMMAND;
-            Serial.println("[TIMING] Step 6: Continuing collection for 1000ms post-command...");
-            collectionEndTime_ = captureStartTime_ + 2000000; // 2s total from start
+            Serial.println("[TIMING] Step 8: Continuing collection for 2000ms post-command...");
+            collectionEndTime_ = captureStartTime_ + 3000000; // 3s total from start (2s post-command)
+            stopCommandTime_ = captureStartTime_ + 2000000; // Schedule stop at 2s
         }
     } else if (testPhase_ == TEST_PHASE_POST_COMMAND) {
-        // Check if full collection period is complete
+        // Tx-triggered collection: Check if collection period is complete
         if (currentTime >= collectionEndTime_) {
-            // Analyze data centered on command time with automatic window adjustment
-            Serial.println("[TIMING] Step 7: Analyzing collected data...");
-            analyzeCommandCenteredData();
-            
-            Serial.println("[TIMING] === MOVEMENT TEST COMPLETE ===");
-            testActive_ = false;
+            // Determine which analysis to run based on what command was sent
+            if (commandSendTime_ > 0 && stopCommandTime_ == 0) {
+                // START command was sent, run START analysis
+                Serial.println("[TIMING] Tx-triggered: Analyzing START data...");
+                analyzeCommandCenteredData_START();
+                Serial.println("[TIMING] === START ANALYSIS COMPLETE ===");
+                
+                // Reset for next test
+                commandSendTime_ = 0;
+                testPhase_ = TEST_PHASE_COMPLETE;
+                testActive_ = false;
+            } else if (stopCommandTime_ > 0) {
+                // STOP command was sent, run STOP analysis
+                Serial.println("[TIMING] Tx-triggered: Analyzing STOP data...");
+                analyzeCommandCenteredData_STOP();
+                Serial.println("[TIMING] === STOP ANALYSIS COMPLETE ===");
+                
+                // Reset for next test
+                stopCommandTime_ = 0;
+                testPhase_ = TEST_PHASE_COMPLETE;
+                testActive_ = false;
+            }
         }
     }
 }
 
-void TimingSystemTest::analyzeCommandCenteredData() {
+// =============================================================================
+// RESTORED: WORKING START ANALYSIS FUNCTION (FROM BACKUP)
+// =============================================================================
+void TimingSystemTest::analyzeCommandCenteredData_START() {
     BroadcastDataStore& bds = BroadcastDataStore::getInstance();
     
-    Serial.println("[TIMING] === PRODUCTION RESPONSE ANALYSIS ===");
+    Serial.println("[TIMING] === PRODUCTION START ANALYSIS ===");
     
-    // Production parameters
-    const uint32_t ANALYSIS_WINDOW_MS = 200;  // 200ms chase window
-    const float SPIKE_THRESHOLD_A = 5.0f;       // 5A spike detection threshold
-    const uint32_t SEARCH_START_MS = 0;         // Start chase immediately from command
+    // Keep CAN processing alive during analysis
+    if (can_) can_->loop();
+    
+    // Production parameters for start detection
+    const uint32_t ANALYSIS_WINDOW_MS = 500;   // 500ms window to capture start response
+    const float BASELINE_OFFSET_A = 2.0f;       // 2.0A above baseline for spike detection
+    const uint32_t SEARCH_START_MS = 0;        // Start chase immediately from command
     const bool USE_SETPOINT_FOR_DETECTION = true; // Use setpoint (faster) vs measured
-    const uint32_t CONFIRMATION_WINDOW_MS = 50;  // 50ms confirmation after spike
+    const uint32_t CONFIRMATION_WINDOW_MS = 50; // 50ms confirmation after spike
     
-    Serial.printf("[TIMING] Command: %llu, Window: %dms, Threshold: %.1fA\n", 
-                 commandSendTime_, ANALYSIS_WINDOW_MS, SPIKE_THRESHOLD_A);
+    // Use pre-command baseline (captured on Tx)
+    float baselineIQ = preCommandBaseline_;
+    float spikeThreshold = baselineIQ + BASELINE_OFFSET_A;
     
-    // Chase window: command+0ms to command+200ms
+    Serial.printf("[TIMING] Command: %llu, Window: %dms, Pre-Cmd Baseline: %.1fA, Threshold: %.1fA\n", 
+                 commandSendTime_, ANALYSIS_WINDOW_MS, baselineIQ, spikeThreshold);
+    
+    // Chase window: command+0ms to command+500ms
     uint64_t chaseStart = commandSendTime_ + (SEARCH_START_MS * 1000);
     uint64_t chaseEnd = commandSendTime_ + (ANALYSIS_WINDOW_MS * 1000);
-    
     // Production analysis variables
     float maxIQMeasured = 0.0f;
     float maxIQSetpoint = 0.0f;
     uint64_t spikeTime = 0;
     bool spikeDetected = false;
     int dataPoints = 0;
-    float baselineIQ = 0.0f;
     bool baselineFound = false;
     
     Serial.printf("[TIMING] Chasing from %llu to %llu...\n", chaseStart, chaseEnd);
@@ -456,13 +508,15 @@ void TimingSystemTest::analyzeCommandCenteredData() {
         float iqSetpoint;
         float iqMeasured;
         int32_t relativeTime;
+        float encoderPos;
+        float encoderVel;
     };
     
-    TimeOrderedData validData[50];  // Max 50 points in 200ms at 10ms rate
+    TimeOrderedData validData[100];  // Max 100 points in 500ms at 10ms rate
     int validCount = 0;
     
     // First pass: collect all data in window
-    for (size_t i = 0; i < BDS_IQ_HISTORY_SIZE && validCount < 50; i++) {
+    for (size_t i = 0; i < BDS_IQ_HISTORY_SIZE && validCount < 100; i++) {
         const TimestampedIq* iqData = bds.getHistoryIq(i);
         if (!iqData) continue;
         
@@ -474,11 +528,29 @@ void TimingSystemTest::analyzeCommandCenteredData() {
         // Calculate relative time (always positive - no overflow issues!)
         int32_t relativeTime = (int32_t)((int64_t)(iqData->timestamp - commandSendTime_) / 1000);
         
-        // Store for time-ordered processing
+        // Find corresponding encoder data
+        const TimestampedEncoder* encData = nullptr;
+        for (size_t j = 0; j < BDS_ENCODER_HISTORY_SIZE; j++) {
+            const TimestampedEncoder* testEnc = bds.getHistoryEncoder(j);
+            if (!testEnc) continue;
+            
+            // Find encoder data within 5ms of IQ timestamp
+            uint64_t timeDiff = (testEnc->timestamp > iqData->timestamp) ? 
+                               (testEnc->timestamp - iqData->timestamp) : 
+                               (iqData->timestamp - testEnc->timestamp);
+            if (timeDiff <= 5000) {  // 5ms tolerance
+                encData = testEnc;
+                break;
+            }
+        }
+        
+        // Store valid data point
         validData[validCount].timestamp = iqData->timestamp;
         validData[validCount].iqSetpoint = iqData->iqSetpoint;
         validData[validCount].iqMeasured = iqData->iqMeasured;
         validData[validCount].relativeTime = relativeTime;
+        validData[validCount].encoderPos = encData ? encData->position : 0.0f;
+        validData[validCount].encoderVel = encData ? encData->velocity : 0.0f;
         validCount++;
     }
     
@@ -507,28 +579,30 @@ void TimingSystemTest::analyzeCommandCenteredData() {
         }
         
         // Show ALL data points in chronological order
-        Serial.printf("  T+%dms: set=%.1fA, meas=%.1fA (IQts=%llu)\n", 
+        Serial.printf("  T+%dms: set=%.1fA, meas=%.1fA, pos=%.6f, vel=%.3f (IQts=%llu)\n", 
                      validData[i].relativeTime, validData[i].iqSetpoint, 
-                     validData[i].iqMeasured, validData[i].timestamp);
+                     validData[i].iqMeasured, validData[i].encoderPos, validData[i].encoderVel, validData[i].timestamp);
         
         // Spike detection: first significant increase from baseline
         float currentValue = USE_SETPOINT_FOR_DETECTION ? 
                            fabs(validData[i].iqSetpoint) : 
                            fabs(validData[i].iqMeasured);
         
-        if (!spikeDetected && currentValue > (baselineIQ + SPIKE_THRESHOLD_A)) {
+        if (!spikeDetected && currentValue > spikeThreshold) {
             spikeDetected = true;
             spikeTime = validData[i].timestamp;
             maxIQMeasured = fabs(validData[i].iqMeasured);
             maxIQSetpoint = fabs(validData[i].iqSetpoint);
             
-            Serial.printf("[TIMING] ✓ SPIKE DETECTED at T+%dms: %.1fA (%s, baseline: %.1fA)\n", 
+            Serial.printf("[TIMING] SPIKE DETECTED at T+%dms: %.1fA (%s, baseline: %.1fA)\n", 
                          validData[i].relativeTime, currentValue,
                          USE_SETPOINT_FOR_DETECTION ? "setpoint" : "measured", 
                          baselineIQ);
-                         
-            // Production: Could exit early here, but continue to confirm
-            Serial.printf("[TIMING] Continuing for %dms confirmation...\n", CONFIRMATION_WINDOW_MS);
+        }
+        
+        // Production: Early exit after 50ms confirmation to eliminate bloat
+        if (spikeDetected && (validData[i].relativeTime > (spikeTime - commandSendTime_) / 1000 + CONFIRMATION_WINDOW_MS)) {
+            break;  // Exit early - we have our data!
         }
         
         // Track maximum values (always track both for reporting)
@@ -562,7 +636,7 @@ void TimingSystemTest::analyzeCommandCenteredData() {
     } else {
         Serial.printf("[TIMING] Response: NOT DETECTED\n");
         Serial.printf("[TIMING] Baseline: %.1fA\n", baselineIQ);
-        Serial.printf("[TIMING] Threshold: %.1fA\n", SPIKE_THRESHOLD_A);
+        Serial.printf("[TIMING] Threshold: %.1fA\n", spikeThreshold);
         Serial.printf("[TIMING] Max Found: %.1fA\n", maxIQMeasured);
         Serial.printf("[TIMING] Data Points: %d\n", dataPoints);
         Serial.printf("[TIMING] Status: NO_RESPONSE\n");
@@ -572,7 +646,284 @@ void TimingSystemTest::analyzeCommandCenteredData() {
                      maxIQMeasured, maxIQSetpoint, dataPoints);
     }
     
-    Serial.println("[TIMING] === END PRODUCTION ANALYSIS ===");
+}
+// =============================================================================
+
+// =============================================================================
+// TX-TRIGGERED COLLECTION FOR MOVEMENT COMMANDS
+// =============================================================================
+float TimingSystemTest::getCurrentBaseline() {
+    BroadcastDataStore& bds = BroadcastDataStore::getInstance();
+    
+    // Get last 100ms of IQ data (10 entries at ~10ms intervals)
+    float sum = 0.0f;
+    int count = 0;
+    
+    // Get current time to determine "recent" data
+    uint64_t currentTime = getTimerMicros();
+    const uint64_t windowSize = 100000; // 100ms in microseconds
+    
+    for (size_t i = 0; i < BDS_IQ_HISTORY_SIZE && count < 10; i++) {
+        const TimestampedIq* iqData = bds.getHistoryIq(i);
+        
+        if (iqData->timestamp > 0 && 
+            (currentTime - iqData->timestamp) <= windowSize) {
+            sum += fabs(iqData->iqMeasured);
+            count++;
+        }
+    }
+    
+    return count > 0 ? sum / count : 0.0f;
+}
+// =============================================================================
+
+void TimingSystemTest::onMovementCommandTx(const can_Message_t& cmd) {
+    // Only process if timing test is active (no pre-roll requirement)
+    if (!testActive_) {
+        return;
+    }
+    
+    // CAPTURE BASELINE IMMEDIATELY - before motor responds!
+    preCommandBaseline_ = getCurrentBaseline();
+    
+    // Get current timestamp for this Tx
+    uint64_t txTime = getTimerMicros();
+    
+    // Determine command type and trigger appropriate analysis
+    switch (cmd.id) {
+        case (0 << 5) | ODriveCANProtocol::MSG_SET_INPUT_POS:
+        case (0 << 5) | ODriveCANProtocol::MSG_SET_INPUT_VEL:
+        case (0 << 5) | ODriveCANProtocol::MSG_SET_INPUT_TORQUE:
+            {
+                // Extract velocity/position/torque from command data
+                float value = 0.0f;
+                if (cmd.id == ((0 << 5) | ODriveCANProtocol::MSG_SET_INPUT_VEL)) {
+                    // Velocity command (4-byte float)
+                    memcpy(&value, cmd.buf, sizeof(float));
+                } else if (cmd.id == ((0 << 5) | ODriveCANProtocol::MSG_SET_INPUT_POS)) {
+                    // Position command (4-byte float)
+                    memcpy(&value, cmd.buf, sizeof(float));
+                } else if (cmd.id == ((0 << 5) | ODriveCANProtocol::MSG_SET_INPUT_TORQUE)) {
+                    // Torque command (4-byte float)
+                    memcpy(&value, cmd.buf, sizeof(float));
+                }
+                
+                // Determine if this is START or STOP based on value
+                bool isStopCommand = (fabs(value) < 0.01f);  // Near zero = stop
+                
+                Serial.printf("[TIMING] TX-TRIGGER: %s command detected (value=%.3f) at %llu\n",
+                             isStopCommand ? "STOP" : "MOVEMENT", value, txTime);
+                
+                // Record command timestamp
+                if (isStopCommand) {
+                    stopCommandTime_ = txTime;
+                    Serial.println("[TIMING] TX-TRIGGER: Stop command timestamp recorded");
+                } else {
+                    commandSendTime_ = txTime;
+                    Serial.println("[TIMING] TX-TRIGGER: Movement command timestamp recorded");
+                }
+                
+                // Start immediate collection and analysis
+                Serial.println("[TIMING] TX-TRIGGER: Starting immediate analysis...");
+                
+                // Set collection end time (500ms after command for START, 1500ms for STOP)
+                collectionEndTime_ = txTime + (isStopCommand ? 1500000 : 500000);  // 1.5s stop, 0.5s start
+                
+                // Transition to post-command collection phase
+                testPhase_ = TEST_PHASE_POST_COMMAND;
+                
+                break;
+            }
+        default:
+            // Should not happen due to filter in _queueCommand
+            break;
+    }
+}
+// =============================================================================
+
+void TimingSystemTest::analyzeCommandCenteredData_STOP() {
+    BroadcastDataStore& bds = BroadcastDataStore::getInstance();
+    
+    Serial.println("[TIMING] === PRODUCTION STOP ANALYSIS ===");
+    
+    // Keep CAN processing alive during analysis
+    if (can_) can_->loop();
+    
+    // Production parameters for stop detection
+    const uint32_t ANALYSIS_WINDOW_MS = 500;   // 500ms window to match START test
+    const float BASELINE_DROP_A = 1.0f;        // 1.0A drop below baseline for stop detection
+    const uint32_t SEARCH_START_MS = 0;         // Start chase immediately from stop command
+    const bool USE_SETPOINT_FOR_DETECTION = true; // Use setpoint (faster) vs measured
+    const uint32_t CONFIRMATION_WINDOW_MS = 50;  // 50ms confirmation after stop
+    
+    // Use pre-command baseline (captured on Tx)
+    float baselineIQ = preCommandBaseline_;
+    float stopThreshold = baselineIQ - BASELINE_DROP_A;
+    
+    Serial.printf("[TIMING] Stop Command: %llu, Window: %dms, Pre-Cmd Baseline: %.1fA, Threshold: %.1fA\n", 
+                 stopCommandTime_, ANALYSIS_WINDOW_MS, baselineIQ, stopThreshold);
+    
+    // Chase window: stop+0ms to stop+1500ms
+    uint64_t chaseStart = stopCommandTime_ + (SEARCH_START_MS * 1000);
+    uint64_t chaseEnd = stopCommandTime_ + (ANALYSIS_WINDOW_MS * 1000);
+    
+    // Production analysis variables
+    float maxIQMeasured = 0.0f;
+    float maxIQSetpoint = 0.0f;
+    uint64_t stopTime = 0;
+    bool stopDetected = false;
+    int dataPoints = 0;
+    
+    Serial.printf("[TIMING] Chasing from %llu to %llu...\n", chaseStart, chaseEnd);
+    Serial.println("[TIMING] Stop-centered data:");
+    
+    // Collect all valid data points first, then sort by time
+    struct TimeOrderedData {
+        uint64_t timestamp;
+        float iqSetpoint;
+        float iqMeasured;
+        int32_t relativeTime;
+        float encoderPos;
+        float encoderVel;
+    };
+    
+    TimeOrderedData validData[100];  // Max 100 points in 500ms at 10ms rate
+    int validCount = 0;
+    
+    // First pass: collect all data in window
+    for (size_t i = 0; i < BDS_IQ_HISTORY_SIZE && validCount < 100; i++) {
+        const TimestampedIq* iqData = bds.getHistoryIq(i);
+        if (!iqData) continue;
+        
+        // Only chase data in our window (always positive time from stop command)
+        if (iqData->timestamp < chaseStart || iqData->timestamp > chaseEnd) {
+            continue;
+        }
+        
+        // Calculate relative time (always positive - no overflow issues!)
+        int32_t relativeTime = (int32_t)((int64_t)(iqData->timestamp - stopCommandTime_) / 1000);
+        
+        // Find corresponding encoder data
+        const TimestampedEncoder* encData = nullptr;
+        for (size_t j = 0; j < BDS_ENCODER_HISTORY_SIZE; j++) {
+            const TimestampedEncoder* testEnc = bds.getHistoryEncoder(j);
+            if (!testEnc) continue;
+            
+            // Find encoder data within 5ms of IQ timestamp
+            uint64_t timeDiff = (testEnc->timestamp > iqData->timestamp) ? 
+                               (testEnc->timestamp - iqData->timestamp) : 
+                               (iqData->timestamp - testEnc->timestamp);
+            if (timeDiff <= 5000) {  // 5ms tolerance
+                encData = testEnc;
+                break;
+            }
+        }
+        
+        // Store valid data point
+        validData[validCount].timestamp = iqData->timestamp;
+        validData[validCount].iqSetpoint = iqData->iqSetpoint;
+        validData[validCount].iqMeasured = iqData->iqMeasured;
+        validData[validCount].relativeTime = relativeTime;
+        validData[validCount].encoderPos = encData ? encData->position : 0.0f;
+        validData[validCount].encoderVel = encData ? encData->velocity : 0.0f;
+        validCount++;
+    }
+    
+    // Sort by relative time (chronological order)
+    for (int i = 0; i < validCount - 1; i++) {
+        for (int j = i + 1; j < validCount; j++) {
+            if (validData[i].relativeTime > validData[j].relativeTime) {
+                TimeOrderedData temp = validData[i];
+                validData[i] = validData[j];
+                validData[j] = temp;
+            }
+        }
+    }
+    
+    // Second pass: analyze data for stop detection
+    baselineIQ = 0.0f;  // Reset for stop analysis
+    bool baselineFound = false;
+    
+    for (int i = 0; i < validCount; i++) {
+        // Establish baseline from first data point (should be high current during movement)
+        if (!baselineFound) {
+            baselineIQ = USE_SETPOINT_FOR_DETECTION ? 
+                        fabs(validData[i].iqSetpoint) : 
+                        fabs(validData[i].iqMeasured);
+            baselineFound = true;
+            Serial.printf("[TIMING] Baseline: %.3fA at T+%dms (%s)\n", 
+                         baselineIQ, validData[i].relativeTime,
+                         USE_SETPOINT_FOR_DETECTION ? "setpoint" : "measured");
+        }
+        
+        // Show ALL data points in chronological order
+        Serial.printf("  T+%dms: set=%.1fA, meas=%.1fA, pos=%.6f, vel=%.3f (IQts=%llu)\n", 
+                     validData[i].relativeTime, validData[i].iqSetpoint, 
+                     validData[i].iqMeasured, validData[i].encoderPos, validData[i].encoderVel, validData[i].timestamp);
+        
+        // Stop detection: first significant drop from baseline
+        float currentValue = USE_SETPOINT_FOR_DETECTION ? 
+                           fabs(validData[i].iqSetpoint) : 
+                           fabs(validData[i].iqMeasured);
+        
+        if (!stopDetected && currentValue < stopThreshold) {
+            stopDetected = true;
+            stopTime = validData[i].timestamp;
+            maxIQMeasured = fabs(validData[i].iqMeasured);
+            maxIQSetpoint = fabs(validData[i].iqSetpoint);
+            
+            Serial.printf("[TIMING] STOP DETECTED at T+%dms: %.1fA (%s, baseline: %.1fA)\n", 
+                         validData[i].relativeTime, currentValue,
+                         USE_SETPOINT_FOR_DETECTION ? "setpoint" : "measured", 
+                         baselineIQ);
+        }
+        
+        // Production: Early exit after 50ms confirmation to eliminate bloat
+        if (stopDetected && (validData[i].relativeTime > (stopTime - stopCommandTime_) / 1000 + CONFIRMATION_WINDOW_MS)) {
+            break;  // Exit early - we have our data!
+        }
+        
+        // Track maximum values (always track both for reporting)
+        if (fabs(validData[i].iqMeasured) > maxIQMeasured) {
+            maxIQMeasured = fabs(validData[i].iqMeasured);
+        }
+        if (fabs(validData[i].iqSetpoint) > maxIQSetpoint) {
+            maxIQSetpoint = fabs(validData[i].iqSetpoint);
+        }
+        dataPoints++;
+    }
+    
+    // Production results output
+    Serial.println("[TIMING] === STOP ANALYSIS RESULTS ===");
+    
+    if (stopDetected) {
+        uint32_t stopLatencyMs = (stopTime - stopCommandTime_) / 1000;
+        
+        Serial.printf("[TIMING] Stop Response: DETECTED\n");
+        Serial.printf("[TIMING] Stop Latency: %dms\n", stopLatencyMs);
+        Serial.printf("[TIMING] Final Current: %.1fA\n", maxIQMeasured);
+        Serial.printf("[TIMING] Final Setpoint: %.1fA\n", maxIQSetpoint);
+        Serial.printf("[TIMING] Data Points: %d\n", dataPoints);
+        Serial.printf("[TIMING] Status: SUCCESS\n");
+        
+        // Structured data for automation
+        Serial.printf("[DATA] STOP_LATENCY=%d,FINAL=%.1f,FINAL_SETPOINT=%.1f,POINTS=%d,STATUS=OK\n",
+                     stopLatencyMs, maxIQMeasured, maxIQSetpoint, dataPoints);
+        
+    } else {
+        Serial.printf("[TIMING] Stop Response: NOT DETECTED\n");
+        Serial.printf("[TIMING] Baseline: %.1fA\n", baselineIQ);
+        Serial.printf("[TIMING] Threshold: %.1fA\n", stopThreshold);
+        Serial.printf("[TIMING] Min Found: %.1fA\n", maxIQMeasured);
+        Serial.printf("[TIMING] Data Points: %d\n", dataPoints);
+        Serial.printf("[TIMING] Status: NO_STOP_RESPONSE\n");
+        
+        // Structured data for automation
+        Serial.printf("[DATA] STOP_LATENCY=-1,FINAL=%.1f,FINAL_SETPOINT=%.1f,POINTS=%d,STATUS=NO_STOP\n",
+                     maxIQMeasured, maxIQSetpoint, dataPoints);
+    }
+    
+    Serial.println("[TIMING] === END PRODUCTION STOP ANALYSIS ===");
 }
 
 void TimingSystemTest::showIQHistoryFromTime(uint64_t startTime, uint32_t durationMs) {
@@ -768,3 +1119,202 @@ void TimingSystemTest::showStatus() {
     Serial.print(iqTime > 0 ? (currentTime - iqTime) : 0);
     Serial.println(" us");
 }
+
+// =============================================================================
+// LEGACY CODE BACKUP SECTION
+// =============================================================================
+// PURPOSE: Store working reference code in case current implementation breaks
+// LOCATION: Moved from middle of file to end to prevent accidental editing
+// CONTEXT: This was the original working START analysis function before dynamic baseline implementation
+// ORIGINAL POSITION: above checkTestCompletion function, below startTest function
+// CURRENT REPLACEMENT: analyzeCommandCenteredData_START() function with pre-command baseline capture
+// =============================================================================
+
+/*
+// BACKUP: GOOD WORKING START ANALYSIS FUNCTION (COPY FOR REFERENCE)
+// ORIGINAL POSITION: above checkTestCompletion function, below startTest function
+// WHAT IT DID: Fixed 2.0A threshold START analysis with baseline calculation from first data point
+// WHY BACKED UP: This was known working code before implementing dynamic baseline system
+// REPLACED BY: Current analyzeCommandCenteredData_START() function with pre-command baseline capture
+void TimingSystemTest::analyzeCommandCenteredData_START_WORKING() {
+    BroadcastDataStore& bds = BroadcastDataStore::getInstance();
+    
+    Serial.println("[TIMING] === PRODUCTION START ANALYSIS ===");
+    
+    // Keep CAN processing alive during analysis
+    if (can_) can_->loop();
+    
+    // Production parameters
+    const uint32_t ANALYSIS_WINDOW_MS = 500;  // 500ms chase window for trap_traj
+    const float SPIKE_THRESHOLD_A = 2.0f;       // 2A spike detection threshold (movement starts at 2.2-3.0A)
+    const uint32_t SEARCH_START_MS = 0;         // Start chase immediately from command
+    const bool USE_SETPOINT_FOR_DETECTION = true; // Use setpoint (faster) vs measured
+    const uint32_t CONFIRMATION_WINDOW_MS = 50;  // 50ms confirmation after spike
+    
+    Serial.printf("[TIMING] Command: %llu, Window: %dms, Threshold: %.1fA\n", 
+                 commandSendTime_, ANALYSIS_WINDOW_MS, SPIKE_THRESHOLD_A);
+    
+    // Chase window: command+0ms to command+500ms
+    uint64_t chaseStart = commandSendTime_ + (SEARCH_START_MS * 1000);
+    uint64_t chaseEnd = commandSendTime_ + (ANALYSIS_WINDOW_MS * 1000);
+    
+    // Production analysis variables
+    float maxIQMeasured = 0.0f;
+    float maxIQSetpoint = 0.0f;
+    uint64_t spikeTime = 0;
+    bool spikeDetected = false;
+    int dataPoints = 0;
+    float baselineIQ = 0.0f;
+    bool baselineFound = false;
+    
+    Serial.printf("[TIMING] Chasing from %llu to %llu...\n", chaseStart, chaseEnd);
+    Serial.println("[TIMING] Command-centered data:");
+    
+    // Collect all valid data points first, then sort by time
+    struct TimeOrderedData {
+        uint64_t timestamp;
+        float iqSetpoint;
+        float iqMeasured;
+        int32_t relativeTime;
+        float encoderPos;
+        float encoderVel;
+    };
+    
+    TimeOrderedData validData[100];  // Max 100 points in 500ms at 10ms rate
+    int validCount = 0;
+    
+    // First pass: collect all data in window
+    for (size_t i = 0; i < BDS_IQ_HISTORY_SIZE && validCount < 100; i++) {
+        const TimestampedIq* iqData = bds.getHistoryIq(i);
+        if (!iqData) continue;
+        
+        // Only chase data in our window (always positive time from command)
+        if (iqData->timestamp < chaseStart || iqData->timestamp > chaseEnd) {
+            continue;
+        }
+        
+        // Calculate relative time (always positive - no overflow issues!)
+        int32_t relativeTime = (int32_t)((int64_t)(iqData->timestamp - commandSendTime_) / 1000);
+        
+        // Find corresponding encoder data
+        const TimestampedEncoder* encData = nullptr;
+        for (size_t j = 0; j < BDS_ENCODER_HISTORY_SIZE; j++) {
+            const TimestampedEncoder* testEnc = bds.getHistoryEncoder(j);
+            if (!testEnc) continue;
+            
+            // Find encoder data within 5ms of IQ timestamp
+            uint64_t timeDiff = (testEnc->timestamp > iqData->timestamp) ? 
+                               (testEnc->timestamp - iqData->timestamp) : 
+                               (iqData->timestamp - testEnc->timestamp);
+            if (timeDiff <= 5000) {  // 5ms tolerance
+                encData = testEnc;
+                break;
+            }
+        }
+        
+        // Store valid data point
+        validData[validCount].timestamp = iqData->timestamp;
+        validData[validCount].iqSetpoint = iqData->iqSetpoint;
+        validData[validCount].iqMeasured = iqData->iqMeasured;
+        validData[validCount].relativeTime = relativeTime;
+        validData[validCount].encoderPos = encData ? encData->position : 0.0f;
+        validData[validCount].encoderVel = encData ? encData->velocity : 0.0f;
+        validCount++;
+    }
+    
+    // Sort by relative time (chronological order)
+    for (int i = 0; i < validCount - 1; i++) {
+        for (int j = i + 1; j < validCount; j++) {
+            if (validData[i].relativeTime > validData[j].relativeTime) {
+                TimeOrderedData temp = validData[i];
+                validData[i] = validData[j];
+                validData[j] = temp;
+            }
+        }
+    }
+    
+    // Second pass: process in chronological order
+    for (int i = 0; i < validCount; i++) {
+        // Establish baseline from FIRST chronological data point
+        if (!baselineFound) {
+            baselineIQ = USE_SETPOINT_FOR_DETECTION ? 
+                        fabs(validData[i].iqSetpoint) : 
+                        fabs(validData[i].iqMeasured);
+            baselineFound = true;
+            Serial.printf("[TIMING] Baseline: %.3fA at T+%dms (%s)\n", 
+                         baselineIQ, validData[i].relativeTime,
+                         USE_SETPOINT_FOR_DETECTION ? "setpoint" : "measured");
+        }
+        
+        // Show ALL data points in chronological order
+        Serial.printf("  T+%dms: set=%.1fA, meas=%.1fA, pos=%.6f, vel=%.3f (IQts=%llu)\n", 
+                     validData[i].relativeTime, validData[i].iqSetpoint, 
+                     validData[i].iqMeasured, validData[i].encoderPos, validData[i].encoderVel, validData[i].timestamp);
+        
+        // Spike detection: first significant increase from baseline
+        float currentValue = USE_SETPOINT_FOR_DETECTION ? 
+                           fabs(validData[i].iqSetpoint) : 
+                           fabs(validData[i].iqMeasured);
+        
+        if (!spikeDetected && currentValue > spikeThreshold) {
+            spikeDetected = true;
+            spikeTime = validData[i].timestamp;
+            maxIQMeasured = fabs(validData[i].iqMeasured);
+            maxIQSetpoint = fabs(validData[i].iqSetpoint);
+            
+            Serial.printf("[TIMING] SPIKE DETECTED at T+%dms: %.1fA (%s, baseline: %.1fA)\n", 
+                         validData[i].relativeTime, currentValue,
+                         USE_SETPOINT_FOR_DETECTION ? "setpoint" : "measured", 
+                         baselineIQ);
+        }
+        
+        // Production: Early exit after 50ms confirmation to eliminate bloat
+        if (spikeDetected && (validData[i].relativeTime > (spikeTime - commandSendTime_) / 1000 + CONFIRMATION_WINDOW_MS)) {
+            break;  // Exit early - we have our data!
+        }
+        
+        // Track maximum values (always track both for reporting)
+        if (fabs(validData[i].iqMeasured) > maxIQMeasured) {
+            maxIQMeasured = fabs(validData[i].iqMeasured);
+        }
+        if (fabs(validData[i].iqSetpoint) > maxIQSetpoint) {
+            maxIQSetpoint = fabs(validData[i].iqSetpoint);
+        }
+        
+        dataPoints++;
+    }
+    
+    // Production results output
+    Serial.println("[TIMING] === ANALYSIS RESULTS ===");
+    
+    if (spikeDetected) {
+        uint32_t responseLatencyMs = (spikeTime - commandSendTime_) / 1000;
+        
+        Serial.printf("[TIMING] Response: DETECTED\n");
+        Serial.printf("[TIMING] Latency: %dms\n", responseLatencyMs);
+        Serial.printf("[TIMING] Peak Current: %.1fA\n", maxIQMeasured);
+        Serial.printf("[TIMING] Peak Setpoint: %.1fA\n", maxIQSetpoint);
+        Serial.printf("[TIMING] Data Points: %d\n", dataPoints);
+        Serial.printf("[TIMING] Status: SUCCESS\n");
+        
+        // Structured data for automation
+        Serial.printf("[DATA] LATENCY=%d,PEAK=%.1f,SETPOINT=%.1f,POINTS=%d,STATUS=OK\n",
+                     responseLatencyMs, maxIQMeasured, maxIQSetpoint, dataPoints);
+        
+    } else {
+        Serial.printf("[TIMING] Response: NOT DETECTED\n");
+        Serial.printf("[TIMING] Baseline: %.1fA\n", baselineIQ);
+        Serial.printf("[TIMING] Threshold: %.1fA\n", spikeThreshold);
+        Serial.printf("[TIMING] Max Found: %.1fA\n", maxIQMeasured);
+        Serial.printf("[TIMING] Data Points: %d\n", dataPoints);
+        Serial.printf("[TIMING] Status: NO_RESPONSE\n");
+        
+        // Structured data for automation
+        Serial.printf("[DATA] LATENCY=-1,PEAK=%.1f,SETPOINT=%.1f,POINTS=%d,STATUS=NO_RSP\n",
+                     maxIQMeasured, maxIQSetpoint, dataPoints);
+    }
+    
+    Serial.println("[TIMING] === END PRODUCTION ANALYSIS ===");
+}
+*/
+// =============================================================================

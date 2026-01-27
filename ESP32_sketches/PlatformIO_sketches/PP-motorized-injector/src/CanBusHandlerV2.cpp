@@ -2,6 +2,7 @@
 #include "BroadcastDataStore.h"
 #include "MessageBuffer.h"
 #include "GPTimer.h"
+#include "TimingSystemTest.h"
 #include "config.h"
 #include <Arduino.h>
 #include <ESP32-TWAI-CAN.hpp>
@@ -92,6 +93,24 @@ bool CanBusHandlerV2::_queueCommand(const can_Message_t& cmd) {
         snprintf(buf, sizeof(buf), "CAN_QUEUE_OVERFLOW: Dropped cmd 0x%03X", cmd.id);
         MessageBuffer::getInstance().sendMessage(buf);
         return false;  // Command not queued
+    }
+    
+    // Tx-triggered collection: Notify TimingSystemTest of movement commands
+    // Only trigger on commands that cause actual motor movement
+    switch (cmd.id) {
+        case (0 << 5) | ODriveCANProtocol::MSG_SET_INPUT_POS:
+            TimingSystemTest::getInstance().onMovementCommandTx(cmd);
+            break;
+        case (0 << 5) | ODriveCANProtocol::MSG_SET_INPUT_VEL:
+            TimingSystemTest::getInstance().onMovementCommandTx(cmd);
+            break;
+        case (0 << 5) | ODriveCANProtocol::MSG_SET_INPUT_TORQUE:
+            TimingSystemTest::getInstance().onMovementCommandTx(cmd);
+            break;
+        // Non-movement commands (config, requests, etc.)
+        // CAN_ID_SET_AXIS_STATE, CAN_ID_SET_CONTROLLER_MODES, etc. - no trigger
+        default:
+            break;
     }
     
     // Enqueue command at head

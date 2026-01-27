@@ -16,8 +16,8 @@
 // - Iq/BusVI (10ms): 250 samples = 2.5s history (upgraded from 100ms)
 // - Errors (10ms): 10 samples = 100ms history (recent errors only)
 // =============================================================================
-#define BDS_IQ_HISTORY_SIZE 400         // 4s at 10ms, 40s at 100ms
-#define BDS_ENCODER_HISTORY_SIZE 400    // 4s at 10ms, 40s at 100ms
+#define BDS_IQ_HISTORY_SIZE 1000        // 10s at 10ms, 100s at 100ms (continuous collection)
+#define BDS_ENCODER_HISTORY_SIZE 1000   // 10s at 10ms, 100s at 100ms (continuous collection)
 #define BDS_MOTOR_ERROR_HISTORY_SIZE  250
 #define BDS_ENCODER_ERROR_HISTORY_SIZE 250
 #define BDS_CONTROLLER_ERROR_HISTORY_SIZE 250

@@ -35,9 +35,6 @@ private:
     uint64_t _bundleStartTime_us; // Timestamp of the bundle marker (Heartbeat)
     uint32_t _tests_run;
 
-    // Timing system test instance
-    TimingSystemTest timingTest_;
-
     // --- Test Configuration ---
     static const uint32_t TEST_COMMAND_ID = ODriveCANProtocol::MSG_SET_CONTROLLER_MODES; // Using Set_Controller_Modes
     static const uint32_t PRE_ROLL_DURATION_US = 200000; // MODIFIED: 250ms before TX

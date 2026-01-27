@@ -12,8 +12,8 @@
 // Reference to the global hardware timer
 extern GPTimer hwTimer;
 
-ProtectedWindowTest::ProtectedWindowTest() :
-    _motor(nullptr),
+ProtectedWindowTest::ProtectedWindowTest()
+    : _motor(nullptr),
     _state(IDLE),
     _testOffset_us(0),
     _bundleStartTime_us(0),
@@ -21,15 +21,14 @@ ProtectedWindowTest::ProtectedWindowTest() :
     _captureWindowStart_us(0),
     _commandSentTime_us(0),
     _sentCommandParams(ODriveCANProtocol::ControlMode::POSITION_CONTROL, ODriveCANProtocol::InputMode::PASSTHROUGH), // Default benign command
-    _bundleDetectedForRun(false), // Initialize new flag
-    timingTest_() // Initialize timing system test
+    _bundleDetectedForRun(false) // Initialize new flag
 {}
 
 void ProtectedWindowTest::begin(CanBusHandlerV2& motor) {
     _motor = &motor;
     
     // Initialize timing system test with CAN access
-    timingTest_.begin(motor);
+    TimingSystemTest::getInstance().begin(motor);
     
     Serial.println("ProtectedWindowTest initialized. Type 'start' to begin a test run.");
     Serial.println("Timing commands available: timing_start, timing_baseline, timing_check, timing_window, timing_status, timing_auto, timing_iq_history");
@@ -57,6 +56,10 @@ void ProtectedWindowTest::loop() {
             Serial.println("  timing_window                    - Test command windows");
             Serial.println("  timing_auto                      - Movement test sequence (calibration via USB)");
             Serial.println("  timing_iq_history                - Show IQ current profile");
+            Serial.println("\nMOVEMENT COMMANDS (Tx-triggered):");
+            Serial.println("  set_velocity 5.0                - Send velocity command (triggers analysis)");
+            Serial.println("  set_position 1.0                - Send position command (triggers analysis)");
+            Serial.println("  set_torque 0.5                  - Send torque command (triggers analysis)");
             Serial.println("\nPROTECTED WINDOW TEST:");
             Serial.println("  start                           - Start protected window test");
             Serial.println("  help                            - Show this help");
@@ -65,8 +68,27 @@ void ProtectedWindowTest::loop() {
         // ===== TIMING SYSTEM TEST COMMANDS =====
         else if (command.startsWith("timing_")) {
             toggleLoopFlag(); // Mark start of timing operation
-            timingTest_.handleCommand(command);
+            TimingSystemTest::getInstance().handleCommand(command);
             toggleLoopFlag(); // Mark end of timing operation
+        }
+        // ===== MOVEMENT COMMANDS FOR TX-TRIGGERED TESTING =====
+        else if (command.startsWith("set_velocity")) {
+            // Extract velocity value
+            float vel = command.substring(12).toFloat();  // After "set_velocity "
+            _motor->setInputVel(vel);
+            Serial.printf("Sent: SET_INPUT_VEL = %.3f turns/sec (Tx-triggered test)\n", vel);
+        }
+        else if (command.startsWith("set_position")) {
+            // Extract position value
+            float pos = command.substring(13).toFloat();  // After "set_position "
+            _motor->setInputPos(pos);
+            Serial.printf("Sent: SET_INPUT_POS = %.3f turns (Tx-triggered test)\n", pos);
+        }
+        else if (command.startsWith("set_torque")) {
+            // Extract torque value
+            float torque = command.substring(12).toFloat();  // After "set_torque "
+            _motor->setInputTorque(torque);
+            Serial.printf("Sent: SET_INPUT_TORQUE = %.3f Nm (Tx-triggered test)\n", torque);
         }
         else {
             Serial.println("Unknown command. Type 'help' for available commands.");
@@ -81,7 +103,7 @@ void ProtectedWindowTest::loop() {
     }
     
     // Check if timing test collection is complete
-    timingTest_.checkTestCompletion();
+    TimingSystemTest::getInstance().checkTestCompletion();
 
     switch (_state) {
         case IDLE:

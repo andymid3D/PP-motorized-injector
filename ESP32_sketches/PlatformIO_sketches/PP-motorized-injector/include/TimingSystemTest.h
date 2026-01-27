@@ -45,6 +45,61 @@ public:
      */
     void checkTestCompletion();
     
+    /**
+     * Start timing system test
+     */
+    void startTest();
+    
+    /**
+     * Singleton access
+     */
+    static TimingSystemTest& getInstance() {
+        static TimingSystemTest instance;
+        return instance;
+    }
+    
+    /**
+     * Tx-triggered collection for movement commands
+     */
+    void onMovementCommandTx(const can_Message_t& cmd);
+    
+    /**
+     * Get current baseline from recent IQ data
+     */
+    float getCurrentBaseline();
+    
+    /**
+     * Capture baseline position and IQ current
+     */
+    void captureBaseline();
+    
+    /**
+     * Check for movement since baseline
+     */
+    void checkMovement();
+    
+    /**
+     * Test command window timing
+     */
+    void testCommandWindow();
+    
+    // Auto-calibration functionality
+    void runAutoCalibration();
+    void showIQHistory(uint32_t durationMs);
+    void showIQHistoryFromTime(uint64_t startTime, uint32_t durationMs);
+    void analyzeCommandCenteredData_START();
+    void analyzeCommandCenteredData_STOP();
+    void showStatus();
+    
+    /**
+     * Unified edge detection analysis
+     */
+    enum EdgeType {
+        RISING_EDGE,   // Start detection (current rises above threshold)
+        FALLING_EDGE   // Stop detection (current falls below threshold)
+    };
+    void analyzeCommandCenteredData(uint64_t commandTime, EdgeType edgeType, uint32_t windowMs = 500);
+    
 private:
     bool enabled_;
     uint64_t testStartTime_;
@@ -66,36 +121,11 @@ private:
     TestPhase testPhase_;
     uint64_t captureStartTime_;
     uint64_t commandSendTime_;
+    uint64_t stopCommandTime_;
     uint64_t phaseStartTime_;
+    float preCommandBaseline_;  // Baseline captured immediately on Tx command
     uint64_t collectionEndTime_;
     bool testActive_;
-    
-    /**
-     * Start timing system test
-     */
-    void startTest();
-    
-    /**
-     * Capture baseline position and IQ current
-     */
-    void captureBaseline();
-    
-    /**
-     * Check for movement since baseline
-     */
-    void checkMovement();
-    
-    /**
-     * Test command window timing
-     */
-    void testCommandWindow();
-    
-    // Auto-calibration functionality
-    void runAutoCalibration();
-    void showIQHistory(uint32_t durationMs);
-    void showIQHistoryFromTime(uint64_t startTime, uint32_t durationMs);
-    void analyzeCommandCenteredData();
-    void showStatus();
     
     /**
      * Print debug data for troubleshooting
