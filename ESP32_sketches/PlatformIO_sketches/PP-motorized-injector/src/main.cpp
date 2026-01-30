@@ -37,6 +37,18 @@
 // #include "RTRDebug.h"  // DEPRECATED - files moved to .old
 // ===== END DEBUG MODULES =====
 
+// ===== RESPONSE CORRELATION TEST (Phase 1.9) =====
+#ifdef RESPONSE_CORRELATION_TEST_ENABLED
+    #include "ResponseCorrelationTest.h"
+#endif
+// ===== END RESPONSE CORRELATION TEST =====
+
+// ===== CANRX HANDLER TEST =====
+#if TEST_CANRXHANDLER_ENABLED
+    #include "CanRxHandlerTest.h"
+#endif
+// ===== END CANRX HANDLER TEST =====
+
 // ===== ERROR MANAGEMENT (Centralized Logging & Classification) =====
 #include "ErrorManager.h"
 // ===== END ERROR MANAGEMENT =====
@@ -193,24 +205,27 @@ bool runCompressionCycle() {
     float targetTorque = (COMPRESS_RAMP_TARGET / 2.0f) * elapsed;
     if (targetTorque > COMPRESS_RAMP_TARGET) targetTorque = COMPRESS_RAMP_TARGET;
     
-    MotorWrapper::setModeAndMove(motor, 1, 1, targetTorque, "TorqueMode");
+    MotorWrapper::setModeAndMove(motor, 1, 1, targetTorque, MODULE_COMPRESSION, "TorqueMode");
 
-    if (elapsed > 15.0f) { MessageBuffer::getInstance().sendMessage("Compression: Timeout"); MotorWrapper::setModeAndMove(motor, 2, 1, 0, "Stop"); return true; }
-    if (elapsed > 1.0f && abs(motor.getVelocity()) < 0.5f) { MessageBuffer::getInstance().sendMessage("Compression: Stall Detected"); MotorWrapper::setModeAndMove(motor, 2, 1, 0, "Stop"); return true; }
+    if (elapsed > 15.0f) { MessageBuffer::getInstance().sendMessage("Compression: Timeout"); MotorWrapper::setModeAndMove(motor, 2, 1, 0, MODULE_COMPRESSION, "Stop"); return true; }
+    if (elapsed > 1.0f && abs(motor.getVelocity()) < 0.5f) { MessageBuffer::getInstance().sendMessage("Compression: Stall Detected"); MotorWrapper::setModeAndMove(motor, 2, 1, 0, MODULE_COMPRESSION, "Stop"); return true; }
     return false;
 }
 
 void printDebugReport(unsigned long currentLoopTime, unsigned long maxLoopTimeSinceLastReport) {
     char buf[256];
     long pDisp = safety.getPressure();
-    const ODriveCANProtocol::CyclicIq& iq_data = motor.getIq();
-    float iq_setpoint = iq_data.Iq_setpoint;
-    float iq_measured = iq_data.Iq_measured;
+    
+    // Get IQ data from BDS (real-time) instead of motor.getIq() (stale)
+    BroadcastDataStore& broadcast = BroadcastDataStore::getInstance();
+    const TimestampedIq* iqData = broadcast.getLatestIq();
+    float iq_setpoint = iqData ? iqData->iqSetpoint : 0.0f;
+    float iq_measured = iqData ? iqData->iqMeasured : 0.0f;
+    
     int lastControlMode = MotorWrapper::getLastControlMode();
     int lastInputMode = MotorWrapper::getLastInputMode();
     String lastCmdStr = MotorWrapper::getLastCommand();
     unsigned long uptimeSeconds = millis() / 1000;
-    BroadcastDataStore& broadcast = BroadcastDataStore::getInstance();
     uint32_t motorErr = broadcast.getMotorError();
     uint32_t encoderErr = broadcast.getEncoderError();
     uint32_t controllerErr = broadcast.getControllerError();
@@ -219,7 +234,7 @@ void printDebugReport(unsigned long currentLoopTime, unsigned long maxLoopTimeSi
     snprintf(buf, sizeof(buf), "[%lus c:%lums m:%lums][[%-12s] T:%-3d P:%-7ld Q:%d OD:%d MX:0x%-2X EX:0x%-2X CX:0x%-2X P:%-5.1f V:%-4.1f IqS:%-4.1f IqM:%-4.1f C:%d I:%d Cmd:%s]",
         uptimeSeconds, currentLoopTime, maxLoopTimeSinceLastReport,
         getStateName(fsm_state.currentState), fsm_inputs.nozzleTemperature, pDisp, queueDepth,
-        motor.getAxisState(), motorErr, encoderErr, controllerErr, motor.getPosition(), motor.getVelocity(), 
+        broadcast.getAxisState(), motorErr, encoderErr, controllerErr, broadcast.getPosition(), broadcast.getVelocity(), 
         iq_setpoint, iq_measured,
         lastControlMode, lastInputMode, lastCmdStr.c_str());
     MessageBuffer::getInstance().set1HzMessage(buf);
@@ -235,6 +250,16 @@ void setup() {
     SafeString::setOutput(Serial); 
     MotorWrapper::init();
     
+    // Initialize Response Correlation Test if enabled
+    #ifdef RESPONSE_CORRELATION_TEST_ENABLED
+        ResponseCorrelationTest::init();
+    #endif
+    
+    // Initialize CanRxHandler Test if enabled
+    #if TEST_CANRXHANDLER_ENABLED
+        CanRxHandlerTest::begin();
+    #endif
+    
     if (!hwTimer.begin()) {
         Serial.println("ERROR: GPTimer init failed");
         while(1) { delay(1000); }
@@ -244,23 +269,24 @@ void setup() {
     initLoopTimer(); // Initialize our custom dual-core timer
 
     safety.begin();
-    safety.enableMotorPower(true);
+    safety.enableMotorPower(true);  // Enable contactor/power
     delay(500);
     
-    ESP32Can.setPins(PIN_CAN_TX, PIN_CAN_RX);
-    ESP32Can.setSpeed(TWAI_SPEED_250KBPS);
-    if (!ESP32Can.begin()) {
-        Serial.println("ERROR: CAN bus init failed");
-        while(1) { delay(1000); }
-    }
-    
-#if TEST_BDS_INTEGRATION_ENABLED || TEST_PROTECTED_WINDOW_ENABLED
+    #if TEST_BDS_INTEGRATION_ENABLED || TEST_PROTECTED_WINDOW_ENABLED
     debugCmds.begin(motor);
 #endif
     
 #if TEST_PROTECTED_WINDOW_ENABLED
     protectedWindow.begin(motor);
 #endif
+    
+    // Initialize CAN bus FIRST (before Core 0 task starts)
+    ESP32Can.setPins(PIN_CAN_TX, PIN_CAN_RX);
+    ESP32Can.setSpeed(TWAI_SPEED_250KBPS);
+    if (!ESP32Can.begin()) {
+        Serial.println("ERROR: CAN bus init failed");
+        while(1) { delay(1000); }
+    }
     
     CanRxHandler& canRx = CanRxHandler::getInstance();
     if (!canRx.begin()) {
@@ -270,17 +296,64 @@ void setup() {
     
     canRx.setOutput(&serialOutput);
     
-    PhaseTests::runSetupTests();
-    
+    // Start Core 0 CAN polling task (AFTER CAN bus is ready)
     if (!canRx.startCore0Task()) {
-        Serial.println("ERROR: Failed to start Core 0 task");
+        Serial.println("ERROR: CanRxHandler Core0 task failed to start");
         while(1) { delay(1000); }
     }
+    
+    PhaseTests::runSetupTests();
     
     // Initialize debug commands for timing system test
     motor.begin();
     debugCmds.begin(motor);
     
+    Serial.println("=== Minimal CanRx Test Mode Ready ===");
+    return;
+#endif
+    
+#if MINIMAL_CANRX_TEST_MODE
+    // MINIMAL TEST MODE SETUP - Initialize only what's needed for CanRx test
+    Serial.println("[MINIMAL] Initializing minimal CanRx test mode");
+    
+    // Initialize safety system and enable contactor
+    safety.begin();
+    safety.enableMotorPower(true);  // Enable contactor/power to ODrive
+    delay(500);
+    
+    // Initialize motor interface (needed for CAN)
+    motor.begin();
+    
+    // Initialize CAN bus FIRST (before Core 0 task starts)
+    ESP32Can.setPins(PIN_CAN_TX, PIN_CAN_RX);
+    ESP32Can.setSpeed(TWAI_SPEED_250KBPS);
+    if (!ESP32Can.begin()) {
+        Serial.println("ERROR: CAN bus init failed");
+        while(1) { delay(1000); }
+    }
+    Serial.println("[MINIMAL] CAN bus initialized");
+    
+    // Initialize CanRxHandler
+    CanRxHandler& canRx = CanRxHandler::getInstance();
+    if (!canRx.begin()) {
+        Serial.println("ERROR: CanRxHandler init failed");
+        while(1) { delay(1000); }
+    }
+    Serial.println("[MINIMAL] CanRxHandler initialized");
+    
+    canRx.setOutput(&serialOutput);
+    
+    // Start Core 0 CAN polling task (AFTER CAN bus is ready)
+    if (!canRx.startCore0Task()) {
+        Serial.println("ERROR: CanRxHandler Core0 task failed to start");
+        while(1) { delay(1000); }
+    }
+    Serial.println("[MINIMAL] Core 0 task started");
+    
+    // Initialize test modules
+    PhaseTests::runSetupTests();
+    
+    Serial.println("[MINIMAL] Setup complete - starting test loop");
     return;
 #endif
     
@@ -294,6 +367,35 @@ void setup() {
     } else {
         safety.begin(); motor.begin(); pinMode(PIN_TEMP_ANALOG, INPUT);
         ledsButtons.begin(); ledsRing.begin(); ledsButtons.setBrightness(LED_BRIGHT_LOW); ledsRing.setBrightness(LED_BRIGHT_LOW);
+        
+        // CRITICAL: Initialize CAN bus and Core 0 task for production mode
+        Serial.println("[PRODUCTION] Initializing CAN bus and Core 0 task");
+        
+        // Initialize CAN bus FIRST (before Core 0 task starts)
+        ESP32Can.setPins(PIN_CAN_TX, PIN_CAN_RX);
+        ESP32Can.setSpeed(TWAI_SPEED_250KBPS);
+        if (!ESP32Can.begin()) {
+            Serial.println("ERROR: CAN bus init failed");
+            while(1) { delay(1000); }
+        }
+        Serial.println("[PRODUCTION] CAN bus initialized");
+        
+        // Initialize CanRxHandler
+        CanRxHandler& canRx = CanRxHandler::getInstance();
+        if (!canRx.begin()) {
+            Serial.println("ERROR: CanRxHandler init failed");
+            while(1) { delay(1000); }
+        }
+        Serial.println("[PRODUCTION] CanRxHandler initialized");
+        
+        canRx.setOutput(&serialOutput);
+        
+        // Start Core 0 CAN polling task (AFTER CAN bus is ready)
+        if (!canRx.startCore0Task()) {
+            Serial.println("ERROR: CanRxHandler Core0 task failed to start");
+            while(1) { delay(1000); }
+        }
+        Serial.println("[PRODUCTION] Core 0 task started");
     }
     
     btnUpper.attach(PIN_BTN_UPPER, INPUT_PULLUP);
@@ -308,18 +410,47 @@ void setup() {
 void loop() {
     serialOutput.nextByteOut();
 
+#if MINIMAL_CANRX_TEST_MODE
+    // MINIMAL TEST MODE - Only run CanRx tests, no main FSM
+    Serial.println("[MINIMAL] Running CanRxHandler test only - main FSM disabled");
+    
+    // Run CanRxHandler Test if enabled (non-disruptive Core 0 monitoring)
+    #if TEST_CANRXHANDLER_ENABLED
+        CanRxHandlerTest::loop();
+    #endif
+    
+    // Run BDS Integration Test if enabled (non-disruptive)
+    #if TEST_BDS_INTEGRATION_ENABLED
+        PhaseTests::testBDSIntegration();
+    #endif
+    
+    delay(100); // Small delay to prevent spam
+    return;
+#endif
+
 #if TEST_MODE_PHASE1
     toggleLoopFlag(); // Mark the start/end of the loop for measurement
 
 #if TEST_PROTECTED_WINDOW_ENABLED
     protectedWindow.loop();
 #else
-    PhaseTests::runLoopTests(); // No longer needs serialOutput passed
-#endif
     
+    // Run CanRxHandler Test if enabled (non-disruptive Core 0 monitoring)
+    #if TEST_CANRXHANDLER_ENABLED
+        CanRxHandlerTest::loop();
+    #endif
+    
+    // Run BDS Integration Test if enabled (non-disruptive)
+    #if TEST_BDS_INTEGRATION_ENABLED
+        PhaseTests::testBDSIntegration();
+    #endif
+    
+    delay(100); // Small delay to prevent spam
     return;
 #endif
+#endif
     
+    // NORMAL MAIN LOOP (when MINIMAL_CANRX_TEST_MODE is false)
     unsigned long loopStart = millis();
     static unsigned long lastLoopReportTime = 0;
     static unsigned long maxLoopTime = 0;
@@ -400,7 +531,15 @@ void loop() {
     // Use GPTimer for boot safety check
     if (hwTimer.micros() - bootTime > 3000000) {  // 3 seconds in microseconds
         bool movingDown = motor.getVelocity() > 0.1f;
-        if (!safety.check(motor.getVelocity(), movingDown)) { fsm_state.currentState = InjectorStates::ERROR_STATE; fsm_state.error = safety.getLastError(); }
+        
+        // Skip safety check during INIT_HEATING to allow boot without ODrive communication
+        // This matches the existing exception pattern for ODrive errors (lines 422-425)
+        if (fsm_state.currentState != InjectorStates::INIT_HEATING) {
+            if (!safety.check(motor.getVelocity(), movingDown)) { 
+                fsm_state.currentState = InjectorStates::ERROR_STATE; 
+                fsm_state.error = safety.getLastError(); 
+            }
+        }
         
         uint32_t axisErr = motor.getAxisError();
         uint32_t motorErr = motor.getMotorErrorDetails().motor_error;
@@ -445,7 +584,7 @@ void loop() {
     switch (fsm_state.currentState) {
         case InjectorStates::ERROR_STATE:
             if (stateEntry) {
-                MotorWrapper::setModeAndMove(motor, 2, 1, 0, "Stop");
+                MotorWrapper::setModeAndMove(motor, 2, 1, 0, MODULE_COMPRESSION, "Stop");
                 char errBuf[64];
                 snprintf(errBuf, sizeof(errBuf), "ERROR STATE ENTERED: 0x%X", fsm_state.error);
                 MessageBuffer::getInstance().sendMessage(errBuf);
@@ -655,10 +794,10 @@ void loop() {
         case InjectorStates::RELEASE: 
             if (stateEntry) {
                 MessageBuffer::getInstance().sendMessage("Release: Unloading mould");
-                MotorWrapper::setMotorLimits(motor, RELEASE_CONTROLLER_VEL_LIMIT, RELEASE_CURRENT_LIMIT, "RELEASE");
-                MotorWrapper::setTrapTrajParams(motor, RELEASE_TRAP_VEL_LIMIT, RELEASE_ACCEL, RELEASE_DECEL, "RELEASE_TRAJ");
+                MotorWrapper::setMotorLimits(motor, RELEASE_CONTROLLER_VEL_LIMIT, RELEASE_CURRENT_LIMIT, MODULE_RELEASE, "RELEASE");
+                MotorWrapper::setTrapTrajParams(motor, RELEASE_TRAP_VEL_LIMIT, RELEASE_ACCEL, RELEASE_DECEL, MODULE_RELEASE, "RELEASE_TRAJ");
                 float releaseTarget = motor.getPosition() + RELEASE_DIST;
-                MotorWrapper::setModeAndMove(motor, 3, 5, releaseTarget, "Pos Release");
+                MotorWrapper::setModeAndMove(motor, 3, 5, releaseTarget, MODULE_RELEASE, "Pos Release");
                 stateEntry = false;
             }
             if (millis() - stateTimer > 2000) { 
@@ -688,6 +827,21 @@ void loop() {
     }
     updateLeds();
     
+    // Run Response Correlation Test if enabled
+    #ifdef RESPONSE_CORRELATION_TEST_ENABLED
+        ResponseCorrelationTest::loop();
+    #endif
+    
+    // Run BDS Integration Test if enabled (non-disruptive)
+    #if TEST_BDS_INTEGRATION_ENABLED
+        PhaseTests::testBDSIntegration();
+    #endif
+    
+    // Run CanRxHandler Test if enabled (non-disruptive Core 0 monitoring)
+    #if TEST_CANRXHANDLER_ENABLED
+        CanRxHandlerTest::loop();
+    #endif
+    
     unsigned long loopEnd = millis();
     loopTime = loopEnd - loopStart;
     if (loopTime > maxLoopTime) maxLoopTime = loopTime;
@@ -700,6 +854,20 @@ void loop() {
         const char* output = MessageBuffer::getInstance().getOutput();
         serialOutput.println(output);
         MessageBuffer::getInstance().clearBuffer();
+        #endif
+    }
+    
+    // Handle serial commands for Response Correlation Test
+    if (Serial.available()) {
+        String cmd = Serial.readString();
+        cmd.trim();
+        
+        #ifdef RESPONSE_CORRELATION_TEST_ENABLED
+        if (cmd == "test_response") {
+            ResponseCorrelationTest::startTest();
+        } else if (cmd == "test_reset") {
+            ResponseCorrelationTest::resetTest();
+        }
         #endif
     }
 }

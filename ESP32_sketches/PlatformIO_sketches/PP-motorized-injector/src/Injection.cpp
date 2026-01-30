@@ -73,12 +73,12 @@ namespace Injection {
             MessageBuffer::getInstance().sendMessage(logBuf);
             
             // Queue all commands - ring buffer handles timing
-            MotorWrapper::setMotorLimits(motor, INJECT_FILL_CONTROLLER_VEL_LIMIT, INJECT_FILL_CURRENT, "Inject Fill");
+            MotorWrapper::setMotorLimits(motor, INJECT_FILL_CONTROLLER_VEL_LIMIT, INJECT_FILL_CURRENT, MODULE_INJECT, "Inject Fill");
             MotorWrapper::setTrapTrajParams(motor, commonParams.injectFillTrapVelLimit, 
                                            commonParams.injectFillAccel, 
                                            commonParams.injectFillDecel, 
-                                           "Fill Traj");
-            MotorWrapper::setModeAndMove(motor, 3, 5, targetInjectPos, "Pos Inject");
+                                           MODULE_INJECT, "Fill Traj");
+            MotorWrapper::setModeAndMove(motor, 3, 5, targetInjectPos, MODULE_INJECT, "Pos Inject");
             lastCommandTime = now;
             
             stateEntry = false;
@@ -107,16 +107,16 @@ namespace Injection {
                 }
                 
                 // Set motor limits for packing (higher pressure, controller limit = machine max for TRAP_TRAJ authority)
-                MotorWrapper::setMotorLimits(motor, INJECT_PACK_CONTROLLER_VEL_LIMIT, INJECT_PACK_CURRENT, "Inject Pack");
+                MotorWrapper::setMotorLimits(motor, INJECT_PACK_CONTROLLER_VEL_LIMIT, INJECT_PACK_CURRENT, MODULE_INJECT, "Inject Pack");
                 
                 // Configure TRAP_TRAJ with mould-specific accel/decel for pack (trajectory limit - slower, controlled)
                 MotorWrapper::setTrapTrajParams(motor, commonParams.injectPackTrapVelLimit,
                                                commonParams.injectPackAccel,
                                                commonParams.injectPackDecel,
-                                               "Pack Traj");
+                                               MODULE_INJECT, "Pack Traj");
                 
                 // Set lower pressure for packing - send ONCE
-                MotorWrapper::setModeAndMove(motor, 3, 5, targetPackPos, "Pos Pack");
+                MotorWrapper::setModeAndMove(motor, 3, 5, targetPackPos, MODULE_INJECT, "Pos Pack");
                 lastCommandTime = now;
                 
                 return false;  // Still running
@@ -126,7 +126,7 @@ namespace Injection {
             if (phaseElapsed > 30000) {
                 error = true;
                 complete = true;
-                MotorWrapper::setModeAndMove(motor, 2, 1, 0, "Inject Timeout Stop");
+                MotorWrapper::setModeAndMove(motor, 2, 1, 0, MODULE_INJECT, "Inject Timeout Stop");
                 return true;
             }
             

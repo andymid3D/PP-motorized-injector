@@ -1,5 +1,6 @@
 #include "Homing.h"
 #include "MessageBuffer.h"
+#include "MotorWrapper.h"
 
 // ===== STATIC MEMBER INITIALIZATION =====
 Homing::HomingState Homing::currentState_ = Homing::HomingState::IDLE;
@@ -204,16 +205,23 @@ void Homing::handleRetractFast(CanBusHandlerV2& motor, SafetyManager& safety) {
     
     // One-time: Send mode change on first entry
     if (previousState_ != HomingState::RETRACT_FAST && modeCommandSentAtMs_ == 0) {
-        motor.setControllerModes(ODriveCANProtocol::ControlMode::VELOCITY_CONTROL,
-                                 ODriveCANProtocol::InputMode::VEL_RAMP);
+        MotorWrapper::setControllerModes(motor, ODriveCANProtocol::ControlMode::VELOCITY_CONTROL,
+                                         ODriveCANProtocol::InputMode::VEL_RAMP, MODULE_INIT_HOMING, "RetractFast");
         lastControlModeSent_ = (uint8_t)ODriveCANProtocol::ControlMode::VELOCITY_CONTROL;
         lastInputModeSent_ = (uint8_t)ODriveCANProtocol::InputMode::VEL_RAMP;
         modeCommandSentAtMs_ = millis();  // Timestamp mode command sent
     }
     
-    // Send velocity only after CAN_COMMAND_GAP_MS delay to allow ODrive to process mode change
-    if (modeCommandSentAtMs_ > 0 && millis() - modeCommandSentAtMs_ >= CAN_COMMAND_GAP_MS) {
-        motor.setInputVel(HOMING_FAST_VEL);  // Negative = up (already in config)
+    // Send velocity command ONCE with retry system (no more spamming)
+    static bool velocityCommandSent = false;
+    if (modeCommandSentAtMs_ > 0 && !velocityCommandSent) {
+        bool commandQueued = MotorWrapper::setModeAndMoveWithRetry(
+            motor, 2, 2, HOMING_FAST_VEL, MODULE_INIT_HOMING, 
+            "RetractFast", MotorWrapper::PRIORITY_NORMAL
+        );
+        if (commandQueued) {
+            velocityCommandSent = true;
+        }
     }
     
     // Check for endstop or timeout
@@ -250,8 +258,8 @@ void Homing::handleDecelerate(CanBusHandlerV2& motor, SafetyManager& safety) {
 void Homing::handleBackoff(CanBusHandlerV2& motor, SafetyManager& safety) {
     // One-time: Send mode change on first entry
     if (previousState_ != HomingState::BACKOFF && modeCommandSentAtMs_ == 0) {
-        motor.setControllerModes(ODriveCANProtocol::ControlMode::VELOCITY_CONTROL,
-                                 ODriveCANProtocol::InputMode::VEL_RAMP);
+        MotorWrapper::setControllerModes(motor, ODriveCANProtocol::ControlMode::VELOCITY_CONTROL,
+                                         ODriveCANProtocol::InputMode::VEL_RAMP, MODULE_INIT_HOMING, "Backoff");
         lastControlModeSent_ = (uint8_t)ODriveCANProtocol::ControlMode::VELOCITY_CONTROL;
         lastInputModeSent_ = (uint8_t)ODriveCANProtocol::InputMode::VEL_RAMP;
         modeCommandSentAtMs_ = millis();  // Timestamp mode command sent
@@ -261,10 +269,15 @@ void Homing::handleBackoff(CanBusHandlerV2& motor, SafetyManager& safety) {
         MessageBuffer::getInstance().sendMessage(buf);
     }
     
-    // Send velocity only after CAN_COMMAND_GAP_MS delay to allow ODrive to process mode change
-    if (modeCommandSentAtMs_ > 0 && millis() - modeCommandSentAtMs_ >= CAN_COMMAND_GAP_MS) {
-        if (!backoffVelCmdSent_) {
-            motor.setInputVel(HOMING_BACKOFF_VEL);  // Positive = down/forward
+    // Send velocity command ONCE with retry system (no more spamming)
+    static bool velocityCommandSent = false;
+    if (modeCommandSentAtMs_ > 0 && !velocityCommandSent) {
+        bool commandQueued = MotorWrapper::setModeAndMoveWithRetry(
+            motor, 2, 2, HOMING_BACKOFF_VEL, MODULE_INIT_HOMING, 
+            "Backoff", MotorWrapper::PRIORITY_NORMAL
+        );
+        if (commandQueued) {
+            velocityCommandSent = true;
             char buf[80];
             snprintf(buf, sizeof(buf), "BACKOFF: Vel cmd sent at %lums (vel=%.1f rps)", 
                      millis(), HOMING_BACKOFF_VEL);
@@ -296,16 +309,23 @@ void Homing::handleBackoff(CanBusHandlerV2& motor, SafetyManager& safety) {
 void Homing::handleApproach(CanBusHandlerV2& motor, SafetyManager& safety) {
     // One-time: Send mode change on first entry
     if (previousState_ != HomingState::APPROACH && modeCommandSentAtMs_ == 0) {
-        motor.setControllerModes(ODriveCANProtocol::ControlMode::VELOCITY_CONTROL,
-                                 ODriveCANProtocol::InputMode::VEL_RAMP);
+        MotorWrapper::setControllerModes(motor, ODriveCANProtocol::ControlMode::VELOCITY_CONTROL,
+                                         ODriveCANProtocol::InputMode::VEL_RAMP, MODULE_INIT_HOMING, "Approach");
         lastControlModeSent_ = (uint8_t)ODriveCANProtocol::ControlMode::VELOCITY_CONTROL;
         lastInputModeSent_ = (uint8_t)ODriveCANProtocol::InputMode::VEL_RAMP;
         modeCommandSentAtMs_ = millis();  // Timestamp mode command sent
     }
     
-    // Send velocity only after CAN_COMMAND_GAP_MS delay to allow ODrive to process mode change
-    if (modeCommandSentAtMs_ > 0 && millis() - modeCommandSentAtMs_ >= CAN_COMMAND_GAP_MS) {
-        motor.setInputVel(HOMING_APPROACH_VEL);  // Negative = up, slow
+    // Send velocity command ONCE with retry system (no more spamming)
+    static bool velocityCommandSent = false;
+    if (modeCommandSentAtMs_ > 0 && !velocityCommandSent) {
+        bool commandQueued = MotorWrapper::setModeAndMoveWithRetry(
+            motor, 2, 2, HOMING_APPROACH_VEL, MODULE_INIT_HOMING, 
+            "Approach", MotorWrapper::PRIORITY_NORMAL
+        );
+        if (commandQueued) {
+            velocityCommandSent = true;
+        }
     }
     
     // Check for endstop

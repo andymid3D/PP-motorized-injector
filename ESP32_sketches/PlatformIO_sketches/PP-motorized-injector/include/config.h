@@ -11,16 +11,20 @@
 // ==========================================
 // 0B. PHASE 1 TEST MODE (ISOLATED MODULE TESTING)
 // ==========================================
-#define TEST_MODE_PHASE1  true
+#define TEST_MODE_PHASE1  false  // DEACTIVATED - blocks production FSM!
 
 // Phase 1 Test Enable Flags (individual module tests)
 #define TEST_LOOPTIMER_ENABLED           false
 #define TEST_RINGBUFFER_ENABLED          false
 #define TEST_STRESS_QUEUE_ENABLED        false
 #define TEST_BDS_STORAGE_ENABLED         false
-#define TEST_BDS_INTEGRATION_ENABLED     true
+#define TEST_BDS_INTEGRATION_ENABLED     true   // ACTIVATED - Non-disruptive BDS monitoring
+#define TEST_CANRXHANDLER_ENABLED         false  // DISABLED - Core 0 task verified working
 #define TEST_BASELINE_TIMING_ENABLED     false
-#define TEST_PROTECTED_WINDOW_ENABLED    true
+#define TEST_PROTECTED_WINDOW_ENABLED    false  // DEACTIVATED
+
+// MINIMAL TEST MODE - Disable main FSM to isolate CanRxHandler test
+#define MINIMAL_CANRX_TEST_MODE          false  // DISABLED - Re-enable main loop
 
 #if DEBUG_ENABLED
   #define DEBUG_PRINT(...) Serial.print(__VA_ARGS__)
@@ -191,7 +195,26 @@
 #define RELEASE_TIMEOUT_MS      2000
 
 // ==========================================
-// 5. DATA STRUCTURES
+// 5. MODULE ID DEFINITIONS (aligned with InjectorStates enum)
+// ==========================================
+#define MODULE_ERROR_STATE              0
+#define MODULE_INIT_HEATING             1
+#define MODULE_INIT_HOT_NOT_HOMED       2
+#define MODULE_INIT_HOMING              3
+#define MODULE_INIT_HOMED_ENCODER_ZEROED 4
+#define MODULE_REFILL                   5
+#define MODULE_COMPRESSION              6
+#define MODULE_READY_TO_INJECT          7
+#define MODULE_PURGE_ZERO               8
+#define MODULE_ANTIDRIP                 9
+#define MODULE_INJECT                   10
+#define MODULE_HOLD_INJECTION           11
+#define MODULE_RELEASE                  12
+#define MODULE_CONFIRM_MOULD_REMOVAL    13
+#define MODULE_SAFETY_MANAGER          255  // Special case (not in InjectorStates enum)
+
+// ==========================================
+// 6. DATA STRUCTURES
 // ==========================================
 struct MachineFlags {                  
     bool endOfDay;           

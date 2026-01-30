@@ -102,6 +102,9 @@ private:
     uint8_t _barrelCounter;
     uint8_t _topCounter;
     uint8_t _botCounter;
+    
+    // Boot time tracking for broadcast stale grace period
+    unsigned long _bootTime;
 
     // Threshold: Number of consecutive loops a signal must be active to be trusted
     // Loop runs fast, so 50 counts is roughly 20-50ms of continuous signal

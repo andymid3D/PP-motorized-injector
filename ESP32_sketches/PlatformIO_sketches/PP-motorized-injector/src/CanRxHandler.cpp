@@ -45,12 +45,27 @@ void CanRxHandler::pollingTaskCore0(void* parameter) { // Corrected scope
 
     CanRxHandler* handler = static_cast<CanRxHandler*>(parameter);
     uint32_t pollCount = 0;
+    uint32_t lastDebugTime = millis();
+    
+    // DEBUG: Indicate task started
+    Serial.println("[Core0] CanRxHandler task started");
+    
     while (true) {
         handler->pollAndProcess();
         if (++pollCount >= 100) { // Reset watchdog periodically
             esp_task_wdt_reset();
             pollCount = 0;
         }
+        
+        // DEBUG: Report activity every 5 seconds
+        uint32_t currentTime = millis();
+        if (currentTime - lastDebugTime >= 5000) {
+            uint32_t totalMsgs = handler->getMessagesReceived();
+            uint32_t queueDepth = handler->getQueueDepth();
+            Serial.printf("[Core0] Active - Total msgs: %u | Queue: %u | Polls: 100\n", totalMsgs, queueDepth);
+            lastDebugTime = currentTime;
+        }
+        
         // Small delay to prevent tight loop if no messages, but keep high frequency
         delayMicroseconds(1);
     }
@@ -96,23 +111,56 @@ uint32_t CanRxHandler::getQueueOverflows() const {
 }
 
 void CanRxHandler::pollAndProcess() {
-    CanFrame frame;
-    if (!ESP32Can.readFrame(frame, 0)) return; // 0 = non-blocking
+    if (!messageQueue_) return;
 
+    // Read CAN frame (non-blocking)
+    CanFrame frame;
+    if (!ESP32Can.readFrame(frame, 0)) {
+        return; // No message available
+    }
+
+    // DEBUG: Count reads
+    messagesReceived_++;
+    
     uint64_t timestamp = hwTimer.micros(); // Timestamp immediately
 
     BroadcastDataStore& bds = BroadcastDataStore::getInstance();
     uint32_t cmdId = frame.identifier & 0x1F; // Mask out Node ID (bits 5-10)
 
-    // Minimal Direct Classification: ONLY Heartbeat for bundle marker
+    // Process heartbeat messages (CRITICAL for axis state detection)
     if (cmdId == ODriveCANProtocol::CYCLIC_HEARTBEAT) {
-        // Parse the raw CAN frame data into the Heartbeat struct
-        ODriveCANProtocol::CyclicHeartbeat hb_data = ODriveCANProtocol::parseCyclicHeartbeat((const can_Message_t&)frame);
-        // Call storeHeartbeat with the parsed components
-        // Passing 0 for procedureResult as it's not directly available in CyclicHeartbeat
-        bds.storeHeartbeat(hb_data.axis_error, hb_data.axis_state, 0, timestamp, false);
+        // Parse heartbeat according to ODrive spec:
+        // Byte 0-3: Axis Error (uint32 - full error code)
+        // Byte 4:   Axis State (uint8)
+        // Byte 5:   Motor Error Flag (uint8 - boolean flag only)
+        // Byte 6:   Encoder Error Flag (uint8 - boolean flag only)
+        // Byte 7:   Controller Error Flag (uint8 - boolean flag) + Trajectory Done Flag (uint8)
+        uint32_t axis_error = 0;
+        uint8_t axis_state = 0;
+        uint8_t motor_error_flag = 0;
+        uint8_t encoder_error_flag = 0;
+        uint8_t controller_error_flag = 0;
+        uint8_t trajectory_done_flag = 0;
+        
+        // Parse axis error (uint32, little-endian) - this is the ONLY error code in heartbeat
+        axis_error |= ((uint32_t)frame.data[0]) << 0;
+        axis_error |= ((uint32_t)frame.data[1]) << 8;
+        axis_error |= ((uint32_t)frame.data[2]) << 16;
+        axis_error |= ((uint32_t)frame.data[3]) << 24;
+        
+        // Parse individual flags (boolean indicators, not error codes)
+        axis_state = frame.data[4];
+        motor_error_flag = frame.data[5];                    // 0=OK, 1=error present
+        encoder_error_flag = frame.data[6];                  // 0=OK, 1=error present
+        controller_error_flag = frame.data[7] & 0x7F;         // 0=OK, 1=error present (bits 0-6)
+        trajectory_done_flag = (frame.data[7] >> 7) & 0x01;  // Bit 7
+        
+        // Store heartbeat with axis error code and state
+        bds.storeHeartbeat(axis_error, axis_state, trajectory_done_flag, timestamp, false);
+        
+        // NOTE: Don't store flags in error structures - those are for full error codes from dedicated messages
+        // Flags are available for debugging but not used in main error reporting
     }
-    // Store encoder data for timing system
     else if (cmdId == ODriveCANProtocol::CYCLIC_ENCODER_ESTIMATES) {
         // Manual float parsing to bypass broken CAN library
         union { float f; uint8_t bytes[4]; } manual_pos, manual_vel;
@@ -124,66 +172,50 @@ void CanRxHandler::pollAndProcess() {
         manual_vel.bytes[1] = frame.data[5];
         manual_vel.bytes[2] = frame.data[6];
         manual_vel.bytes[3] = frame.data[7];
-        
-        // Store manually parsed values
         bds.storeEncoder(manual_pos.f, manual_vel.f, timestamp, false);
-        
-        // DEBUG: Commented out to reduce streaming noise
-        // Serial.print("[CAN-FIX] Manual: pos=");
-        // Serial.print(manual_pos.f, 6);
-        // Serial.print(" vel=");
-        // Serial.print(manual_vel.f, 6);
-        // Serial.print(" RAW: ");
-        // for (int i = 0; i < frame.data_length_code; i++) {
-        //     if (frame.data[i] < 0x10) Serial.print("0");
-        //     Serial.print(frame.data[i], HEX);
-        //     Serial.print(" ");
-        // }
-        // Serial.println();
     }
-    // Store IQ data for timing system
     else if (cmdId == ODriveCANProtocol::CYCLIC_IQ) {
         // Manual float parsing to bypass broken CAN library
-        union { float f; uint8_t bytes[4]; } manual_setpoint, manual_measured;
-        manual_setpoint.bytes[0] = frame.data[0];
-        manual_setpoint.bytes[1] = frame.data[1];
-        manual_setpoint.bytes[2] = frame.data[2];
-        manual_setpoint.bytes[3] = frame.data[3];
-        manual_measured.bytes[0] = frame.data[4];
-        manual_measured.bytes[1] = frame.data[5];
-        manual_measured.bytes[2] = frame.data[6];
-        manual_measured.bytes[3] = frame.data[7];
-        
-        // Store manually parsed values
-        bds.storeIq(manual_setpoint.f, manual_measured.f, timestamp, false);
-        
-        // DEBUG: Commented out to reduce streaming noise
-        // Serial.print("[CAN-FIX] IQ: set=");
-        // Serial.print(manual_setpoint.f, 3);
-        // Serial.print(" meas=");
-        // Serial.print(manual_measured.f, 3);
-        // Serial.print(" RAW: ");
-        // for (int i = 0; i < frame.data_length_code; i++) {
-        //     if (frame.data[i] < 0x10) Serial.print("0");
-        //     Serial.print(frame.data[i], HEX);
-        //     Serial.print(" ");
-        // }
-        // Serial.println();
+        union { float f; uint8_t bytes[4]; } manual_iq, manual_id;
+        manual_iq.bytes[0] = frame.data[0];
+        manual_iq.bytes[1] = frame.data[1];
+        manual_iq.bytes[2] = frame.data[2];
+        manual_iq.bytes[3] = frame.data[3];
+        manual_id.bytes[0] = frame.data[4];
+        manual_id.bytes[1] = frame.data[5];
+        manual_id.bytes[2] = frame.data[6];
+        manual_id.bytes[3] = frame.data[7];
+        bds.storeIq(manual_iq.f, manual_id.f, timestamp, false);
     }
-    // Store motor error data
+    // Store motor error data - use manual parsing to avoid can_getSignal endianness issues
     else if (cmdId == ODriveCANProtocol::CYCLIC_MOTOR_ERROR) {
-        ODriveCANProtocol::CyclicMotorError motor_data = ODriveCANProtocol::parseCyclicMotorError((const can_Message_t&)frame);
-        bds.storeMotorError(motor_data.motor_error, timestamp, false);
+        // Parse 32-bit motor error (little-endian)
+        uint32_t motor_error = 0;
+        motor_error |= ((uint32_t)frame.data[0]) << 0;
+        motor_error |= ((uint32_t)frame.data[1]) << 8;
+        motor_error |= ((uint32_t)frame.data[2]) << 16;
+        motor_error |= ((uint32_t)frame.data[3]) << 24;
+        bds.storeMotorError(motor_error, timestamp, false);
     }
-    // Store encoder error data
+    // Store encoder error data - use manual parsing to avoid can_getSignal endianness issues
     else if (cmdId == ODriveCANProtocol::CYCLIC_ENCODER_ERROR) {
-        ODriveCANProtocol::CyclicEncoderError encoder_data = ODriveCANProtocol::parseCyclicEncoderError((const can_Message_t&)frame);
-        bds.storeEncoderError(encoder_data.encoder_error, timestamp, false);
+        // Parse 32-bit encoder error (little-endian)
+        uint32_t encoder_error = 0;
+        encoder_error |= ((uint32_t)frame.data[0]) << 0;
+        encoder_error |= ((uint32_t)frame.data[1]) << 8;
+        encoder_error |= ((uint32_t)frame.data[2]) << 16;
+        encoder_error |= ((uint32_t)frame.data[3]) << 24;
+        bds.storeEncoderError(encoder_error, timestamp, false);
     }
-    // Store controller error data
+    // Store controller error data - use manual parsing to avoid can_getSignal endianness issues
     else if (cmdId == ODriveCANProtocol::CYCLIC_CONTROLLER_ERROR) {
-        ODriveCANProtocol::CyclicControllerError controller_data = ODriveCANProtocol::parseCyclicControllerError((const can_Message_t&)frame);
-        bds.storeControllerError(controller_data.controller_error, timestamp, false);
+        // Parse 32-bit controller error (little-endian)
+        uint32_t controller_error = 0;
+        controller_error |= ((uint32_t)frame.data[0]) << 0;
+        controller_error |= ((uint32_t)frame.data[1]) << 8;
+        controller_error |= ((uint32_t)frame.data[2]) << 16;
+        controller_error |= ((uint32_t)frame.data[3]) << 24;
+        bds.storeControllerError(controller_error, timestamp, false);
     }
     // Store bus voltage/current data for movement detection comparison
     else if (cmdId == ODriveCANProtocol::CYCLIC_BUS_VI) {

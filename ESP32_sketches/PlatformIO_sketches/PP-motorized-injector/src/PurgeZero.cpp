@@ -28,7 +28,7 @@ namespace PurgeZero {
         // ===== DEBOUNCE: Wait for buttons to release at entry =====
         if (stateEntry) {
             // Queue limit command - ring buffer handles timing
-            MotorWrapper::setMotorLimits(motor, PURGE_VEL_LIMIT, PURGE_CURRENT_LIMIT, "PurgeZero");
+            MotorWrapper::setMotorLimits(motor, PURGE_VEL_LIMIT, PURGE_CURRENT_LIMIT, MODULE_PURGE_ZERO, "PurgeZero");
             lastCommandTime = now;
             stateEntry = false;
         }
@@ -50,17 +50,17 @@ namespace PurgeZero {
             currentButtonState = 2;  // Down
         }
         
-        // Only send commands if button state changed AND minimum gap elapsed
-        if (currentButtonState != lastButtonState && now - lastCommandTime >= CAN_COMMAND_GAP_MS) {
+        // Only send commands if button state changed (CanBusHandlerV2 handles timing)
+        if (currentButtonState != lastButtonState) {
             if (currentButtonState == 1) {
                 // Upper button pressed: retract (up) = PURGE_VEL_UP (negative in config)
-                MotorWrapper::setModeAndMove(motor, 2, 1, PURGE_VEL_UP, "Purge Up");
+                MotorWrapper::setModeAndMove(motor, 2, 1, PURGE_VEL_UP, MODULE_PURGE_ZERO, "Purge Up");
             } else if (currentButtonState == 2) {
                 // Lower button pressed: push plastic out (down) = PURGE_VEL_DOWN (positive in config)
-                MotorWrapper::setModeAndMove(motor, 2, 1, PURGE_VEL_DOWN, "Purge Down");
+                MotorWrapper::setModeAndMove(motor, 2, 1, PURGE_VEL_DOWN, MODULE_PURGE_ZERO, "Purge Down");
             } else {
                 // Neither button pressed: stop
-                MotorWrapper::setModeAndMove(motor, 2, 1, 0, "Purge Stop");
+                MotorWrapper::setModeAndMove(motor, 2, 1, 0, MODULE_PURGE_ZERO, "Purge Stop");
             }
             lastButtonState = currentButtonState;
             lastCommandTime = now;
@@ -69,7 +69,7 @@ namespace PurgeZero {
         // ===== CENTER BUTTON: Confirm zero point =====
         if (buttonCenter) {  // buttonCenter is now bool pressed() event from main
             // User released center: confirm current position as zero point for injection
-            MotorWrapper::setModeAndMove(motor, 2, 1, 0, "Purge Confirm");  // Stop motor
+            MotorWrapper::setModeAndMove(motor, 2, 1, 0, MODULE_PURGE_ZERO, "Purge Confirm");  // Stop motor
             lastCommandTime = now;
             complete = true;
             return true;

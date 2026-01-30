@@ -33,8 +33,8 @@ namespace AntiDrip {
         // ===== ENTRY: Set velocity control mode and start upward movement =====
         if (stateEntry) {
             // Queue all commands - ring buffer handles timing
-            MotorWrapper::setMotorLimits(motor, ANTIDRIP_VEL_LIMIT, ANTIDRIP_CURRENT_LIMIT, "AntiDrip");
-            MotorWrapper::setModeAndMove(motor, 2, 1, ANTIDRIP_VEL, "AntiDrip Up");  // ANTIDRIP_VEL is negative (up)
+            MotorWrapper::setMotorLimits(motor, ANTIDRIP_VEL_LIMIT, ANTIDRIP_CURRENT_LIMIT, MODULE_ANTIDRIP, "AntiDrip");
+            MotorWrapper::setModeAndMove(motor, 2, 1, ANTIDRIP_VEL, MODULE_ANTIDRIP, "AntiDrip Up");  // ANTIDRIP_VEL is negative (up)
             lastCommandTime = now;
             stateEntry = false;
         }
@@ -52,7 +52,7 @@ namespace AntiDrip {
         if (elapsed > ANTIDRIP_TIMEOUT_MS) {
             isTimeoutFlag = true;
             complete = true;
-            MotorWrapper::setModeAndMove(motor, 2, 1, 0, "AntiDrip Stop");  // Stop motor
+            MotorWrapper::setModeAndMove(motor, 2, 1, 0, MODULE_ANTIDRIP, "AntiDrip Stop");  // Stop motor
             return true;
         }
         

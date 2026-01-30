@@ -35,10 +35,10 @@ namespace Refill {
         if (step == MOVING_TO_HOME) {
             if (stateEntry) {
                 // Queue all commands - ring buffer handles timing
-                MotorWrapper::setMotorLimits(motor, REFILL_CONTROLLER_VEL_LIMIT, REFILL_CURRENT_LIMIT, "Refill");
+                MotorWrapper::setMotorLimits(motor, REFILL_CONTROLLER_VEL_LIMIT, REFILL_CURRENT_LIMIT, MODULE_REFILL, "Refill");
                 MotorWrapper::setTrapTrajParams(motor, commonParams.refillTrapVelLimit, 
-                                                commonParams.refillAccel, commonParams.refillDecel, "Refill Traj");
-                MotorWrapper::setModeAndMove(motor, 3, 5, OFFSET_REFILL_GAP, "Pos Refill");
+                                                commonParams.refillAccel, commonParams.refillDecel, MODULE_REFILL, "Refill Traj");
+                MotorWrapper::setModeAndMove(motor, 3, 5, OFFSET_REFILL_GAP, MODULE_REFILL, "Pos Refill");
                 stepTimer = millis();
                 stateEntry = false;
             }

@@ -38,8 +38,8 @@ namespace ReadyToInject {
         
         // ===== ENTRY: Set idle mode once =====
         if (stateEntry) {
-            MotorWrapper::setMotorLimits(motor, REFILL_CONTROLLER_VEL_LIMIT, REFILL_CURRENT_LIMIT, "ReadyIdle");
-            MotorWrapper::setModeAndMove(motor, 1, 6, 0, "Idle Stop");
+            MotorWrapper::setMotorLimits(motor, REFILL_CONTROLLER_VEL_LIMIT, REFILL_CURRENT_LIMIT, MODULE_READY_TO_INJECT, "ReadyIdle");
+            MotorWrapper::setModeAndMove(motor, 1, 6, 0, MODULE_READY_TO_INJECT, "Idle Stop");
             stateEntry = false;
         }
         
@@ -49,7 +49,7 @@ namespace ReadyToInject {
             
             if (timeSinceLastCompress >= READY_MICRO_INTERVAL_MS) {
                 // Time to start micro-compression - queue commands
-                MotorWrapper::setMotorLimits(motor, COMPRESS_MICRO_VEL_LIMIT, COMPRESS_MICRO_CURRENT, "MicroCompress");
+                MotorWrapper::setMotorLimits(motor, COMPRESS_MICRO_VEL_LIMIT, COMPRESS_MICRO_CURRENT, MODULE_READY_TO_INJECT, "MicroCompress");
                 motor.setControllerModes(ODriveCANProtocol::ControlMode::TORQUE_CONTROL, ODriveCANProtocol::InputMode::TORQUE_RAMP);
                 state = MICRO_COMPRESSING;
                 compressionStartTime = millis();
@@ -72,10 +72,17 @@ namespace ReadyToInject {
                 targetTorque = commonParams.compressMicroCurrent;
             }
             
-            // Send torque setpoint updates with CAN gap enforcement
-            if (now - lastCommandTime >= CAN_COMMAND_GAP_MS) {
-                motor.setInputTorque(targetTorque);
-                lastCommandTime = now;
+            // Send torque setpoint ONCE with retry system (no more spamming)
+            static bool torqueCommandSent = false;
+            if (!torqueCommandSent) {
+                bool commandQueued = MotorWrapper::setModeAndMoveWithRetry(
+                    motor, 1, 6, targetTorque, MODULE_READY_TO_INJECT, 
+                    "MicroCompress", MotorWrapper::PRIORITY_NORMAL
+                );
+                if (commandQueued) {
+                    torqueCommandSent = true;
+                    lastCommandTime = now;
+                }
             }
             
             // Check completion: time elapsed or stall detected
@@ -84,7 +91,7 @@ namespace ReadyToInject {
             
             if (completedByTime || completedByStall) {
                 // Compression complete, return to idle
-                MotorWrapper::setModeAndMove(motor, 1, 6, 0, "MicroCompress Release");
+                MotorWrapper::setModeAndMove(motor, 1, 6, 0, MODULE_READY_TO_INJECT, "MicroCompress Release");
                 lastAutoCompressionTime = now;
                 state = IDLE_WAITING;
                 lastCommandTime = now;

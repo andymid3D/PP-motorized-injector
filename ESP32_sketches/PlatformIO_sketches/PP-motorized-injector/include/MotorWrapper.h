@@ -14,21 +14,38 @@
  * - Limit setting before moves (vel_limit, current_lim)
  * - TRAP_TRAJ parameter configuration
  * - Command logging for diagnostics
+ * - Module ID tracking for response correlation
+ * - Retry logic with priority-based timeouts
  * - Single point for all motor commands
  * 
  * All motor movements MUST go through these wrappers to ensure:
  * - ODrive firmware has time to process mode changes
  * - CAN bus isn't overwhelmed
  * - Consistent timing across all states
+ * - Module-specific retry policies
  * 
  * Usage Pattern:
- *   1. setMotorLimits(vel, current, "context")     // Set limits first
- *   2. setTrapTrajParams(vel, accel, decel, "ctx") // If using TRAP_TRAJ
- *   3. setModeAndMove(mode, inputMode, val, "cmd") // Execute move
- *   4. adjustMotorLimits(current, "reason")        // Dynamic adjustment during move
+ *   1. setMotorLimits(vel, current, moduleId, "context")     // Set limits first
+ *   2. setTrapTrajParams(vel, accel, decel, moduleId, "ctx") // If using TRAP_TRAJ
+ *   3. setModeAndMove(mode, inputMode, val, moduleId, "cmd") // Execute move
+ *   4. adjustMotorLimits(current, moduleId, "reason")        // Dynamic adjustment during move
+ * 
+ * Retry Priority Levels:
+ *   - PRIORITY_CRITICAL (50ms): INJECTION - time-critical plastic flow
+ *   - PRIORITY_HIGH (75ms): COMPRESSION - contact detection timing
+ *   - PRIORITY_NORMAL (100ms): REFILL, RELEASE - moderate speed moves
+ *   - PRIORITY_LOW (200ms): ANTIDRIP, PURGE_ZERO - slow vel_ramp moves
  */
 
 namespace MotorWrapper {
+    // ===== RETRY PRIORITY LEVELS =====
+    enum RetryPriority {
+        PRIORITY_CRITICAL = 0,  // 50ms timeout - INJECTION (time-critical plastic flow)
+        PRIORITY_HIGH = 1,      // 75ms timeout - COMPRESSION (contact detection timing)
+        PRIORITY_NORMAL = 2,    // 100ms timeout - REFILL, RELEASE (moderate speed moves)
+        PRIORITY_LOW = 3         // 200ms timeout - ANTIDRIP, PURGE_ZERO (slow vel_ramp moves)
+    };
+    
     // ===== INITIALIZATION =====
     void init();
     
@@ -36,19 +53,28 @@ namespace MotorWrapper {
     
     // Set motor velocity and current limits (CAN message 0x00F)
     // Must be called BEFORE setModeAndMove for every move
-    void setMotorLimits(CanBusHandlerV2& motor, float vel_lim, float current_lim, String context);
+    void setMotorLimits(CanBusHandlerV2& motor, float vel_lim, float current_lim, uint8_t moduleId, String context);
     
     // Set TRAP_TRAJ parameters (CAN messages 0x011 + 0x012)
     // Call AFTER setMotorLimits, BEFORE setModeAndMove when using TRAP_TRAJ input mode
-    void setTrapTrajParams(CanBusHandlerV2& motor, float vel_limit, float accel, float decel, String context);
+    void setTrapTrajParams(CanBusHandlerV2& motor, float vel_limit, float accel, float decel, uint8_t moduleId, String context);
+    
+    // Set controller modes (CAN 0x00B + 0x00C) - for mode changes without movement
+    void setControllerModes(CanBusHandlerV2& motor, ODriveCANProtocol::ControlMode ctrlMode, 
+                           ODriveCANProtocol::InputMode inputMode, uint8_t moduleId, String context);
     
     // Execute motor move command with mode and input mode
     // Enforces CAN_COMMAND_GAP_MS between commands
-    void setModeAndMove(CanBusHandlerV2& motor, int ctrlMode, int inputMode, float value, String cmdName);
+    void setModeAndMove(CanBusHandlerV2& motor, int ctrlMode, int inputMode, float value, uint8_t moduleId, String cmdName);
+    
+    // Execute motor move with retry logic based on priority
+    // Returns true if command succeeded, false if all retries failed
+    bool setModeAndMoveWithRetry(CanBusHandlerV2& motor, int ctrlMode, int inputMode, float value, 
+                                 uint8_t moduleId, String cmdName, RetryPriority priority);
     
     // Dynamic adjustment of limits during move
     // Typically used to increase current_lim after contact detection
-    void adjustMotorLimits(CanBusHandlerV2& motor, float current_lim, String reason);
+    void adjustMotorLimits(CanBusHandlerV2& motor, float current_lim, uint8_t moduleId, String reason);
     
     // ===== QUERY FUNCTIONS =====
     

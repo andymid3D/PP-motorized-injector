@@ -476,7 +476,7 @@ void TimingSystemTest::analyzeCommandCenteredData_START() {
     
     // Production parameters for start detection
     const uint32_t ANALYSIS_WINDOW_MS = 500;   // 500ms window to capture start response
-    const float BASELINE_OFFSET_A = 2.0f;       // 2.0A above baseline for spike detection
+    const float BASELINE_OFFSET_A = 1.0f;       // 1.0A above baseline for spike detection
     const uint32_t SEARCH_START_MS = 0;        // Start chase immediately from command
     const bool USE_SETPOINT_FOR_DETECTION = true; // Use setpoint (faster) vs measured
     const uint32_t CONFIRMATION_WINDOW_MS = 50; // 50ms confirmation after spike
@@ -1317,4 +1317,110 @@ void TimingSystemTest::analyzeCommandCenteredData_START_WORKING() {
     Serial.println("[TIMING] === END PRODUCTION ANALYSIS ===");
 }
 */
+// =============================================================================
+
+// ===== RESPONSE CORRELATION IMPLEMENTATION (PHASE 1.9) =====
+
+TimingSystemTest& TimingSystemTest::getInstance() {
+    static TimingSystemTest instance;
+    return instance;
+}
+
+void TimingSystemTest::registerCommand(uint64_t timestamp, uint8_t moduleId, int ctrlMode, String cmdName) {
+    if (pendingCommandCount_ >= MAX_PENDING_COMMANDS) {
+        Serial.println("[TIMING] WARNING: Pending command queue full, clearing old commands");
+        // Remove oldest command
+        for (int i = 0; i < MAX_PENDING_COMMANDS - 1; i++) {
+            pendingCommands_[i] = pendingCommands_[i + 1];
+        }
+        pendingCommandCount_--;
+    }
+    
+    PendingCommand& cmd = pendingCommands_[pendingCommandCount_];
+    cmd.timestamp = timestamp;
+    cmd.moduleId = moduleId;
+    cmd.ctrlMode = ctrlMode;
+    cmd.cmdName = cmdName;
+    cmd.awaitingResponse = true;
+    cmd.responseDetected = false;
+    cmd.responseLatency = 0;
+    
+    pendingCommandCount_++;
+    
+    Serial.printf("[TIMING] Registered command: [M%d:%s] at %lluus\n", 
+                 moduleId, cmdName.c_str(), timestamp);
+}
+
+bool TimingSystemTest::hasCommandStarted(uint8_t moduleId, String cmdName) {
+    // Check if we have a matching command with detected response
+    for (int i = 0; i < pendingCommandCount_; i++) {
+        PendingCommand& cmd = pendingCommands_[i];
+        
+        if (cmd.moduleId == moduleId && cmd.cmdName == cmdName && cmd.awaitingResponse) {
+            // Check if we've detected a START response for this command
+            if (cmd.responseDetected) {
+                Serial.printf("[TIMING] START response confirmed: [M%d:%s] latency=%dms\n", 
+                             moduleId, cmdName.c_str(), cmd.responseLatency);
+                
+                // Notify test module if enabled
+                #ifdef RESPONSE_CORRELATION_TEST_ENABLED
+                ResponseCorrelationTest::onCommandStarted(moduleId, cmd.responseLatency, cmdName);
+                #endif
+                
+                // Remove from pending list
+                for (int j = i; j < pendingCommandCount_ - 1; j++) {
+                    pendingCommands_[j] = pendingCommands_[j + 1];
+                }
+                pendingCommandCount_--;
+                
+                return true;
+            }
+        }
+    }
+    
+    return false;
+}
+
+void TimingSystemTest::clearPendingCommands() {
+    pendingCommandCount_ = 0;
+    memset(pendingCommands_, 0, sizeof(pendingCommands_));
+    Serial.println("[TIMING] Cleared all pending commands");
+}
+
+// Enhanced START detection integration
+void TimingSystemTest::onMovementCommandTx() {
+    // Capture baseline for START detection (disabled for now)
+    // preCommandBaseline_ = getCurrentIq();
+    // commandSendTime_ = hwTimer.micros();
+    
+    // Serial.printf("[TIMING] Command TX captured: baseline=%.2fA at %lluus\n", 
+    //              preCommandBaseline_, commandSendTime_);
+}
+
+// Call this method when START response is detected (disabled for now)
+void TimingSystemTest::onStartResponseDetected(uint64_t responseTimestamp) {
+    // Find matching pending command and mark as detected (disabled for now)
+    /*
+    for (int i = 0; i < pendingCommandCount_; i++) {
+        PendingCommand& cmd = pendingCommands_[i];
+        
+        if (cmd.awaitingResponse && !cmd.responseDetected) {
+            // Check if this response is within reasonable time window (500ms)
+            uint64_t timeDiff = responseTimestamp - cmd.timestamp;
+            if (timeDiff < 500000) { // 500ms in microseconds
+                cmd.responseDetected = true;
+                cmd.responseLatency = timeDiff / 1000; // Convert to milliseconds
+                
+                Serial.printf("[TIMING] START response detected for [M%d:%s]: latency=%dms\n", 
+                             cmd.moduleId, cmd.cmdName.c_str(), cmd.responseLatency);
+                return;
+            }
+        }
+    }
+    
+    Serial.printf("[TIMING] START response detected but no matching command found at %lluus\n", 
+                 responseTimestamp);
+    */
+}
+
 // =============================================================================

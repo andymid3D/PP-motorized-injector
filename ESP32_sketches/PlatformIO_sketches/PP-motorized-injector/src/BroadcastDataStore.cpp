@@ -172,6 +172,13 @@ bool BroadcastDataStore::isBroadcastDataStale() const {
     // 100ms timeout = matches heartbeat interval
     // If heartbeat arrives with axis error → existing error handling catches it
     // If NO heartbeat at all → CAN disconnect/ODrive crash/ESP32 CAN failure
+    
+    // Option C: Only check stale after first communication has been received
+    // If lastUpdateMs is 0, no data has been received yet - don't trigger stale error
+    if (estimates_.lastUpdateMs == 0) {
+        return false; // No data received yet, not stale
+    }
+    
     uint32_t now = millis();
     return (now - estimates_.lastUpdateMs) > BROADCAST_STALE_TIMEOUT_MS;
 }

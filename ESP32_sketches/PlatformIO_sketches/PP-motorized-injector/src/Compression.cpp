@@ -73,8 +73,8 @@ namespace Compression {
         if (step == TRAVEL_DOWN) {
             if (stateEntry) {
                 // Queue all commands - ring buffer handles timing
-                MotorWrapper::setMotorLimits(motor, COMPRESS_TRAVEL_VEL_LIMIT, REFILL_CURRENT_LIMIT, "Compress Travel");
-                MotorWrapper::setModeAndMove(motor, 1, 6, COMPRESS_TRAVEL_TORQUE, "Compress Travel Down Torque");
+                MotorWrapper::setMotorLimits(motor, COMPRESS_TRAVEL_VEL_LIMIT, REFILL_CURRENT_LIMIT, MODULE_COMPRESSION, "Compress Travel");
+                MotorWrapper::setModeAndMove(motor, 1, 6, COMPRESS_TRAVEL_TORQUE, MODULE_COMPRESSION, "Compress Travel Down Torque");
                 lastCommandTime = millis();
                 stepTimer = millis();
                 stateEntry = false;
@@ -90,8 +90,8 @@ namespace Compression {
             
             if (stallDetected || torqueExceeded) {
                 // Queue commands - ring buffer handles timing
-                MotorWrapper::setModeAndMove(motor, 2, 2, 0, "Compress Stop");
-                MotorWrapper::adjustMotorLimits(motor, COMPRESS_CONTACT_CURRENT, "Contact Detected");
+                MotorWrapper::setModeAndMove(motor, 1, 6, 0, MODULE_COMPRESSION, "Compress Stop");  // Stay in torque mode
+                MotorWrapper::adjustMotorLimits(motor, COMPRESS_CONTACT_CURRENT, MODULE_COMPRESSION, "Contact Detected");
                 step = TORQUE_RAMP;
                 stepTimer = millis();
                 stateEntry = true;
@@ -112,7 +112,7 @@ namespace Compression {
             if (stateEntry) {
                 // Queue commands for MODE 2 - ring buffer handles timing
                 if (currentMode == MODE_2_MICRO) {
-                    MotorWrapper::setMotorLimits(motor, COMPRESS_MICRO_VEL_LIMIT, COMPRESS_MICRO_CURRENT, "Micro Torque");
+                    MotorWrapper::setMotorLimits(motor, COMPRESS_MICRO_VEL_LIMIT, COMPRESS_MICRO_CURRENT, MODULE_COMPRESSION, "Micro Torque");
                     motor.setControllerModes(ODriveCANProtocol::ControlMode::TORQUE_CONTROL, 
                                            ODriveCANProtocol::InputMode::TORQUE_RAMP);
                 }
@@ -130,10 +130,17 @@ namespace Compression {
                 targetTorque = commonParams.compressRampTarget;
             }
             
-            // Send torque setpoint updates (mode already set in stateEntry or TRAVEL_DOWN)
-            if (now - lastCommandTime >= CAN_COMMAND_GAP_MS) {
-                motor.setInputTorque(targetTorque);  // Only update setpoint, not mode
-                lastCommandTime = now;
+            // Send torque setpoint ONCE with retry system (no more spamming)
+            static bool torqueCommandSent = false;
+            if (!torqueCommandSent) {
+                bool commandQueued = MotorWrapper::setModeAndMoveWithRetry(
+                    motor, 1, 6, targetTorque, MODULE_COMPRESSION, 
+                    "CompressRamp", MotorWrapper::PRIORITY_HIGH
+                );
+                if (commandQueued) {
+                    torqueCommandSent = true;
+                    lastCommandTime = now;
+                }
             }
             
             // Completion conditions
@@ -142,7 +149,7 @@ namespace Compression {
             bool timeoutOnTorque = rampElapsed > COMPRESS_RAMP_TIMEOUT_MS;
             
             if ((reachedTorqueTarget && rampElapsed > 500) || stallDetected || timeoutOnTorque) {
-                MotorWrapper::setModeAndMove(motor, 1, 6, 0, "Compress Release");
+                MotorWrapper::setModeAndMove(motor, 1, 6, 0, MODULE_COMPRESSION, "Compress Release");
                 lastCommandTime = now;
                 complete = true;
                 return true;

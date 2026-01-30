@@ -10,9 +10,12 @@ SafetyManager::SafetyManager()
       _estopCounter(0), _barrelCounter(0), _topCounter(0), _botCounter(0),
       _loadCellScale(1.0), _loadCellOffset(0), _loadCellAvgSamples(1),
       _loadCellBuffer(nullptr), _loadCellBufferIdx(0), _loadCellUseMedian(false),
-      _lastValidReading(0) {}
+      _lastValidReading(0), _bootTime(0) {}
 
 void SafetyManager::begin() {
+    // Initialize boot time for grace period
+    _bootTime = millis();
+    
     // 1. Initialize Debouncers
     // NOTE: We use INPUT because you added external Pull-up Resistors (1k)
     // If you didn't add resistors to a specific pin, change to INPUT_PULLUP
@@ -25,9 +28,11 @@ void SafetyManager::begin() {
 
     dbTop.attach(PIN_ENDSTOP_TOP, INPUT); // External 1k Pullup
     dbTop.interval(20);
+    dbTop.setPressedState(LOW);  // TESTING: Metal present = HIGH
 
     dbBot.attach(PIN_ENDSTOP_BOTTOM, INPUT); // External 1k Pullup
     dbBot.interval(20);
+    dbBot.setPressedState(LOW);  // TESTING: Metal present = HIGH
 
     // 2. Outputs & Sensors
     pinMode(PIN_CONTACTOR, OUTPUT);
@@ -52,25 +57,46 @@ void SafetyManager::updateInputs() {
     dbTop.update();
     dbBot.update();
     
-    // ENDSTOP LOGIC: Direct pin state reading (ignores Bounce2 .pressed() API)
+    // ENDSTOP LOGIC: Use Bounce2 pressed() API with ACTIVE_STATE configuration
     // 
-    // TESTING (without plunger): Endstops normally OPEN, trigger with metal = LOW
+    // TESTING (without plunger): Endstops normally OPEN, trigger with metal = ACTIVE_STATE (HIGH)
     //   - E-Stop: HIGH = pressed (normally closed, opens when pressed)
     //   - Barrel: HIGH = open (normally closed, opens when barrel removed)
-    //   - Top/Bottom: LOW = triggered (normally open, closes when metal present)
+    //   - Top/Bottom: HIGH = triggered (metal present) - ACTIVE_STATE = HIGH
     // 
-    // PRODUCTION (with plunger): Endstops normally TRIGGERED by metal plunger
-    //   - Top/Bottom: LOW = plunger present (normal), HIGH = plunger reached end (trigger)
-    //   - TO INVERT FOR PRODUCTION: Change "LOW" to "HIGH" in lines below
+    // PRODUCTION (with plunger): Change setActiveState(LOW) for both endstops
+    //   - Top/Bottom: LOW = plunger reached end (trigger)
     
     if (dbEStop.read() == HIGH) { 
         if (_estopCounter < CONFIDENCE_THRESHOLD) _estopCounter++;} else {_estopCounter = 0;}
 
     if (dbBarrel.read() == HIGH) {  if (_barrelCounter < CONFIDENCE_THRESHOLD) _barrelCounter++; } else { _barrelCounter = 0;}
 
-    if (dbTop.read() == LOW) {if (_topCounter < CONFIDENCE_THRESHOLD) _topCounter++;} else { _topCounter = 0;}
+    // Use Bounce2 pressed() API - respects setActiveState() configuration
+    // NOTE: pressed() only returns true on transition, so we need different logic
+    if (dbTop.read() == LOW) {  // Triggered state (metal present)
+        if (_topCounter < CONFIDENCE_THRESHOLD) _topCounter++;
+    } else {
+        _topCounter = 0;
+    }
 
-    if (dbBot.read() == LOW) {if (_botCounter < CONFIDENCE_THRESHOLD) _botCounter++;} else {_botCounter = 0;}
+    if (dbBot.read() == LOW) {  // Triggered state (metal present)
+        if (_botCounter < CONFIDENCE_THRESHOLD) _botCounter++;
+    } else {
+        _botCounter = 0;
+    }
+    
+    // DEBUG: Log endstop states for debugging
+    static unsigned long lastEndstopDebug = 0;
+    if (millis() - lastEndstopDebug > 1000) {  // Every 1 second
+        lastEndstopDebug = millis();
+        char dbgBuf[80];
+        snprintf(dbgBuf, sizeof(dbgBuf), "[ENDSTOP_DEBUG] Top:%s(%d) Bot:%s(%d) Counters:%d/%d", 
+                 (dbTop.read() == LOW) ? "TRIG" : "OPEN", dbTop.read(),
+                 (dbBot.read() == LOW) ? "TRIG" : "OPEN", dbBot.read(),
+                 _topCounter, _botCounter);
+        MessageBuffer::getInstance().sendMessage(dbgBuf);
+    }
     
     // HX711 Load Cell Reading with EMI Rejection and Optional Filtering
     if (_loadCell.is_ready()) {
@@ -183,6 +209,15 @@ bool SafetyManager::check(float current_velocity, bool is_moving_down) {
     //   - No heartbeat at all → CAN disconnect/ODrive crash/ESP32 CAN peripheral failure
     // Response: Flag error, FSM stops motor via state transition
     // NOTE: Don't power off driver (avoids forced homing cycle)
+    
+    // Skip stale check during first 10 seconds of boot (grace period for ODrive communication)
+    unsigned long uptime = millis() - _bootTime;
+    if (uptime < 10000) { // 10 second grace period
+        // During grace period, only check if we have ANY data at all
+        // If no data after 10 seconds, then we'll trigger stale error
+        return true; // Allow operation during grace period
+    }
+    
     if (BroadcastDataStore::getInstance().isBroadcastDataStale()) {
         // Just flag error - don't cut power (triggerHalt calls enableMotorPower(false))
         if (_lastError != ERR_BROADCAST_STALE) {

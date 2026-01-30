@@ -63,6 +63,18 @@ public:
      */
     static void runLoopTests(); // Removed BufferedOutput& serialOut parameter
 
+    /**
+     * @brief Test BDS v2 integration with live ODrive messages
+     * 
+     * Validates:
+     * - drainAndStore() processes real CAN messages
+     * - BDS ring buffers populated from ODrive broadcasts
+     * - Position/velocity data matches expectations
+     * - Message rate ~180 msg/s (10ms encoder + 100ms others)
+     * - Loop time remains low with BDS processing
+     */
+    static void testBDSIntegration();
+
 private:
     // ===== PHASE 1.7: RingBuffer Validation =====
     /**
@@ -83,31 +95,7 @@ private:
      */
     static void testStressQueue();
 
-    /**
-     * @brief Test BDS v2 ring buffer storage
-     * 
-     * Validates:
-     * - storeXXX() methods populate ring buffers correctly
-     * - getLatestXXX() retrieves newest timestamped data
-     * - Timestamps preserved with µs precision
-     * - Ring buffer wraparound (history > size)
-     * - Staleness detection works
-     * - TX correlation flag preserved
-     * - V1 API backward compatible
-     */
     static void testBDSStorage();
-    
-    /**
-     * @brief Test BDS v2 integration with live ODrive messages
-     * 
-     * Validates:
-     * - drainAndStore() processes real CAN messages
-     * - BDS ring buffers populated from ODrive broadcasts
-     * - Position/velocity data matches expectations
-     * - Message rate ~180 msg/s (10ms encoder + 100ms others)
-     * - Loop time remains low with BDS processing
-     */
-    static void testBDSIntegration();
     
     /**
      * @brief Baseline timing test (before SafeString integration)

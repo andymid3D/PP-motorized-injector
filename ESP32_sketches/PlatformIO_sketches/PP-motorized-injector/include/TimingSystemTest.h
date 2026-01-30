@@ -53,10 +53,7 @@ public:
     /**
      * Singleton access
      */
-    static TimingSystemTest& getInstance() {
-        static TimingSystemTest instance;
-        return instance;
-    }
+    static TimingSystemTest& getInstance();
     
     /**
      * Tx-triggered collection for movement commands
@@ -100,6 +97,42 @@ public:
     };
     void analyzeCommandCenteredData(uint64_t commandTime, EdgeType edgeType, uint32_t windowMs = 500);
     
+    // ===== RESPONSE CORRELATION FOR PHASE 1.9 =====
+    
+    /**
+     * Command registration for response correlation
+     */
+    struct PendingCommand {
+        uint64_t timestamp;
+        uint8_t moduleId;
+        int ctrlMode;
+        String cmdName;
+        bool awaitingResponse;
+        bool responseDetected;
+        uint32_t responseLatency;
+    };
+    
+    /**
+     * Register a command for START response tracking
+     */
+    void registerCommand(uint64_t timestamp, uint8_t moduleId, int ctrlMode, String cmdName);
+    
+    /**
+     * Check if a command has received START response
+     */
+    bool hasCommandStarted(uint8_t moduleId, String cmdName);
+    
+    /**
+     * Clear all pending commands
+     */
+    void clearPendingCommands();
+    
+    /**
+     * Enhanced START detection integration
+     */
+    void onMovementCommandTx();
+    void onStartResponseDetected(uint64_t responseTimestamp);
+    
 private:
     bool enabled_;
     uint64_t testStartTime_;
@@ -126,6 +159,11 @@ private:
     float preCommandBaseline_;  // Baseline captured immediately on Tx command
     uint64_t collectionEndTime_;
     bool testActive_;
+    
+    // Response correlation for Phase 1.9
+    static const uint8_t MAX_PENDING_COMMANDS = 16;
+    PendingCommand pendingCommands_[MAX_PENDING_COMMANDS];
+    uint8_t pendingCommandCount_;
     
     /**
      * Print debug data for troubleshooting
