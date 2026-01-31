@@ -76,6 +76,15 @@ namespace MotorWrapper {
     // Typically used to increase current_lim after contact detection
     void adjustMotorLimits(CanBusHandlerV2& motor, float current_lim, uint8_t moduleId, String reason);
     
+    // ===== SAFETY FUNCTIONS =====
+    
+    // Universal safe stop using State 1 (IDLE) - works from any mode
+    void universalStop(CanBusHandlerV2& motor, uint8_t moduleId, String reason);
+    
+    // Safe mode change with universal stop before mode transition
+    void safeModeChange(CanBusHandlerV2& motor, int ctrlMode, int inputMode, 
+                       uint8_t moduleId, String cmdName);
+    
     // ===== QUERY FUNCTIONS =====
     
     // Get last sent command name (for debugging)

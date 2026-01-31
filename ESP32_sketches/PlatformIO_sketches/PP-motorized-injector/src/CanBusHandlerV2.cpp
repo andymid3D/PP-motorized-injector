@@ -283,3 +283,11 @@ bool CanBusHandlerV2::getRawMessage(uint32_t& id, uint8_t* data, uint8_t& dlc, b
     return true;
 }
 */
+
+// ===== QUEUE SIZE MONITORING =====
+
+uint8_t CanBusHandlerV2::getQueueSize() const {
+    if (queueFull_) return CMD_QUEUE_SIZE;
+    if (queueHead_ >= queueTail_) return queueHead_ - queueTail_;
+    return CMD_QUEUE_SIZE - (queueTail_ - queueHead_);
+}

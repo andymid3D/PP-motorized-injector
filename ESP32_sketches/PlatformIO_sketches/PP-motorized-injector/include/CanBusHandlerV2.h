@@ -419,6 +419,12 @@ public:
      * @return true if message retrieved, false if buffer empty
      */
     bool getRawMessage(uint32_t& id, uint8_t* data, uint8_t& dlc, bool& rtr);
+    
+    /**
+     * Get current queue size (for overflow prevention)
+     * @return Number of commands currently in queue (0-8)
+     */
+    uint8_t getQueueSize() const;
 
 private:
     static constexpr uint8_t NODE_ID = 0;  // ODrive node ID
@@ -455,8 +461,8 @@ private:
     // Used to enforce CAN_COMMAND_GAP_MS between successive sends
     uint64_t lastCommandSentTime_ = 0;
     
-    // Command ring buffer (8-message circular queue)
-    static constexpr uint8_t CMD_QUEUE_SIZE = 8;
+    // Command ring buffer (16-message circular queue - KISS solution)
+    static constexpr uint8_t CMD_QUEUE_SIZE = 16;
     can_Message_t commandQueue_[CMD_QUEUE_SIZE];
     uint8_t queueHead_ = 0;  // Index where next command is written
     uint8_t queueTail_ = 0;  // Index where next command is read

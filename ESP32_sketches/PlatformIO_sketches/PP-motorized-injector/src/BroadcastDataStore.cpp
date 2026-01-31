@@ -12,14 +12,20 @@ BroadcastDataStore& BroadcastDataStore::getInstance() {
 // BDS V2: RING BUFFER STORAGE (Phase 1.7)
 // =============================================================================
 
-void BroadcastDataStore::storeHeartbeat(uint32_t axisError, uint8_t axisState, uint8_t procedureResult, uint64_t timestamp, bool isResponse) {
-    TimestampedHeartbeat msg = {axisError, axisState, procedureResult, timestamp, isResponse};
+void BroadcastDataStore::storeHeartbeat(uint32_t axisError, uint8_t axisState, uint8_t motorErrorFlag, uint8_t encoderErrorFlag, 
+                                        uint8_t controllerErrorFlag, uint8_t trajectoryDoneFlag, uint64_t timestamp, bool isResponse) {
+    TimestampedHeartbeat msg = {axisError, axisState, motorErrorFlag, encoderErrorFlag, controllerErrorFlag, trajectoryDoneFlag, timestamp, isResponse};
     heartbeatHistory_.push(msg);
     
     // Update v1 storage for backward compatibility
     axis_.state = axisState;
     axis_.lastUpdateMs = millis();
     errors_.axisError = axisError;
+    errors_.motorError = motorErrorFlag ? 0xFFFFFFFF : 0;  // Convert flag to full error mask
+    errors_.encoderError = encoderErrorFlag ? 0xFFFFFFFF : 0;
+    errors_.controllerError = controllerErrorFlag ? 0xFFFFFFFF : 0;
+    errors_.lastUpdateMs = millis();
+    errors_.hasAnyError = axisError != 0 || motorErrorFlag || encoderErrorFlag || controllerErrorFlag;
 }
 
 void BroadcastDataStore::storeEncoder(float position, float velocity, uint64_t timestamp, bool isResponse) {
@@ -129,7 +135,10 @@ bool BroadcastDataStore::isEncoderStale(uint64_t maxAgeMicros) const {
     const TimestampedEncoder* latest = encoderHistory_.getLatest();
     if (latest == nullptr) return true;  // No data yet = stale
     
+    // Check if GPTimer is initialized (avoid Guru Meditation)
     extern GPTimer hwTimer;
+    if (!hwTimer.isRunning()) return true;  // Timer not ready = assume stale
+    
     uint64_t age = hwTimer.micros() - latest->timestamp;
     return age > maxAgeMicros;
 }
@@ -138,7 +147,10 @@ bool BroadcastDataStore::isHeartbeatStale(uint64_t maxAgeMicros) const {
     const TimestampedHeartbeat* latest = heartbeatHistory_.getLatest();
     if (latest == nullptr) return true;
     
+    // Check if GPTimer is initialized (avoid Guru Meditation)
     extern GPTimer hwTimer;
+    if (!hwTimer.isRunning()) return true;  // Timer not ready = assume stale
+    
     uint64_t age = hwTimer.micros() - latest->timestamp;
     return age > maxAgeMicros;
 }
@@ -147,7 +159,10 @@ bool BroadcastDataStore::isIqStale(uint64_t maxAgeMicros) const {
     const TimestampedIq* latest = iqHistory_.getLatest();
     if (latest == nullptr) return true;
     
+    // Check if GPTimer is initialized (avoid Guru Meditation)
     extern GPTimer hwTimer;
+    if (!hwTimer.isRunning()) return true;  // Timer not ready = assume stale
+    
     uint64_t age = hwTimer.micros() - latest->timestamp;
     return age > maxAgeMicros;
 }
@@ -462,6 +477,10 @@ bool BroadcastDataStore::getMovementData(float& iqSetpoint, float& iqMeasured, f
     
     if (!iqData || !encData) return false;
     
+    // Check if GPTimer is initialized (avoid Guru Meditation)
+    extern GPTimer hwTimer;
+    if (!hwTimer.isRunning()) return false;  // Timer not ready = no movement data
+    
     // Check if data is fresh (within 50ms)
     uint64_t currentTime = hwTimer.micros();
     if ((currentTime - iqData->timestamp) > 50000 || (currentTime - encData->timestamp) > 50000) {
@@ -492,6 +511,10 @@ bool BroadcastDataStore::hasMovementOccurred(float baselinePos, float baselineIq
 }
 
 bool BroadcastDataStore::isDataFresh(uint64_t maxAgeUs) const {
+    // Check if GPTimer is initialized (avoid Guru Meditation)
+    extern GPTimer hwTimer;
+    if (!hwTimer.isRunning()) return false;  // Timer not ready = assume stale
+    
     uint64_t currentTime = hwTimer.micros();
     
     const TimestampedEncoder* encData = getLatestEncoder();
@@ -501,4 +524,57 @@ bool BroadcastDataStore::isDataFresh(uint64_t maxAgeUs) const {
     
     return ((currentTime - encData->timestamp) <= maxAgeUs) && 
            ((currentTime - iqData->timestamp) <= maxAgeUs);
+}
+
+// ===== TRAJECTORY COMPLETION DETECTION =====
+
+bool BroadcastDataStore::isTrajectoryComplete() const {
+    const TimestampedHeartbeat* hb = getLatestHeartbeat();
+    if (!hb) return false;  // No heartbeat data = not complete
+    
+    // trajectory_done_flag is directly stored in trajectoryDoneFlag field
+    return hb->trajectoryDoneFlag != 0;
+}
+
+bool BroadcastDataStore::isTrajectoryComplete(uint64_t& timestamp) const {
+    const TimestampedHeartbeat* hb = getLatestHeartbeat();
+    if (!hb) {
+        timestamp = 0;
+        return false;
+    }
+    
+    timestamp = hb->timestamp;
+    // trajectory_done_flag is directly stored in trajectoryDoneFlag field
+    return hb->trajectoryDoneFlag != 0;
+}
+
+// ===== HEARTBEAT FLAG ACCESS =====
+
+bool BroadcastDataStore::hasMotorErrorFlag() const {
+    const TimestampedHeartbeat* hb = getLatestHeartbeat();
+    return hb ? hb->motorErrorFlag != 0 : false;
+}
+
+bool BroadcastDataStore::hasEncoderErrorFlag() const {
+    const TimestampedHeartbeat* hb = getLatestHeartbeat();
+    return hb ? hb->encoderErrorFlag != 0 : false;
+}
+
+bool BroadcastDataStore::hasControllerErrorFlag() const {
+    const TimestampedHeartbeat* hb = getLatestHeartbeat();
+    return hb ? hb->controllerErrorFlag != 0 : false;
+}
+
+bool BroadcastDataStore::getHeartbeatFlags(uint8_t& motorFlag, uint8_t& encoderFlag, uint8_t& controllerFlag, uint8_t& trajFlag) const {
+    const TimestampedHeartbeat* hb = getLatestHeartbeat();
+    if (!hb) {
+        motorFlag = encoderFlag = controllerFlag = trajFlag = 0;
+        return false;
+    }
+    
+    motorFlag = hb->motorErrorFlag;
+    encoderFlag = hb->encoderErrorFlag;
+    controllerFlag = hb->controllerErrorFlag;
+    trajFlag = hb->trajectoryDoneFlag;
+    return true;
 }

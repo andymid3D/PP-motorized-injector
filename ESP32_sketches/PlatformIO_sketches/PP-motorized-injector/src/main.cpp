@@ -146,7 +146,13 @@ int readThermocouple() {
 
 const char* getStateName(int state) {
     switch(state) {
-        case ERROR_STATE: return "ERROR_STATE";
+        case ERROR_STATE: 
+            if (fsm_state.error != 0) {
+                static char errorStateBuf[32];
+                snprintf(errorStateBuf, sizeof(errorStateBuf), "ERROR_S 0x%02X", fsm_state.error);
+                return errorStateBuf;
+            }
+            return "ERROR_STATE";
         case INIT_HEATING: return "INIT_HEATING";
         case INIT_HOT_NOT_HOMED: return "INIT_HOT_WAIT";
         case INIT_HOMING: return "INIT_HOMING";
@@ -478,7 +484,7 @@ void loop() {
         // Use GPTimer for debug timing
         static uint64_t lastDebugTime = 0;
         uint64_t currentTime = hwTimer.micros();
-        if (currentTime - lastDebugTime >= 1000000) {  // 1 second in microseconds
+        if (currentTime - lastDebugTime >= 2000000) {  // 2 seconds in microseconds (prevent debug overlap)
             lastDebugTime = currentTime;
             BroadcastDataStore& broadcast = BroadcastDataStore::getInstance();
             char debugBuf[256];
@@ -635,7 +641,14 @@ void loop() {
         }
 
         case InjectorStates::REFILL:
+            // Only check for errors after state has been active for at least 500ms
+            // This prevents immediate 0xFE errors during state transition
             if (stateEntry) {
+                // DEBUG: Log Refill state entry
+                char dbgBuf[80];
+                snprintf(dbgBuf, sizeof(dbgBuf), "[FSM_DEBUG] Entering REFILL state");
+                MessageBuffer::getInstance().sendMessage(dbgBuf);
+                
                 Refill::begin();
                 stateEntry = false;
             }
@@ -644,6 +657,26 @@ void loop() {
             }
             if (moveLockActive && Refill::isComplete()) {
                 moveLockActive = false;
+            }
+            
+            // DEBUG: Log Refill status check
+            static unsigned long lastRefillDebugTime = 0;
+            if (millis() - lastRefillDebugTime > 200) {  // Every 200ms for fine resolution
+                char dbgBuf[80];
+                snprintf(dbgBuf, sizeof(dbgBuf), "[FSM_DEBUG] Refill - err=%d comp=%d", 
+                         Refill::hasError(), Refill::isComplete());
+                MessageBuffer::getInstance().sendMessage(dbgBuf);
+                lastRefillDebugTime = millis();
+            }
+            
+            if (Refill::hasError()) {
+                // DEBUG: Log error trigger
+                char dbgBuf[80];
+                snprintf(dbgBuf, sizeof(dbgBuf), "[FSM_DEBUG] Refill error detected - setting ERROR_STATE 0xFE");
+                MessageBuffer::getInstance().sendMessage(dbgBuf);
+                
+                fsm_state.currentState = InjectorStates::ERROR_STATE;
+                fsm_state.error = 0xFE;
             }
             if (!ignoreButtons && !moveLockActive) {
                 static unsigned long togglePressTime = 0;
@@ -846,7 +879,7 @@ void loop() {
     loopTime = loopEnd - loopStart;
     if (loopTime > maxLoopTime) maxLoopTime = loopTime;
     
-    if (millis() - lastDebugTime > 1000) { 
+    if (millis() - lastDebugTime > 2000) {  // 2 seconds (prevent debug overlap) 
         lastDebugTime = millis(); 
         printDebugReport(loopTime, maxLoopTime);
         maxLoopTime = 0;

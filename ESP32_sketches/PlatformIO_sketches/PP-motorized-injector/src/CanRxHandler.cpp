@@ -155,8 +155,9 @@ void CanRxHandler::pollAndProcess() {
         controller_error_flag = frame.data[7] & 0x7F;         // 0=OK, 1=error present (bits 0-6)
         trajectory_done_flag = (frame.data[7] >> 7) & 0x01;  // Bit 7
         
-        // Store heartbeat with axis error code and state
-        bds.storeHeartbeat(axis_error, axis_state, trajectory_done_flag, timestamp, false);
+        // Store heartbeat with all indicators
+        bds.storeHeartbeat(axis_error, axis_state, motor_error_flag, encoder_error_flag, 
+                          controller_error_flag, trajectory_done_flag, timestamp, false);
         
         // NOTE: Don't store flags in error structures - those are for full error codes from dedicated messages
         // Flags are available for debugging but not used in main error reporting

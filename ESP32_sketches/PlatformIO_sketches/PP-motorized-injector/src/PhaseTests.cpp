@@ -308,7 +308,7 @@ void PhaseTests::testBDSStorage() {
     
     // Test 3: Store heartbeat
     Serial.print("Test 3 - Store heartbeat: ");
-    bds.storeHeartbeat(0x00000000, 8, 0, baseTime + 30000, false);
+    bds.storeHeartbeat(0x00000000, 8, 0, 0, 0, 0, baseTime + 30000, false);  // All flags clear, trajectory not done
     const TimestampedHeartbeat* hb = bds.getLatestHeartbeat();
     if (hb != nullptr && hb->axisState == 8 && hb->axisError == 0) {
         Serial.println("PASS");
@@ -517,60 +517,60 @@ void PhaseTests::testBDSIntegration() {
         Serial.print(" | Overflows: ");
         Serial.println(canRx.getQueueOverflows());
         
-        // Show BDS data
-        if (enc != nullptr) {
-            Serial.print("[BDS Encoder] Pos: ");
-            Serial.print(enc->position, 2);
-            Serial.print(" turns | Vel: ");
-            Serial.print(enc->velocity, 2);
-            Serial.print(" rps | Age: ");
-            uint64_t age = hwTimer.micros() - enc->timestamp;
-            Serial.print((uint32_t)age);
-            Serial.println(" us");
-        } else {
-            Serial.println("[BDS Encoder] No data yet");
-        }
+        // BDS diagnostic data (commented out for cleaner output - re-enable if needed)
+        // if (enc != nullptr) {
+        //     Serial.print("[BDS Encoder] Pos: ");
+        //     Serial.print(enc->position, 2);
+        //     Serial.print(" turns | Vel: ");
+        //     Serial.print(enc->velocity, 2);
+        //     Serial.print(" rps | Age: ");
+        //     uint64_t age = hwTimer.micros() - enc->timestamp;
+        //     Serial.print((uint32_t)age);
+        //     Serial.println(" us");
+        // } else {
+        //     Serial.println("[BDS Encoder] No data yet");
+        // }
         
-        if (hb != nullptr) {
-            Serial.print("[BDS Heartbeat] State: ");
-            Serial.print(hb->axisState);
-            Serial.print(" | Axis Error: 0x");
-            Serial.print(hb->axisError, HEX);
-            Serial.print(" | Age: ");
-            uint64_t age = hwTimer.micros() - hb->timestamp;
-            Serial.print((uint32_t)age);
-            Serial.println(" us");
-        } else {
-            Serial.println("[BDS Heartbeat] No data yet");
-        }
+        // if (hb != nullptr) {
+        //     Serial.print("[BDS Heartbeat] State: ");
+        //     Serial.print(hb->axisState);
+        //     Serial.print(" | Axis Error: 0x");
+        //     Serial.print(hb->axisError, HEX);
+        //     Serial.print(" | Age: ");
+        //     uint64_t age = hwTimer.micros() - hb->timestamp;
+        //     Serial.print((uint32_t)age);
+        //     Serial.println(" us");
+        // } else {
+        //     Serial.println("[BDS Heartbeat] No data yet");
+        // }
         
         // Show all 4 error types (ODrive separates them)
-        Serial.print("[BDS Errors] Axis: 0x");
-        Serial.print(hb ? hb->axisError : 0, HEX);
-        Serial.print(" | Motor: 0x");
-        Serial.print(motorErr ? motorErr->motorError : 0, HEX);
-        Serial.print(" | Encoder: 0x");
-        Serial.print(encErr ? encErr->encoderError : 0, HEX);
-        Serial.print(" | Controller: 0x");
-        Serial.println(ctrlErr ? ctrlErr->controllerError : 0, HEX);
+        // Serial.print("[BDS Errors] Axis: 0x");
+        // Serial.print(hb ? hb->axisError : 0, HEX);
+        // Serial.print(" | Motor: 0x");
+        // Serial.print(motorErr ? motorErr->motorError : 0, HEX);
+        // Serial.print(" | Encoder: 0x");
+        // Serial.print(encErr ? encErr->encoderError : 0, HEX);
+        // Serial.print(" | Controller: 0x");
+        // Serial.println(ctrlErr ? ctrlErr->controllerError : 0, HEX);
         
-        if (iq != nullptr) {
-            Serial.print("[BDS Iq] Setpoint: ");
-            Serial.print(iq->iqSetpoint, 2);
-            Serial.print(" A | Measured: ");
-            Serial.print(iq->iqMeasured, 2);
-            Serial.println(" A");
-        } else {
-            Serial.println("[BDS Iq] No data yet");
-        }
+        // if (iq != nullptr) {
+        //     Serial.print("[BDS Iq] Setpoint: ");
+        //     Serial.print(iq->iqSetpoint, 2);
+        //     Serial.print(" A | Measured: ");
+        //     Serial.print(iq->iqMeasured, 2);
+        //     Serial.println(" A");
+        // } else {
+        //     Serial.println("[BDS Iq] No data yet");
+        // }
         
         // Check V1 backward compatibility
-        Serial.print("[V1 API] Pos: ");
-        Serial.print(bds.getPosition(), 2);
-        Serial.print(" | Vel: ");
-        Serial.print(bds.getVelocity(), 2);
-        Serial.print(" | State: ");
-        Serial.println(bds.getAxisState());
+        // Serial.print("[V1 API] Pos: ");
+        // Serial.print(bds.getPosition(), 2);
+        // Serial.print(" | Vel: ");
+        // Serial.print(bds.getVelocity(), 2);
+        // Serial.print(" | State: ");
+        // Serial.println(bds.getAxisState());
         
         Serial.println();
         

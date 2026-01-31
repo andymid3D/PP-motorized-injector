@@ -1,5 +1,6 @@
 #include "MotorWrapper.h"
 #include "TimingSystemTest.h"  // Add include for TimingSystemTest
+#include "GPTimer.h"  // Add GPTimer for accurate timing
 
 namespace MotorWrapper {
     // ===== STATIC VARIABLES (shared across all calls) =====
@@ -51,11 +52,11 @@ namespace MotorWrapper {
         lastCurrentLimit = current_lim;
         lastModuleId = moduleId;
         
-        // Log for diagnostics
-        char buf[128];
-        snprintf(buf, sizeof(buf), "SET_LIMITS: vel=%.1f rps, current=%.1f A [M%d:%s]",
-            vel_lim, current_lim, moduleId, context.c_str());
-        MessageBuffer::getInstance().sendMessage(buf);
+        // Log for diagnostics (commented out to reduce Refill debug overlap)
+        // char buf[128];
+        // snprintf(buf, sizeof(buf), "SET_LIMITS: vel=%.1f rps, current=%.1f A [M%d:%s]",
+        //     vel_lim, current_lim, moduleId, context.c_str());
+        // MessageBuffer::getInstance().sendMessage(buf);
     }
     
     // ===== SET CONTROLLER MODES (CAN 0x00B + 0x00C) =====
@@ -103,18 +104,48 @@ namespace MotorWrapper {
         lastCmdStr = "TrapParams:" + context;
         lastModuleId = moduleId;
             
-        // Log for diagnostics
-        char buf[128];
-        snprintf(buf, sizeof(buf), 
-            "SET_TRAP_TRAJ: vel=%.1f rps, accel=%.1f, decel=%.1f [M%d:%s]",
-            vel_limit, accel, decel, moduleId, context.c_str());
-        MessageBuffer::getInstance().sendMessage(buf);
+        // Log for diagnostics (commented out to reduce Refill debug overlap)
+        // char buf[128];
+        // snprintf(buf, sizeof(buf), 
+        //     "SET_TRAP_TRAJ: vel=%.1f rps, accel=%.1f, decel=%.1f [M%d:%s]",
+        //     vel_limit, accel, decel, moduleId, context.c_str());
+        // MessageBuffer::getInstance().sendMessage(buf);
     }
     
     // ===== DYNAMIC ADJUSTMENT (Resend limits with new current) =====
     void adjustMotorLimits(CanBusHandlerV2& motor, float current_lim, uint8_t moduleId, String reason) {
         // Reuse setMotorLimits with last velocity limit
         setMotorLimits(motor, lastVelLimit, current_lim, moduleId, reason);
+    }
+    
+    // ===== UNIVERSAL SAFE STOP =====
+    void universalStop(CanBusHandlerV2& motor, uint8_t moduleId, String reason) {
+        motor.setAxisState(ODriveCANProtocol::AxisState::IDLE);  // State 1
+        
+        char stopBuf[80];
+        snprintf(stopBuf, sizeof(stopBuf), "UNIVERSAL_STOP: State=1 [M%d:%s]", moduleId, reason.c_str());
+        MessageBuffer::getInstance().sendMessage(stopBuf);
+    }
+    
+    void safeModeChange(CanBusHandlerV2& motor, int ctrlMode, int inputMode, 
+                       uint8_t moduleId, String cmdName) {
+        // Step 1: Universal stop
+        universalStop(motor, moduleId, "PreModeChange");
+        delayMicroseconds(20000);  // 20ms delay using microseconds
+        
+        // Step 2: Mode change (safe in IDLE)
+        motor.setControllerModes((ODriveCANProtocol::ControlMode)ctrlMode, 
+                               (ODriveCANProtocol::InputMode)inputMode);
+        
+        // Log for diagnostics (commented out to reduce Refill debug overlap)
+        // char modeBuf[80];
+        // snprintf(modeBuf, sizeof(modeBuf), "SAFE_MODE_CHANGE: Ctrl=%d Input=%d [M%d:%s]",
+        //         ctrlMode, inputMode, moduleId, cmdName.c_str());
+        // MessageBuffer::getInstance().sendMessage(modeBuf);
+        delayMicroseconds(20000);  // 20ms delay using microseconds
+        
+        // Step 3: Resume operation
+        motor.setAxisState(ODriveCANProtocol::AxisState::CLOSED_LOOP_CONTROL);
     }
     
     // ===== EXECUTE MOTOR MOVE (Unified Wrapper) =====
@@ -127,19 +158,12 @@ namespace MotorWrapper {
         // Notify TimingSystemTest that we're sending a command (disabled for now)
         // TimingSystemTest::getInstance().onMovementCommandTx();
         
-        // Queue mode command - ring buffer handles timing
-        if (!motor.setControllerModes((ODriveCANProtocol::ControlMode)ctrlMode, 
-                                      (ODriveCANProtocol::InputMode)inputMode)) {
-            char errBuf[64];
-            snprintf(errBuf, sizeof(errBuf), "CAN_QUEUE_FULL: Mode [M%d:%s]", moduleId, cmdName.c_str());
-            MessageBuffer::getInstance().sendMessage(errBuf);
-            return;
+        // Use safe mode change if mode is different AND we're not switching modules
+        // Module transitions (e.g., Homing→Refill) legitimately use different modes
+        if ((lastControlMode != ctrlMode || lastInputMode != inputMode) && 
+            (lastModuleId == moduleId || lastModuleId == 255)) {  // 255 = uninitialized
+            safeModeChange(motor, ctrlMode, inputMode, moduleId, cmdName);
         }
-        
-        char modeBuf[80];
-        snprintf(modeBuf, sizeof(modeBuf), "MODE_CMD: Ctrl=%d Input=%d [M%d:%s]",
-            ctrlMode, inputMode, moduleId, cmdName.c_str());
-        MessageBuffer::getInstance().sendMessage(modeBuf);
         
         // Queue setpoint command - ring buffer handles timing
         bool queued = false;
@@ -154,6 +178,7 @@ namespace MotorWrapper {
             return;
         }
         
+        // Update tracking variables
         lastCmdTime = millis();
         lastCmdStr = cmdName;
         lastControlMode = ctrlMode;
@@ -165,6 +190,12 @@ namespace MotorWrapper {
         snprintf(buf, sizeof(buf), "SETPOINT_CMD: Mode=%d InputMode=%d Val=%.2f [M%d:%s]",
             ctrlMode, inputMode, value, moduleId, cmdName.c_str());
         MessageBuffer::getInstance().sendMessage(buf);
+        
+        // For position moves, we could wait for trajectory completion
+        if (ctrlMode == 3 && queued) {
+            // Optional: Add trajectory completion waiting here if needed
+            // waitForTrajectoryDone(calculateTimeout(value));
+        }
     }
     
     // ===== QUERY FUNCTIONS =====

@@ -79,24 +79,23 @@ void SafetyManager::updateInputs() {
     } else {
         _topCounter = 0;
     }
-
     if (dbBot.read() == LOW) {  // Triggered state (metal present)
         if (_botCounter < CONFIDENCE_THRESHOLD) _botCounter++;
     } else {
         _botCounter = 0;
     }
     
-    // DEBUG: Log endstop states for debugging
-    static unsigned long lastEndstopDebug = 0;
-    if (millis() - lastEndstopDebug > 1000) {  // Every 1 second
-        lastEndstopDebug = millis();
-        char dbgBuf[80];
-        snprintf(dbgBuf, sizeof(dbgBuf), "[ENDSTOP_DEBUG] Top:%s(%d) Bot:%s(%d) Counters:%d/%d", 
-                 (dbTop.read() == LOW) ? "TRIG" : "OPEN", dbTop.read(),
-                 (dbBot.read() == LOW) ? "TRIG" : "OPEN", dbBot.read(),
-                 _topCounter, _botCounter);
-        MessageBuffer::getInstance().sendMessage(dbgBuf);
-    }
+    // DEBUG: Log endstop states for debugging (commented out for cleaner output)
+    // static unsigned long lastEndstopDebug = 0;
+    // if (millis() - lastEndstopDebug > 1000) {  // Every 1 second
+    //     lastEndstopDebug = millis();
+    //     char dbgBuf[80];
+    //     snprintf(dbgBuf, sizeof(dbgBuf), "[ENDSTOP_DEBUG] Top:%s(%d) Bot:%s(%d) Counters:%d/%d", 
+    //              (dbTop.read() == LOW) ? "TRIG" : "OPEN", dbTop.read(),
+    //              (dbBot.read() == LOW) ? "TRIG" : "OPEN", dbBot.read(),
+    //              _topCounter, _botCounter);
+    //     MessageBuffer::getInstance().sendMessage(dbgBuf);
+    // }
     
     // HX711 Load Cell Reading with EMI Rejection and Optional Filtering
     if (_loadCell.is_ready()) {

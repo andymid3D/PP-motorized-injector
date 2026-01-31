@@ -39,14 +39,17 @@
 
 /**
  * Heartbeat (CAN 0x001, 100ms interval)
- * Contains axis error, axis state, procedure result
+ * Contains axis error, axis state, and all error flags
  */
 struct TimestampedHeartbeat {
-    uint32_t axisError;         // Axis error flags
-    uint8_t axisState;          // Current state (IDLE=1, CLOSED_LOOP=8, etc)
-    uint8_t procedureResult;    // Procedure completion status
-    uint64_t timestamp;         // GPTimer microseconds
-    bool isResponse;            // True if correlates to recent TX command
+    uint32_t axisError;             // Axis error flags (bytes 0-3)
+    uint8_t axisState;              // Current state (byte 4: IDLE=1, CLOSED_LOOP=8, etc)
+    uint8_t motorErrorFlag;         // Motor error flag (byte 5: 0=OK, 1=error present)
+    uint8_t encoderErrorFlag;       // Encoder error flag (byte 6: 0=OK, 1=error present)
+    uint8_t controllerErrorFlag;    // Controller error flag (byte 7 bits 0-6: 0=OK, 1=error present)
+    uint8_t trajectoryDoneFlag;     // Trajectory completion flag (byte 7 bit 7: 0=in progress, 1=done)
+    uint64_t timestamp;             // GPTimer microseconds
+    bool isResponse;                // True if correlates to recent TX command
 };
 
 /**
@@ -185,7 +188,8 @@ public:
     
     // ===== BDS V2: RING BUFFER STORAGE (Phase 1.7) =====
     // Store timestamped message history for staleness detection and TX correlation
-    void storeHeartbeat(uint32_t axisError, uint8_t axisState, uint8_t procedureResult, uint64_t timestamp, bool isResponse = false);
+    void storeHeartbeat(uint32_t axisError, uint8_t axisState, uint8_t motorErrorFlag, uint8_t encoderErrorFlag, 
+                     uint8_t controllerErrorFlag, uint8_t trajectoryDoneFlag, uint64_t timestamp, bool isResponse = false);
     void storeEncoder(float position, float velocity, uint64_t timestamp, bool isResponse = false);
     void storeIq(float iqSetpoint, float iqMeasured, uint64_t timestamp, bool isResponse = false);
     void storeBusVI(float busVoltage, float busCurrent, uint64_t timestamp, bool isResponse = false);
@@ -323,6 +327,24 @@ public:
     uint32_t getControllerError() const;
     bool hasAnyError() const;
     uint32_t getLastErrorUpdate() const;
+    
+    // ===== TRAJECTORY COMPLETION DETECTION =====
+    
+    // Check if trajectory move is complete (trajectory_done_flag in heartbeat)
+    bool isTrajectoryComplete() const;
+    
+    // Check if trajectory move is complete with GPTimer timestamp
+    bool isTrajectoryComplete(uint64_t& timestamp) const;
+    
+    // ===== HEARTBEAT FLAG ACCESS =====
+    
+    // Get individual error flags from latest heartbeat
+    bool hasMotorErrorFlag() const;
+    bool hasEncoderErrorFlag() const;
+    bool hasControllerErrorFlag() const;
+    
+    // Get all heartbeat flags at once
+    bool getHeartbeatFlags(uint8_t& motorFlag, uint8_t& encoderFlag, uint8_t& controllerFlag, uint8_t& trajFlag) const;
     
     // Encoder estimates queries (position/velocity in turns)
     float getEncoderPosition() const;
