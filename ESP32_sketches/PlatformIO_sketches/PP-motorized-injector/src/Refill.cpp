@@ -1,8 +1,9 @@
 #include "Refill.h"
 #include "config.h"
 #include "MotorWrapper.h"
+#include "GPTimer.h"  // Add GPTimer include
+#include "BroadcastDataStore.h"  // Add include for broadcast data
 #include "injector_fsm.h"  // For commonInjectParams_t
-#include "GPTimer.h"  // For unified timing system
 
 extern commonInjectParams_t commonParams;  // From main.cpp
 extern GPTimer hwTimer;  // Global timer instance from main.cpp
@@ -31,6 +32,7 @@ namespace Refill {
     
     // ===== UPDATE: Non-blocking state machine =====
     bool update(CanBusHandlerV2& motor) {
+        BroadcastDataStore& broadcast = BroadcastDataStore::getInstance();
         // Use GPTimer for consistent timing with other system components
         unsigned long now = hwTimer.micros() / 1000;  // Convert microseconds to milliseconds
         unsigned long elapsed = now - stepTimer;
@@ -70,14 +72,14 @@ namespace Refill {
                 lastElapsedDebug = now;
             }
             
-            if (fabs(motor.getVelocity()) < 0.1f && moveElapsed > INJECT_STABLE_TIME_MS) {
+            if (fabs(broadcast.getVelocity()) < 0.1f && moveElapsed > INJECT_STABLE_TIME_MS) {
                 step = WAIT_ARRIVE;
                 stepTimer = hwTimer.micros() / 1000;  // Use GPTimer for consistency
                 
                 // DEBUG: Log arrival
                 char dbgBuf3[60];
                 snprintf(dbgBuf3, sizeof(dbgBuf3), "[REFILL_DEBUG] Motor arrived - %lu %.1f", 
-                         moveElapsed, motor.getVelocity());
+                         moveElapsed, broadcast.getVelocity());
                 MessageBuffer::getInstance().sendMessage(dbgBuf3);
             }
             
@@ -102,7 +104,7 @@ namespace Refill {
             if (now - lastDebugTime > 2000) {
                 char dbgBuf5[60];
                 snprintf(dbgBuf5, sizeof(dbgBuf5), "[REFILL_DEBUG] Status - %lu %d %d %.1f", 
-                         moveElapsed, stateEntry, error, motor.getVelocity());
+                         moveElapsed, stateEntry, error, broadcast.getVelocity());
                 MessageBuffer::getInstance().sendMessage(dbgBuf5);
                 lastDebugTime = now;
             }

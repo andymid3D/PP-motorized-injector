@@ -1,9 +1,12 @@
 #include "ReadyToInject.h"
 #include "config.h"
 #include "MotorWrapper.h"
+#include "GPTimer.h"  // Add GPTimer include
+#include "BroadcastDataStore.h"  // Add include for broadcast data
 #include "injector_fsm.h"  // For commonInjectParams_t
 
 extern commonInjectParams_t commonParams;  // From main.cpp
+extern GPTimer hwTimer;  // Add GPTimer external declaration
 
 namespace ReadyToInject {
     // ===== STATIC STATE VARIABLES =====
@@ -12,11 +15,11 @@ namespace ReadyToInject {
         MICRO_COMPRESSING       // Active micro-compression
     } state = IDLE_WAITING;
     static bool stateEntry = false;
-    static unsigned long stateEnterTime = 0;
-    static unsigned long lastAutoCompressionTime = 0;
-    static unsigned long compressionStartTime = 0;
+    static uint64_t stateEnterTime = 0;
+    static uint64_t lastAutoCompressionTime = 0;
+    static uint64_t compressionStartTime = 0;
     static bool error = false;
-    static unsigned long lastCommandTime = 0;
+    static uint64_t lastCommandTime = 0;
     
     // ===== BEGIN: Initialize on state entry =====
     void begin() {
@@ -33,8 +36,9 @@ namespace ReadyToInject {
     
     // ===== UPDATE: Handle idle waiting + micro-compression timer =====
     bool update(CanBusHandlerV2& motor) {
-        unsigned long now = millis();
-        unsigned long elapsed = now - stateEnterTime;
+        BroadcastDataStore& broadcast = BroadcastDataStore::getInstance();
+        uint64_t now = millis();
+        uint64_t elapsed = now - stateEnterTime;
         
         // ===== ENTRY: Set idle mode once =====
         if (stateEntry) {
@@ -87,7 +91,7 @@ namespace ReadyToInject {
             
             // Check completion: time elapsed or stall detected
             bool completedByTime = compressionElapsed >= READY_MICRO_DURATION_MS;
-            bool completedByStall = (compressionElapsed > 500) && (fabs(motor.getVelocity()) < 0.5f);
+            bool completedByStall = (compressionElapsed > 500) && (fabs(broadcast.getVelocity()) < 0.5f);
             
             if (completedByTime || completedByStall) {
                 // Compression complete, return to idle

@@ -1,16 +1,19 @@
 #include "AntiDrip.h"
 #include "config.h"
 #include "MotorWrapper.h"
+#include "GPTimer.h"  // Add GPTimer include
+
+extern GPTimer hwTimer;  // Add GPTimer external declaration
 
 namespace AntiDrip {
     // ===== STATIC STATE VARIABLES =====
     static bool stateEntry = false;
-    static unsigned long stateEnterTime = 0;
+    static uint64_t stateEnterTime = 0;      // Use uint64_t to match GPTimer
     static bool complete = false;
     static bool isTimeoutFlag = false;
     static bool isAbortedFlag = false;
     static bool error = false;
-    static unsigned long lastCommandTime = 0;
+    static uint64_t lastCommandTime = 0;      // Use uint64_t to match GPTimer
     static bool pressureSensorChecked = false;  // Check pressure in first ms
     
     // ===== BEGIN: Initialize on state entry =====
@@ -27,8 +30,8 @@ namespace AntiDrip {
     
     // ===== UPDATE: Apply slow retract, monitor for timeout/user input =====
     bool update(CanBusHandlerV2& motor) {
-        unsigned long now = millis();
-        unsigned long elapsed = now - stateEnterTime;
+        uint64_t now = millis();
+        uint64_t elapsed = now - stateEnterTime;
         
         // ===== ENTRY: Set velocity control mode and start upward movement =====
         if (stateEntry) {

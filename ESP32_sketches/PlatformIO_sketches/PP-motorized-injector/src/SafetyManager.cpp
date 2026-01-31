@@ -1,4 +1,5 @@
 #include "SafetyManager.h"
+#include "BroadcastDataStore.h"  // Add include for broadcast data
 #include "CanBusHandlerV2.h"
 #include "MessageBuffer.h"
 #include "BroadcastDataStore.h"
@@ -249,12 +250,14 @@ bool SafetyManager::check(float current_velocity, bool is_moving_down) {
         if (!_wasMovingDown) {
             _moveStartTime = millis();
             _pressureBaseline = _currentPressure;
-            _startPosition = motor.getPosition(); 
+            BroadcastDataStore& broadcast = BroadcastDataStore::getInstance();
+            _startPosition = broadcast.getPosition(); 
             _wasMovingDown = true;
         }
 
         long pressureDelta = _currentPressure - _pressureBaseline;
-        float distMoved = abs(motor.getPosition() - _startPosition);
+        BroadcastDataStore& broadcast = BroadcastDataStore::getInstance();
+        float distMoved = abs(broadcast.getPosition() - _startPosition);
 
         if (_currentContext == CTX_BLOCKED) {
             // BYPASS FOR TESTING

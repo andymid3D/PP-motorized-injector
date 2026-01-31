@@ -1,6 +1,9 @@
 #include "Injection.h"
 #include "config.h"
 #include "MotorWrapper.h"
+#include "GPTimer.h"
+#include "BroadcastDataStore.h"
+#include "PurgeZero.h"
 
 extern commonInjectParams_t commonParams;  // From main.cpp
 
@@ -57,7 +60,7 @@ namespace Injection {
             pressureSensorChecked = true;
             
             // Capture start position and calculate targets
-            injectStartPos = motor.getPosition();
+            injectStartPos = PurgeZero::getPurgeZeroPosition();  // Use purge zero position as base
             targetInjectPos = injectStartPos + volToTurns(currentMould.fillVolume);
             
             // Safety: don't exceed mechanical limit
@@ -90,15 +93,16 @@ namespace Injection {
             // No need to resend commands unless motor appears stuck
             
             // Check for completion: velocity drops to near-zero and stays stable
-            bool velocityLow = fabs(motor.getVelocity()) < 0.1f;
+            BroadcastDataStore& broadcast = BroadcastDataStore::getInstance();
+            bool velocityLow = fabs(broadcast.getVelocity()) < 0.1f;
             bool timingStable = phaseElapsed > 500;
-            bool positionClose = fabs(motor.getPosition() - targetInjectPos) < 1.0f;
+            bool positionClose = fabs(broadcast.getPosition() - targetInjectPos) < 1.0f;
             
             if (velocityLow && timingStable && positionClose) {
                 // Transition to PACKING phase
                 phase = PACKING;
                 phaseStartTime = now;
-                packStartPos = motor.getPosition();
+                packStartPos = broadcast.getPosition();
                 targetPackPos = packStartPos + volToTurns(currentMould.packVolume);
                 
                 // Safety: don't exceed mechanical limit

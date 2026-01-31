@@ -1,9 +1,11 @@
 #include "Compression.h"
 #include "config.h"
 #include "MotorWrapper.h"
+#include "GPTimer.h"  // Add GPTimer include
 #include "injector_fsm.h"  // For commonInjectParams_t
 
 extern commonInjectParams_t commonParams;  // From main.cpp
+extern GPTimer hwTimer;  // Add GPTimer external declaration
 
 namespace Compression {
     // ===== STATIC STATE VARIABLES =====
@@ -16,13 +18,13 @@ namespace Compression {
     } step = DONE;
     
     static bool stateEntry = false;
-    static unsigned long stateEnterTime = 0;
-    static unsigned long stepTimer = 0;
+    static uint64_t stateEnterTime = 0;      // Use uint64_t to match GPTimer
+    static uint64_t stepTimer = 0;             // Use uint64_t to match GPTimer
     static bool complete = false;
     static bool isErrorFlag = false;
     static bool isTimeoutFlag = false;
     static bool pressureSensorChecked = false;
-    static unsigned long lastCommandTime = 0;
+    static uint64_t lastCommandTime = 0;      // Use uint64_t to match GPTimer
     
     // ===== BEGIN: Initialize with mode selection =====
     void begin(CompressionMode mode) {
@@ -46,9 +48,9 @@ namespace Compression {
     
     // ===== UPDATE: Non-blocking compression logic =====
     bool update(CanBusHandlerV2& motor) {
-        unsigned long now = millis();
-        unsigned long elapsed = now - stateEnterTime;
-        unsigned long stepElapsed = now - stepTimer;
+        uint64_t now = millis();  // Use uint64_t to match GPTimer
+        uint64_t elapsed = now - stateEnterTime;
+        uint64_t stepElapsed = now - stepTimer;
         
         // ===== STEP 0: PRESSURE CHECK (First ms, MODE 1 only) =====
         if (step == PRESSURE_CHECK) {

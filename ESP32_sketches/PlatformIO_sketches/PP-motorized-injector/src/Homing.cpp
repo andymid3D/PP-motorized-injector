@@ -74,6 +74,8 @@ void Homing::reset() {
     currentState_ = HomingState::IDLE;
     previousState_ = HomingState::IDLE;
     calibrationComplete_ = false;
+    calibrationDone_ = false;  // Reset calibration flag - CRITICAL!
+    encoderZeroed_ = false;    // Reset encoder flag - CRITICAL!
     lastSeenState_ = 0;
 }
 

@@ -201,9 +201,9 @@ void testCanRxISR() {
 }
 
 bool runCompressionCycle() {
+    BroadcastDataStore& broadcast = BroadcastDataStore::getInstance();
     static unsigned long compressStart = 0;
     if (stateEntry) {
-        MessageBuffer::getInstance().sendMessage("Compression: Start Torque Ramp");
         safety.setContext(CTX_BLOCKED);
         compressStart = millis();
     }
@@ -214,7 +214,7 @@ bool runCompressionCycle() {
     MotorWrapper::setModeAndMove(motor, 1, 1, targetTorque, MODULE_COMPRESSION, "TorqueMode");
 
     if (elapsed > 15.0f) { MessageBuffer::getInstance().sendMessage("Compression: Timeout"); MotorWrapper::setModeAndMove(motor, 2, 1, 0, MODULE_COMPRESSION, "Stop"); return true; }
-    if (elapsed > 1.0f && abs(motor.getVelocity()) < 0.5f) { MessageBuffer::getInstance().sendMessage("Compression: Stall Detected"); MotorWrapper::setModeAndMove(motor, 2, 1, 0, MODULE_COMPRESSION, "Stop"); return true; }
+    if (elapsed > 1.0f && abs(broadcast.getVelocity()) < 0.5f) { MessageBuffer::getInstance().sendMessage("Compression: Stall Detected"); MotorWrapper::setModeAndMove(motor, 2, 1, 0, MODULE_COMPRESSION, "Stop"); return true; }
     return false;
 }
 
@@ -536,12 +536,13 @@ void loop() {
 
     // Use GPTimer for boot safety check
     if (hwTimer.micros() - bootTime > 3000000) {  // 3 seconds in microseconds
-        bool movingDown = motor.getVelocity() > 0.1f;
+        BroadcastDataStore& broadcast = BroadcastDataStore::getInstance();
+        bool movingDown = broadcast.getVelocity() > 0.1f;
         
         // Skip safety check during INIT_HEATING to allow boot without ODrive communication
         // This matches the existing exception pattern for ODrive errors (lines 422-425)
         if (fsm_state.currentState != InjectorStates::INIT_HEATING) {
-            if (!safety.check(motor.getVelocity(), movingDown)) { 
+            if (!safety.check(broadcast.getVelocity(), movingDown)) { 
                 fsm_state.currentState = InjectorStates::ERROR_STATE; 
                 fsm_state.error = safety.getLastError(); 
             }
@@ -604,9 +605,13 @@ void loop() {
 
         case InjectorStates::INIT_HEATING: 
             if (stateEntry) {
-                MessageBuffer::getInstance().sendMessage("Boot: Clearing ODrive errors");
-                motor.clearErrors();
-                delay(100);
+                // Only clear ODrive errors if actually connected
+                BroadcastDataStore& broadcast = BroadcastDataStore::getInstance();
+                if (broadcast.getAxisState() != 0) {  // ODrive is connected
+                    MessageBuffer::getInstance().sendMessage("Boot: Clearing ODrive errors");
+                    motor.clearErrors();
+                    delay(100);
+                }
             }
             if (fsm_inputs.nozzleTemperature >= TEMP_CRITICAL) fsm_state.currentState = InjectorStates::INIT_HOT_NOT_HOMED; else safety.enableMotorPower(false);
             break;
@@ -644,11 +649,6 @@ void loop() {
             // Only check for errors after state has been active for at least 500ms
             // This prevents immediate 0xFE errors during state transition
             if (stateEntry) {
-                // DEBUG: Log Refill state entry
-                char dbgBuf[80];
-                snprintf(dbgBuf, sizeof(dbgBuf), "[FSM_DEBUG] Entering REFILL state");
-                MessageBuffer::getInstance().sendMessage(dbgBuf);
-                
                 Refill::begin();
                 stateEntry = false;
             }
@@ -660,21 +660,9 @@ void loop() {
             }
             
             // DEBUG: Log Refill status check
-            static unsigned long lastRefillDebugTime = 0;
-            if (millis() - lastRefillDebugTime > 200) {  // Every 200ms for fine resolution
-                char dbgBuf[80];
-                snprintf(dbgBuf, sizeof(dbgBuf), "[FSM_DEBUG] Refill - err=%d comp=%d", 
-                         Refill::hasError(), Refill::isComplete());
-                MessageBuffer::getInstance().sendMessage(dbgBuf);
-                lastRefillDebugTime = millis();
-            }
+            // Remove FSM_DEBUG messages for cleaner output
             
             if (Refill::hasError()) {
-                // DEBUG: Log error trigger
-                char dbgBuf[80];
-                snprintf(dbgBuf, sizeof(dbgBuf), "[FSM_DEBUG] Refill error detected - setting ERROR_STATE 0xFE");
-                MessageBuffer::getInstance().sendMessage(dbgBuf);
-                
                 fsm_state.currentState = InjectorStates::ERROR_STATE;
                 fsm_state.error = 0xFE;
             }
@@ -826,10 +814,11 @@ void loop() {
 
         case InjectorStates::RELEASE: 
             if (stateEntry) {
+                BroadcastDataStore& broadcast = BroadcastDataStore::getInstance();
                 MessageBuffer::getInstance().sendMessage("Release: Unloading mould");
                 MotorWrapper::setMotorLimits(motor, RELEASE_CONTROLLER_VEL_LIMIT, RELEASE_CURRENT_LIMIT, MODULE_RELEASE, "RELEASE");
                 MotorWrapper::setTrapTrajParams(motor, RELEASE_TRAP_VEL_LIMIT, RELEASE_ACCEL, RELEASE_DECEL, MODULE_RELEASE, "RELEASE_TRAJ");
-                float releaseTarget = motor.getPosition() + RELEASE_DIST;
+                float releaseTarget = broadcast.getPosition() + RELEASE_DIST;
                 MotorWrapper::setModeAndMove(motor, 3, 5, releaseTarget, MODULE_RELEASE, "Pos Release");
                 stateEntry = false;
             }
@@ -879,7 +868,7 @@ void loop() {
     loopTime = loopEnd - loopStart;
     if (loopTime > maxLoopTime) maxLoopTime = loopTime;
     
-    if (millis() - lastDebugTime > 2000) {  // 2 seconds (prevent debug overlap) 
+    if (millis() - lastDebugTime > 1000) {  // 1 second (prevent debug overlap) 
         lastDebugTime = millis(); 
         printDebugReport(loopTime, maxLoopTime);
         maxLoopTime = 0;

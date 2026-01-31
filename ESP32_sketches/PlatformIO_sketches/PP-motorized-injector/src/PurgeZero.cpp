@@ -1,6 +1,10 @@
 #include "PurgeZero.h"
 #include "config.h"
 #include "MotorWrapper.h"
+#include "GPTimer.h"  // Add GPTimer include
+#include "BroadcastDataStore.h"  // Add include for broadcast data
+
+extern GPTimer hwTimer;  // Add GPTimer external declaration
 
 namespace PurgeZero {
     // ===== STATIC STATE VARIABLES =====
@@ -8,8 +12,9 @@ namespace PurgeZero {
     static bool complete = false;
     static bool error = false;
     static bool buttonsReleased = false;  // Track initial button release debounce
-    static unsigned long lastCommandTime = 0;
+    static uint64_t lastCommandTime = 0;  // Use uint64_t to match GPTimer
     static int lastButtonState = 0;  // 0=stop, 1=up, 2=down
+    static float purgeZeroPosition = 0.0f;  // Store the purge zero position
     
     // ===== BEGIN: Initialize on state entry =====
     void begin() {
@@ -23,7 +28,7 @@ namespace PurgeZero {
     
     // ===== UPDATE: Handle button-controlled movement =====
     bool update(CanBusHandlerV2& motor, bool buttonUp, bool buttonDown, bool buttonCenter) {
-        unsigned long now = millis();
+        uint64_t now = millis();
         
         // ===== DEBOUNCE: Wait for buttons to release at entry =====
         if (stateEntry) {
@@ -69,6 +74,8 @@ namespace PurgeZero {
         // ===== CENTER BUTTON: Confirm zero point =====
         if (buttonCenter) {  // buttonCenter is now bool pressed() event from main
             // User released center: confirm current position as zero point for injection
+            BroadcastDataStore& broadcast = BroadcastDataStore::getInstance();
+            purgeZeroPosition = broadcast.getPosition();  // Store the current position as purge zero
             MotorWrapper::setModeAndMove(motor, 2, 1, 0, MODULE_PURGE_ZERO, "Purge Confirm");  // Stop motor
             lastCommandTime = now;
             complete = true;
@@ -85,6 +92,11 @@ namespace PurgeZero {
     
     bool hasError() {
         return error;
+    }
+    
+    // ===== GETTERS =====
+    float getPurgeZeroPosition() {
+        return purgeZeroPosition;
     }
     
     // ===== RESET =====

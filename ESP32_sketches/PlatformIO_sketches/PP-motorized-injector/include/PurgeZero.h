@@ -33,6 +33,9 @@ namespace PurgeZero {
     bool isComplete();
     bool hasError();
     
+    // Getters
+    float getPurgeZeroPosition();
+    
     // Reset for next cycle
     void reset();
 };
