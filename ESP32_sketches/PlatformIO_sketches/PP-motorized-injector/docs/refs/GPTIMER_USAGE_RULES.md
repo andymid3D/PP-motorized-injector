@@ -1,6 +1,8 @@
 # GPTimer Usage Rules & Audit
-**Date:** January 17, 2026  
+**Date:** February 1, 2026  
 **Purpose:** Document all `hwTimer.micros()` usage to ensure consistent timestamp handling
+
+**Last Updated:** Added comprehensive system timing usage documentation
 
 ---
 
@@ -84,9 +86,85 @@ uint64_t age = hwTimer.micros() - enc->timestamp;
 
 ---
 
+#### **5. main.cpp - System Timing & State Management**
+**Lines:** 413, 486, 528, 538, 589
+
+```cpp
+bootTime = hwTimer.micros();                    // Line 413 - System boot timestamp
+uint64_t currentTime = hwTimer.micros();        // Line 486 - Debug timing (1s intervals)
+stateTimer = hwTimer.micros();                  // Line 528 - FSM state entry timing
+if (hwTimer.micros() - bootTime > 3000000)      // Line 538 - 3s boot safety check
+bool ignoreButtons = (hwTimer.micros() - stateTimer < 500000);  // Line 589 - 500ms button lock
+```
+
+**Usage:** ✅ System-wide timing for state management, debug intervals, boot safety  
+**Purpose:** FSM state transitions, debug reporting, button lock timing, boot safety checks  
+**Notes:** Critical system timing - all using absolute timestamps with relative calculations
+
+---
+
+#### **6. CanBusHandlerV2.cpp - Command Gap Timing**
+**Lines:** 56
+
+```cpp
+uint64_t now = hwTimer.micros();
+if (!isQueueEmpty() && (now - lastCommandSentTime_) >= (CAN_COMMAND_GAP_MS * 1000))
+```
+
+**Usage:** ✅ CAN command gap enforcement (50ms minimum between commands)  
+**Purpose:** Prevent CAN bus overload with microsecond precision  
+**Notes:** Converts MS gap requirement to microseconds for precision timing
+
+---
+
+#### **7. Refill.cpp - Module Timing**
+**Lines:** 27, 37, 53, 77
+
+```cpp
+stepTimer = hwTimer.micros() / 1000;           // Convert to milliseconds for module logic
+unsigned long now = hwTimer.micros() / 1000;   // Consistent timing across modules
+```
+
+**Usage:** ✅ Module-level timing with millisecond conversion  
+**Purpose:** Refill state machine timing, step transitions  
+**Notes:** Converts GPTimer microseconds to milliseconds for module compatibility
+
+---
+
+#### **8. ProtectedWindowTest.cpp - Test Timing**
+**Lines:** 98, 183, 194
+
+```cpp
+uint64_t currentTime = hwTimer.micros();      // Line 98 - Test timing
+_commandSentTime_us = hwTimer.micros();        // Line 183 - Command sent timestamp
+txMsg.timestamp = hwTimer.micros();            // Line 194 - Message timestamp
+```
+
+**Usage:** ✅ Test system timing for response correlation  
+**Purpose:** Measure motor response times, command tracking  
+**Notes:** Test-only code, follows correct absolute timestamp pattern
+
+---
+
+#### **9. TimingSystemTest.cpp - Performance Testing**
+**Lines:** 67, 103, 139, 240
+
+```cpp
+testStartTime_ = hwTimer.micros();             // Line 67 - Test start
+uint64_t currentTime = hwTimer.micros();      // Line 103 - Current time for age calc
+Serial.println(hwTimer.micros());              // Line 139 - Debug timestamp
+uint64_t currentTime = hwTimer.micros();      // Line 240 - Data age calculation
+```
+
+**Usage:** ✅ Performance measurement and testing  
+**Purpose:** Test execution timing, data freshness checks  
+**Notes:** Test-only, correctly uses absolute timestamps
+
+---
+
 ### **⚠️ PARTIALLY CORRECT (Needs Review)**
 
-#### **5. ProtectedWindowTest.cpp - Capture System**
+#### **10. ProtectedWindowTest.cpp - Capture System**
 **Lines:** 31, 196, 220, 240, 261, 279, 294, 327, 389, 450, 458
 
 **MIXED USAGE DETECTED:**
@@ -133,7 +211,7 @@ uint64_t loopEnd = hwTimer.micros();
 
 ### **✅ NO USAGE (Correct for Their Role)**
 
-#### **7. MotorWrapper.cpp**
+#### **12. MotorWrapper.cpp**
 **Status:** ✅ No `hwTimer.micros()` usage  
 **Reason:** Uses `millis()` for CAN gap enforcement (50ms resolution sufficient)  
 **Notes:** Correct - CAN gap timing doesn't need microsecond precision

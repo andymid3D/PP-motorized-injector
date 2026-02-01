@@ -99,9 +99,9 @@ namespace Refill {
                 return true;
             }
             
-            // DEBUG: Log periodic status (every 2 seconds to avoid overlap)
+            // DEBUG: Log periodic status (every 1 second to avoid overlap)
             static unsigned long lastDebugTime = 0;
-            if (now - lastDebugTime > 2000) {
+            if (now - lastDebugTime > 1000) {
                 char dbgBuf5[60];
                 snprintf(dbgBuf5, sizeof(dbgBuf5), "[REFILL_DEBUG] Status - %lu %d %d %.1f", 
                          moveElapsed, stateEntry, error, broadcast.getVelocity());

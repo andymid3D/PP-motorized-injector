@@ -484,7 +484,7 @@ void loop() {
         // Use GPTimer for debug timing
         static uint64_t lastDebugTime = 0;
         uint64_t currentTime = hwTimer.micros();
-        if (currentTime - lastDebugTime >= 2000000) {  // 2 seconds in microseconds (prevent debug overlap)
+        if (currentTime - lastDebugTime >= 1000000) {  // 1 second in microseconds (prevent debug overlap)
             lastDebugTime = currentTime;
             BroadcastDataStore& broadcast = BroadcastDataStore::getInstance();
             char debugBuf[256];
@@ -662,13 +662,9 @@ void loop() {
             // DEBUG: Log Refill status check
             // Remove FSM_DEBUG messages for cleaner output
             
-            if (Refill::hasError()) {
-                fsm_state.currentState = InjectorStates::ERROR_STATE;
-                fsm_state.error = 0xFE;
-            }
             if (!ignoreButtons && !moveLockActive) {
-                static unsigned long togglePressTime = 0;
-                static bool toggleProcessed = false;
+                unsigned long togglePressTime = 0;
+                bool toggleProcessed = false;
                 if (btnUpper.read() == LOW && btnLower.read() == LOW) {
                     if (!toggleProcessed) {
                         if (togglePressTime == 0) togglePressTime = millis();

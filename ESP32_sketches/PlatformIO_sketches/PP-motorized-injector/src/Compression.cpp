@@ -3,6 +3,7 @@
 #include "MotorWrapper.h"
 #include "GPTimer.h"  // Add GPTimer include
 #include "injector_fsm.h"  // For commonInjectParams_t
+#include "BroadcastDataStore.h"  // For BDS data access
 
 extern commonInjectParams_t commonParams;  // From main.cpp
 extern GPTimer hwTimer;  // Add GPTimer external declaration
@@ -87,8 +88,10 @@ namespace Compression {
             // - Axis error indicates problem
             // Note: Velocity near-zero is NORMAL for torque mode without resistance
             unsigned long travelElapsed = millis() - stepTimer;
-            bool stallDetected = motor.getAxisError() != 0;
-            bool torqueExceeded = travelElapsed > INJECT_STABLE_TIME_MS && fabs(motor.getVelocity()) < 0.1f && motor.getIqReadings().Iq_measured > COMPRESS_CONTACT_IQ_THRESHOLD;
+            BroadcastDataStore& broadcast = BroadcastDataStore::getInstance();
+            bool stallDetected = broadcast.getAxisError() != 0;
+            const TimestampedIq* iqData = broadcast.getLatestIq();
+            bool torqueExceeded = travelElapsed > INJECT_STABLE_TIME_MS && fabs(broadcast.getVelocity()) < 0.1f && iqData->iqMeasured > COMPRESS_CONTACT_IQ_THRESHOLD;
             
             if (stallDetected || torqueExceeded) {
                 // Queue commands - ring buffer handles timing
