@@ -18,11 +18,11 @@ enum ErrorSeverity {
 // Tracks all errors for diagnostics and pattern analysis
 struct ErrorEvent {
     uint32_t axisError;
-    uint32_t motorError;
+    uint64_t motorError;          // 64-bit for ODrive motor errors
     uint32_t encoderError;
     uint32_t controllerError;
-    InjectorStates stateWhenOccurred;
-    unsigned long timestamp;
+    uint64_t timestamp;           // millis() when error occurred
+    InjectorStates stateWhenOccurred;  // FSM state when error happened
 };
 
 #define ERROR_HISTORY_SIZE 20
@@ -57,7 +57,7 @@ const int AXIS_ERROR_COUNT = sizeof(AXIS_ERRORS) / sizeof(AXIS_ERRORS[0]);
 // ===== MOTOR ERROR TABLE (ODrive.Motor.Error) =====
 // Source: https://docs.odriverobotics.com/v/0.5.6/fibre_types/com_odriverobotics_ODrive.html#ODrive.Motor.Error
 struct MotorErrorInfo {
-    uint32_t code;
+    uint64_t code;                // 64-bit for ODrive motor errors
     const char* name;
     const char* description;
     ErrorSeverity severity;
@@ -86,7 +86,8 @@ const MotorErrorInfo MOTOR_ERRORS[] = {
     {0x10000000, "UNKNOWN_TORQUE", "No valid torque input", ERR_RECOVERABLE_RETRY},
     {0x20000000, "UNKNOWN_CURRENT_COMMAND", "No valid current setpoint", ERR_RECOVERABLE_RETRY},
     {0x40000000, "UNKNOWN_CURRENT_MEASUREMENT", "No valid current measurement", ERR_SAFETY_CRITICAL},
-    {0x80000000, "UNKNOWN_VBUS_VOLTAGE", "No valid vbus measurement", ERR_SAFETY_CRITICAL}
+    {0x80000000, "UNKNOWN_VBUS_VOLTAGE", "No valid vbus measurement", ERR_SAFETY_CRITICAL},
+    {0x100000000, "UNKNOWN_VOLTAGE_COMMAND", "The current controller did not get a valid feedforward voltage setpoint", ERR_RECOVERABLE_RETRY}
 };
 const int MOTOR_ERROR_COUNT = sizeof(MOTOR_ERRORS) / sizeof(MOTOR_ERRORS[0]);
 
@@ -156,24 +157,31 @@ const int KNOWN_ERROR_COUNT = sizeof(KNOWN_ERRORS) / sizeof(KNOWN_ERRORS[0]);
 // ===== FUNCTION DECLARATIONS =====
 
 // Error logging
-void logError(uint32_t axis, uint32_t motor, uint32_t encoder, uint32_t controller, InjectorStates state);
+void logError(uint32_t axis, uint64_t motor, uint32_t encoder, uint32_t controller, InjectorStates state);  // 64-bit for ODrive motor errors
 void printErrorHistory();
 void clearErrorHistory();
 
 // Error lookup and classification
-ErrorSeverity classifyError(uint32_t axisError, uint32_t motorError, uint32_t encoderError, uint32_t controllerError);
+ErrorSeverity classifyError(uint32_t axisError, uint64_t motorError, uint32_t encoderError, uint32_t controllerError);
 const char* getAxisErrorName(uint32_t code);
-const char* getMotorErrorName(uint32_t code);
+const char* getMotorErrorName(uint64_t code);  // 64-bit for ODrive motor errors
 const char* getEncoderErrorName(uint32_t code);
 const char* getControllerErrorName(uint32_t code);
 
 // Error description helpers (for debug output)
 void printAxisError(uint32_t code);
-void printMotorError(uint32_t code);
+void printMotorError(uint64_t code);  // 64-bit for ODrive motor errors
 void printEncoderError(uint32_t code);
 void printControllerError(uint32_t code);
 
 // Check if any error is present
-bool hasAnyError(uint32_t axis, uint32_t motor, uint32_t encoder, uint32_t controller);
+bool hasAnyError(uint32_t axis, uint64_t motor, uint32_t encoder, uint32_t controller);
+
+// Centralized error recovery (extends existing ErrorSeverity system)
+void handleRecoverableError(ErrorSeverity severity, uint32_t axisError, uint64_t motorError, uint32_t encoderError, uint32_t controllerError, bool moveComplete);
+
+// ErrorManager status for SafetyManager coordination
+bool errorManagerNeedsShutdown();  // Returns true if SafetyManager should trigger shutdown
+void resetErrorManagerState();     // Clear retry counters and state
 
 #endif // ERROR_MANAGER_H

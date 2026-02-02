@@ -166,10 +166,10 @@ public:
 
     /** Motor error message (0x03 cyclic broadcast ~disabled by default)
      * Contains detailed motor error flags
-     * Byte 0-3: motor_error (uint32_t)
+     * Byte 0-7: motor_error (uint64_t) - ODrive sends 64-bit motor errors!
      */
     struct CyclicMotorError {
-        uint32_t motor_error = 0;          // Motor error flags
+        uint64_t motor_error = 0;          // Motor error flags (64-bit)
     };
 
     /** Encoder error message (0x04 cyclic broadcast ~disabled by default)

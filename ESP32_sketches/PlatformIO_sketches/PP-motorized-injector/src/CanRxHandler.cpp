@@ -190,12 +190,24 @@ void CanRxHandler::pollAndProcess() {
     }
     // Store motor error data - use manual parsing to avoid can_getSignal endianness issues
     else if (cmdId == ODriveCANProtocol::CYCLIC_MOTOR_ERROR) {
-        // Parse 32-bit motor error (little-endian)
-        uint32_t motor_error = 0;
-        motor_error |= ((uint32_t)frame.data[0]) << 0;
-        motor_error |= ((uint32_t)frame.data[1]) << 8;
-        motor_error |= ((uint32_t)frame.data[2]) << 16;
-        motor_error |= ((uint32_t)frame.data[3]) << 24;
+        // Parse 64-bit motor error (little-endian) - ODrive sends 64-bit for motor errors!
+        uint64_t motor_error = 0;
+        motor_error |= ((uint64_t)frame.data[0]) << 0;
+        motor_error |= ((uint64_t)frame.data[1]) << 8;
+        motor_error |= ((uint64_t)frame.data[2]) << 16;
+        motor_error |= ((uint64_t)frame.data[3]) << 24;
+        motor_error |= ((uint64_t)frame.data[4]) << 32;
+        motor_error |= ((uint64_t)frame.data[5]) << 40;
+        motor_error |= ((uint64_t)frame.data[6]) << 48;
+        motor_error |= ((uint64_t)frame.data[7]) << 56;
+        
+        #if DEBUG_ENABLED
+        Serial.print("[CAN_RX] Motor Error: 0x");
+        Serial.print((unsigned long long)motor_error, HEX);
+        Serial.print(" at ");
+        Serial.println(timestamp);
+        #endif
+        
         bds.storeMotorError(motor_error, timestamp, false);
     }
     // Store encoder error data - use manual parsing to avoid can_getSignal endianness issues
@@ -216,6 +228,14 @@ void CanRxHandler::pollAndProcess() {
         controller_error |= ((uint32_t)frame.data[1]) << 8;
         controller_error |= ((uint32_t)frame.data[2]) << 16;
         controller_error |= ((uint32_t)frame.data[3]) << 24;
+        
+        #if DEBUG_ENABLED
+        Serial.print("[CAN_RX] Controller Error: 0x");
+        Serial.print(controller_error, HEX);
+        Serial.print(" at ");
+        Serial.println(timestamp);
+        #endif
+        
         bds.storeControllerError(controller_error, timestamp, false);
     }
     // Store bus voltage/current data for movement detection comparison

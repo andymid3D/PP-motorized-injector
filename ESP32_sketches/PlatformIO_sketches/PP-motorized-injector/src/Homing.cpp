@@ -178,7 +178,7 @@ void Homing::handleRequestCL(CanBusHandlerV2& motor, SafetyManager& safety) {
 
 void Homing::handleWaitCL(CanBusHandlerV2& motor, SafetyManager& safety) {
     BroadcastDataStore& broadcast = BroadcastDataStore::getInstance();
-    uint32_t motorErr = broadcast.getMotorError();
+    uint64_t motorErr = broadcast.getMotorError();  // 64-bit for ODrive motor errors
     
     // Check for phase estimate error (0x40 = UNKNOWN_PHASE_ESTIMATE)
     if (motorErr == 0x40) {

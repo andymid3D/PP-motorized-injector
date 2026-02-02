@@ -1,20 +1,28 @@
 #include "ErrorManager.h"
-#include "config.h"  // For DEBUG macros
+#include "config.h"  // For DEBUG macros and ERROR_CLEAR_DELAY_MS
+#include "CanBusHandlerV2.h"  // For motor access
+#include "MessageBuffer.h"  // For sendMessage
+#include "SafetyManager.h"  // For safety shutdown on critical errors
+#include "GPTimer.h"  // For consistent timing with CAN timestamps
 #include <Arduino.h>
+
+extern CanBusHandlerV2 motor;  // Access to motor for error clearing
+extern SafetyManager safety;    // Access to safety manager for critical errors
+extern GPTimer hwTimer;         // Access to hardware timer for consistent timing
 
 // ===== GLOBAL ERROR HISTORY =====
 ErrorEvent errorHistory[ERROR_HISTORY_SIZE];
 uint8_t errorHistoryIndex = 0;
 
 // ===== ERROR LOGGING =====
-void logError(uint32_t axis, uint32_t motor, uint32_t encoder, uint32_t controller, InjectorStates state) {
+void logError(uint32_t axis, uint64_t motor, uint32_t encoder, uint32_t controller, InjectorStates state) {
     // Store error event in circular buffer
     errorHistory[errorHistoryIndex].axisError = axis;
     errorHistory[errorHistoryIndex].motorError = motor;
     errorHistory[errorHistoryIndex].encoderError = encoder;
     errorHistory[errorHistoryIndex].controllerError = controller;
     errorHistory[errorHistoryIndex].stateWhenOccurred = state;
-    errorHistory[errorHistoryIndex].timestamp = millis();
+    errorHistory[errorHistoryIndex].timestamp = hwTimer.micros();  // GPTimer for consistency with CAN timestamps
     
     errorHistoryIndex = (errorHistoryIndex + 1) % ERROR_HISTORY_SIZE;
     
@@ -25,13 +33,27 @@ void logError(uint32_t axis, uint32_t motor, uint32_t encoder, uint32_t controll
     Serial.print(" | AX:0x");
     Serial.print(axis, HEX);
     Serial.print(" MX:0x");
-    Serial.print(motor, HEX);
+    
+    // Handle invalid motor errors (0xFFFFFFFF indicates axis failure)
+    if (motor == 0xFFFFFFFFFFFFFFFFULL) {
+        Serial.print("INVALID");
+    } else {
+        Serial.print((unsigned long long)motor, HEX);  // 64-bit for ODrive motor errors
+    }
+    
     Serial.print(" EX:0x");
     Serial.print(encoder, HEX);
     Serial.print(" CX:0x");
-    Serial.print(controller, HEX);
+    
+    // Handle invalid controller errors (0xFFFFFFFF indicates axis failure)
+    if (controller == 0xFFFFFFFF) {
+        Serial.print("INVALID");
+    } else {
+        Serial.print(controller, HEX);
+    }
+    
     Serial.print(" | Time: ");
-    Serial.println(millis());
+    Serial.println(hwTimer.micros() / 1000);  // GPTimer milliseconds for consistency with CAN timestamps
     #endif
 }
 
@@ -72,7 +94,7 @@ void clearErrorHistory() {
 }
 
 // ===== ERROR CLASSIFICATION =====
-ErrorSeverity classifyError(uint32_t axisError, uint32_t motorError, uint32_t encoderError, uint32_t controllerError) {
+ErrorSeverity classifyError(uint32_t axisError, uint64_t motorError, uint32_t encoderError, uint32_t controllerError) {
     ErrorSeverity worstSeverity = ERR_EXPECTED_TRANSIENT;
     
     // Check axis errors
@@ -124,7 +146,7 @@ const char* getAxisErrorName(uint32_t code) {
     return "UNKNOWN_AXIS_ERROR";
 }
 
-const char* getMotorErrorName(uint32_t code) {
+const char* getMotorErrorName(uint64_t code) {
     for (int i = 0; i < MOTOR_ERROR_COUNT; i++) {
         if (code == MOTOR_ERRORS[i].code) {
             return MOTOR_ERRORS[i].name;
@@ -167,7 +189,7 @@ void printAxisError(uint32_t code) {
     DEBUG_PRINTLN();
 }
 
-void printMotorError(uint32_t code) {
+void printMotorError(uint64_t code) {
     DEBUG_PRINT("MOTOR ERROR 0x");
     DEBUG_PRINT(code, HEX);
     DEBUG_PRINT(": ");
@@ -213,6 +235,90 @@ void printControllerError(uint32_t code) {
 }
 
 // ===== ERROR CHECKING =====
-bool hasAnyError(uint32_t axis, uint32_t motor, uint32_t encoder, uint32_t controller) {
+bool hasAnyError(uint32_t axis, uint64_t motor, uint32_t encoder, uint32_t controller) {
     return (axis != 0 || motor != 0 || encoder != 0 || controller != 0);
+}
+
+// ===== ERROR MANAGER STATUS COORDINATION =====
+static bool needsShutdown = false;
+
+bool errorManagerNeedsShutdown() {
+    return needsShutdown;
+}
+
+void resetErrorManagerState() {
+    needsShutdown = false;
+    // Note: retryCount and lastErrorTime are static in handleRecoverableError
+    // They will reset naturally on next successful recovery or timeout
+}
+
+// ===== CENTRALIZED ERROR RECOVERY (extends existing ErrorSeverity) =====
+void handleRecoverableError(ErrorSeverity severity, uint32_t axisError, uint64_t motorError, uint32_t encoderError, uint32_t controllerError, bool moveComplete) {
+    extern CanBusHandlerV2 motor;  // Access to motor for error clearing
+    extern SafetyManager safety;  // Access to safety manager for critical errors
+    
+    static int retryCount = 0;
+    static uint64_t lastErrorTime = 0;
+    uint64_t currentTime = millis();
+    
+    // Reset retry counter if errors are spaced out (>1 second)
+    if (currentTime - lastErrorTime > 1000) {
+        retryCount = 0;
+    }
+    lastErrorTime = currentTime;
+    
+    switch(severity) {
+        case ERR_EXPECTED_TRANSIENT:
+            MessageBuffer::getInstance().sendMessage("Transient error - clearing only");
+            motor.clearErrors();
+            delay(ERROR_CLEAR_DELAY_MS);
+            motor.setAxisState(ODriveCANProtocol::AxisState::CLOSED_LOOP_CONTROL);
+            retryCount = 0;  // Reset counter on successful recovery
+            needsShutdown = false;
+            break;
+            
+        case ERR_RECOVERABLE_RETRY:
+            retryCount++;
+            if (retryCount > 3) {
+                // Too many retries - signal main loop to trigger shutdown
+                MessageBuffer::getInstance().sendMessage("Recovery failed after 3 retries - safety shutdown");
+                needsShutdown = true;
+                return;  // Let main loop handle ERROR_STATE transition
+            }
+            
+            if (moveComplete) {
+                MessageBuffer::getInstance().sendMessage("Recoverable error - move complete, clearing only");
+                motor.clearErrors();
+                delay(ERROR_CLEAR_DELAY_MS);
+                motor.setAxisState(ODriveCANProtocol::AxisState::CLOSED_LOOP_CONTROL);
+                retryCount = 0;  // Reset counter on successful recovery
+                needsShutdown = false;
+            } else {
+                MessageBuffer::getInstance().sendMessage("Recoverable error - clearing and retrying");
+                motor.clearErrors();
+                delay(ERROR_CLEAR_DELAY_MS);
+                motor.setAxisState(ODriveCANProtocol::AxisState::CLOSED_LOOP_CONTROL);
+                // Don't change FSM state - let current state continue
+                needsShutdown = false;
+            }
+            break;
+            
+        case ERR_RECOVERABLE_HOMING:
+            MessageBuffer::getInstance().sendMessage("Homing error - clearing and recalibrating");
+            motor.clearErrors();
+            delay(ERROR_CLEAR_DELAY_MS);
+            motor.setAxisState(ODriveCANProtocol::AxisState::CLOSED_LOOP_CONTROL);
+            retryCount = 0;  // Reset counter on successful recovery
+            needsShutdown = false;
+            // FSM will handle state transition to INIT_HOMING
+            break;
+            
+        case ERR_SAFETY_CRITICAL:
+        default:
+            // Immediate safety shutdown - no retries
+            MessageBuffer::getInstance().sendMessage("Error: SAFETY CRITICAL - triggering safety shutdown");
+            safety.triggerHalt(ERR_OVER_TEMP);
+            needsShutdown = true;
+            break;
+    }
 }

@@ -6,6 +6,9 @@
 #include "RingBuffer.h"
 #include "GPTimer.h"
 #include "config.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/semphr.h"
 
 // =============================================================================
 // RING BUFFER HISTORY SIZES (Phase 1.7 BDS v2)
@@ -90,7 +93,7 @@ struct TimestampedBusVI {
  * Motor-specific error flags
  */
 struct TimestampedMotorError {
-    uint32_t motorError;        // Motor error flags
+    uint64_t motorError;        // Motor error flags (64-bit for ODrive)
     uint64_t timestamp;         // GPTimer microseconds
     bool isResponse;            // True if correlates to recent TX command
 };
@@ -166,7 +169,7 @@ public:
     // ===== ERROR TRACKING (10ms broadcast interval) =====
     struct ErrorData {
         uint32_t axisError;           // Axis state error flags (from heartbeat)
-        uint32_t motorError;          // Motor error flags (CYCLIC_MOTOR_ERROR 0x03)
+        uint64_t motorError;          // Motor error flags (64-bit from CYCLIC_MOTOR_ERROR 0x03)
         uint32_t encoderError;        // Encoder error flags (CYCLIC_ENCODER_ERROR 0x04)
         uint32_t controllerError;     // Controller error flags (CYCLIC_CONTROLLER_ERROR 0x1D)
         uint32_t lastUpdateMs;        // Timestamp of last error broadcast
@@ -193,7 +196,7 @@ public:
     void storeEncoder(float position, float velocity, uint64_t timestamp, bool isResponse = false);
     void storeIq(float iqSetpoint, float iqMeasured, uint64_t timestamp, bool isResponse = false);
     void storeBusVI(float busVoltage, float busCurrent, uint64_t timestamp, bool isResponse = false);
-    void storeMotorError(uint32_t motorError, uint64_t timestamp, bool isResponse = false);
+    void storeMotorError(uint64_t motorError, uint64_t timestamp, bool isResponse = false);
     void storeEncoderError(uint32_t encoderError, uint64_t timestamp, bool isResponse = false);
     void storeControllerError(uint32_t controllerError, uint64_t timestamp, bool isResponse = false);
     
@@ -294,7 +297,7 @@ public:
     
     // Error updates (from error cyclic messages at 10ms intervals)
     void updateAxisError(uint32_t axisError);
-    void updateMotorError(uint32_t motorError, SafeString* debugLog = nullptr);
+    void updateMotorError(uint64_t motorError, SafeString* debugLog = nullptr);
     void updateEncoderError(uint32_t encoderError, SafeString* debugLog = nullptr);
     void updateControllerError(uint32_t controllerError, SafeString* debugLog = nullptr);
     
@@ -322,7 +325,7 @@ public:
     
     // Error queries
     uint32_t getAxisError() const;
-    uint32_t getMotorError() const;
+    uint64_t getMotorError() const;  // 64-bit for ODrive motor errors
     uint32_t getEncoderError() const;
     uint32_t getControllerError() const;
     bool hasAnyError() const;
@@ -381,9 +384,15 @@ public:
 private:
     // Private constructor (singleton)
     BroadcastDataStore() : axis_{0, 0.0f, 0.0f, 0}, power_{0, 0, 0, 0, 0}, 
-                          errors_{0, 0, 0, 0, 0, false}, estimates_{0.0f, 0.0f, 0} {}
+                          errors_{0, 0, 0, 0, 0, false}, estimates_{0.0f, 0.0f, 0} {
+        // Create mutex for thread safety
+        dataMutex_ = xSemaphoreCreateMutex();
+    }
     BroadcastDataStore(const BroadcastDataStore&) = delete;  // No copies
     BroadcastDataStore& operator=(const BroadcastDataStore&) = delete;  // No assignment
+    
+    // Thread safety mutex
+    SemaphoreHandle_t dataMutex_;
     
     // ===== V1 STORAGE (backward compatibility, still used by existing code) =====
     AxisData axis_;

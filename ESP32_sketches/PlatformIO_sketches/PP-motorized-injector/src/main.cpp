@@ -232,15 +232,15 @@ void printDebugReport(unsigned long currentLoopTime, unsigned long maxLoopTimeSi
     int lastInputMode = MotorWrapper::getLastInputMode();
     String lastCmdStr = MotorWrapper::getLastCommand();
     unsigned long uptimeSeconds = millis() / 1000;
-    uint32_t motorErr = broadcast.getMotorError();
+    uint64_t motorErr = broadcast.getMotorError();  // 64-bit for ODrive motor errors
     uint32_t encoderErr = broadcast.getEncoderError();
     uint32_t controllerErr = broadcast.getControllerError();
     uint8_t queueDepth = motor.getQueueDepth();
     
-    snprintf(buf, sizeof(buf), "[%lus c:%lums m:%lums][[%-12s] T:%-3d P:%-7ld Q:%d OD:%d MX:0x%-2X EX:0x%-2X CX:0x%-2X P:%-5.1f V:%-4.1f IqS:%-4.1f IqM:%-4.1f C:%d I:%d Cmd:%s]",
+    snprintf(buf, sizeof(buf), "[%lus c:%lums m:%lums][[%-12s] T:%-3d P:%-7ld Q:%d OD:%d MX:0x%-2llX EX:0x%-2X CX:0x%-2X P:%-5.1f V:%-4.1f IqS:%-4.1f IqM:%-4.1f C:%d I:%d Cmd:%s]",
         uptimeSeconds, currentLoopTime, maxLoopTimeSinceLastReport,
         getStateName(fsm_state.currentState), fsm_inputs.nozzleTemperature, pDisp, queueDepth,
-        broadcast.getAxisState(), motorErr, encoderErr, controllerErr, broadcast.getPosition(), broadcast.getVelocity(), 
+        broadcast.getAxisState(), (unsigned long long)motorErr, encoderErr, controllerErr, broadcast.getPosition(), broadcast.getVelocity(), 
         iq_setpoint, iq_measured,
         lastControlMode, lastInputMode, lastCmdStr.c_str());
     MessageBuffer::getInstance().set1HzMessage(buf);
@@ -539,49 +539,62 @@ void loop() {
         BroadcastDataStore& broadcast = BroadcastDataStore::getInstance();
         bool movingDown = broadcast.getVelocity() > 0.1f;
         
-        // Skip safety check during INIT_HEATING to allow boot without ODrive communication
-        // This matches the existing exception pattern for ODrive errors (lines 422-425)
-        if (fsm_state.currentState != InjectorStates::INIT_HEATING) {
-            if (!safety.check(broadcast.getVelocity(), movingDown)) { 
-                fsm_state.currentState = InjectorStates::ERROR_STATE; 
-                fsm_state.error = safety.getLastError(); 
-            }
-        }
-        
-        uint32_t axisErr = motor.getAxisError();
-        uint32_t motorErr = motor.getMotorErrorDetails().motor_error;
-        uint32_t encoderErr = motor.getEncoderErrorDetails().encoder_error;
-        uint32_t controllerErr = motor.getControllerErrorDetails().controller_error;
+        // Check for motor errors FIRST (before safety checks to avoid race conditions)
+        uint32_t axisErr = broadcast.getAxisError();
+        uint64_t motorErr = broadcast.getMotorError();  // 64-bit for ODrive motor errors
+        uint32_t encoderErr = broadcast.getEncoderError();
+        uint32_t controllerErr = broadcast.getControllerError();
         
         if (hasAnyError(axisErr, motorErr, encoderErr, controllerErr) && 
             fsm_state.currentState != INIT_HEATING &&
             fsm_state.currentState != INIT_HOT_NOT_HOMED &&
             fsm_state.currentState != INIT_HOMING && 
-            fsm_state.currentState != ERROR_STATE) {
+            fsm_state.currentState != ERROR_STATE) {  // Removed non-existent state
             
             logError(axisErr, motorErr, encoderErr, controllerErr, fsm_state.currentState);
             ErrorSeverity severity = classifyError(axisErr, motorErr, encoderErr, controllerErr);
             
             switch(severity) {
                 case ERR_EXPECTED_TRANSIENT:
-                    break;
                 case ERR_RECOVERABLE_RETRY:
-                    MessageBuffer::getInstance().sendMessage("Error: Recoverable (retry) - clearing and requesting State 8");
-                    motor.clearErrors();
-                    delay(ERROR_CLEAR_DELAY_MS);
-                    motor.setAxisState(ODriveCANProtocol::AxisState::CLOSED_LOOP_CONTROL);
-                    break;
                 case ERR_RECOVERABLE_HOMING:
-                    MessageBuffer::getInstance().sendMessage("Error: Requires recalibration - returning to homing");
-                    fsm_state.currentState = InjectorStates::INIT_HOMING;
-                    flags.calibrationDone = false;
+                    {
+                        // Use centralized error recovery (extends existing ErrorSeverity system)
+                        BroadcastDataStore& broadcast = BroadcastDataStore::getInstance();
+                        bool moveComplete = (fabs(broadcast.getVelocity()) < 0.1f && broadcast.isTrajectoryComplete());
+                        
+                        handleRecoverableError(severity, axisErr, motorErr, encoderErr, controllerErr, moveComplete);
+                        
+                        // Check if ErrorManager signaled for shutdown
+                        if (errorManagerNeedsShutdown()) {
+                            fsm_state.currentState = InjectorStates::ERROR_STATE;
+                            fsm_state.error = safety.getLastError();
+                            resetErrorManagerState();
+                            return;  // Exit early for shutdown
+                        }
+                        
+                        // For homing errors, transition to INIT_HOMING
+                        if (severity == ERR_RECOVERABLE_HOMING) {
+                            fsm_state.currentState = InjectorStates::INIT_HOMING;
+                            flags.calibrationDone = false;
+                        }
+                    }
                     break;
                 case ERR_SAFETY_CRITICAL:
-                    MessageBuffer::getInstance().sendMessage("Error: SAFETY CRITICAL - user intervention required");
-                    safety.triggerHalt(ERR_OVER_TEMP);
+                    // ErrorManager already called SafetyManager for shutdown
                     fsm_state.currentState = InjectorStates::ERROR_STATE;
-                    fsm_state.error = motorErr;
+                    fsm_state.error = safety.getLastError();
+                    resetErrorManagerState();
                     break;
+            }
+        }
+        
+        // Now check safety (hardware) issues - only if no motor errors or no shutdown needed
+        if (fsm_state.currentState != InjectorStates::INIT_HEATING && !errorManagerNeedsShutdown()) {
+            if (!safety.check(broadcast.getVelocity(), movingDown)) { 
+                fsm_state.currentState = InjectorStates::ERROR_STATE; 
+                fsm_state.error = safety.getLastError(); 
+                return;  // Exit early if safety triggered
             }
         }
     }

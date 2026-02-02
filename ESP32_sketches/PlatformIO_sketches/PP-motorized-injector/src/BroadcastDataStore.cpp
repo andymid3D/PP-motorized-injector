@@ -59,14 +59,16 @@ void BroadcastDataStore::storeBusVI(float busVoltage, float busCurrent, uint64_t
     power_.busCurrent = busCurrent;
 }
 
-void BroadcastDataStore::storeMotorError(uint32_t motorError, uint64_t timestamp, bool isResponse) {
+void BroadcastDataStore::storeMotorError(uint64_t motorError, uint64_t timestamp, bool isResponse) {
     TimestampedMotorError msg = {motorError, timestamp, isResponse};
     motorErrorHistory_.push(msg);
     
-    // Update v1 storage for backward compatibility
-    errors_.motorError = motorError;
-    errors_.lastUpdateMs = millis();
-    errors_.hasAnyError = (motorError != 0);
+    if (dataMutex_ && xSemaphoreTake(dataMutex_, portMAX_DELAY) == pdTRUE) {
+        errors_.motorError = motorError;
+        errors_.lastUpdateMs = millis();
+        errors_.hasAnyError = (motorError != 0);
+        xSemaphoreGive(dataMutex_);
+    }
 }
 
 void BroadcastDataStore::storeEncoderError(uint32_t encoderError, uint64_t timestamp, bool isResponse) {
@@ -82,9 +84,12 @@ void BroadcastDataStore::storeControllerError(uint32_t controllerError, uint64_t
     TimestampedControllerError msg = {controllerError, timestamp, isResponse};
     controllerErrorHistory_.push(msg);
     
-    // Update v1 storage for backward compatibility
-    errors_.controllerError = controllerError;
-    errors_.hasAnyError = (controllerError != 0);
+    if (dataMutex_ && xSemaphoreTake(dataMutex_, portMAX_DELAY) == pdTRUE) {
+        errors_.controllerError = controllerError;
+        errors_.lastUpdateMs = millis();
+        errors_.hasAnyError = (controllerError != 0);
+        xSemaphoreGive(dataMutex_);
+    }
 }
 
 // =============================================================================
@@ -251,14 +256,14 @@ void BroadcastDataStore::updateAxisError(uint32_t axisError) {
     errors_.lastUpdateMs = millis();
 }
 
-void BroadcastDataStore::updateMotorError(uint32_t motorError, SafeString* debugLog) {
+void BroadcastDataStore::updateMotorError(uint64_t motorError, SafeString* debugLog) {
     errors_.motorError = motorError;
     errors_.lastUpdateMs = millis();
     errors_.hasAnyError = (motorError != 0);
     if (motorError != 0 && debugLog != nullptr) {
         *debugLog += " MotorErr:0x";
         char hex[16];
-        snprintf(hex, sizeof(hex), "%08lX", motorError);
+        snprintf(hex, sizeof(hex), "%016llX", (unsigned long long)motorError);
         *debugLog += hex;
     }
 }
@@ -355,8 +360,13 @@ uint32_t BroadcastDataStore::getAxisError() const {
     return errors_.axisError;
 }
 
-uint32_t BroadcastDataStore::getMotorError() const {
-    return errors_.motorError;
+uint64_t BroadcastDataStore::getMotorError() const {
+    uint64_t result = 0;
+    if (dataMutex_ && xSemaphoreTake(dataMutex_, portMAX_DELAY) == pdTRUE) {
+        result = errors_.motorError;
+        xSemaphoreGive(dataMutex_);
+    }
+    return result;
 }
 
 uint32_t BroadcastDataStore::getEncoderError() const {
@@ -364,7 +374,12 @@ uint32_t BroadcastDataStore::getEncoderError() const {
 }
 
 uint32_t BroadcastDataStore::getControllerError() const {
-    return errors_.controllerError;
+    uint32_t result = 0;
+    if (dataMutex_ && xSemaphoreTake(dataMutex_, portMAX_DELAY) == pdTRUE) {
+        result = errors_.controllerError;
+        xSemaphoreGive(dataMutex_);
+    }
+    return result;
 }
 
 bool BroadcastDataStore::hasAnyError() const {

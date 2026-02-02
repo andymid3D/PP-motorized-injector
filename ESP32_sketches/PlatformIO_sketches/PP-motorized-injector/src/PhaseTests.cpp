@@ -548,7 +548,7 @@ void PhaseTests::testBDSIntegration() {
         // Serial.print("[BDS Errors] Axis: 0x");
         // Serial.print(hb ? hb->axisError : 0, HEX);
         // Serial.print(" | Motor: 0x");
-        // Serial.print(motorErr ? motorErr->motorError : 0, HEX);
+        // Serial.print(motorErr ? (unsigned long long)motorErr->motorError : 0, HEX);  // 64-bit for ODrive motor errors
         // Serial.print(" | Encoder: 0x");
         // Serial.print(encErr ? encErr->encoderError : 0, HEX);
         // Serial.print(" | Controller: 0x");

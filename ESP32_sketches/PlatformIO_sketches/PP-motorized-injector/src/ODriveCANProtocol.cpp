@@ -315,7 +315,7 @@ ODriveCANProtocol::CyclicHeartbeat ODriveCANProtocol::parseCyclicHeartbeat(const
 
 ODriveCANProtocol::CyclicMotorError ODriveCANProtocol::parseCyclicMotorError(const can_Message_t& msg) {
     CyclicMotorError me;
-    me.motor_error = can_getSignal<uint32_t>(msg, 0, 32, true);
+    me.motor_error = can_getSignal<uint64_t>(msg, 0, 64, true);  // 64-bit for motor errors
     return me;
 }
 

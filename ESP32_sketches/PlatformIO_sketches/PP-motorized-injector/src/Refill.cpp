@@ -15,7 +15,7 @@ namespace Refill {
         WAIT_ARRIVE,         // Arrived, waiting for button
         DONE 
     } step = DONE;
-    static unsigned long stepTimer = 0;
+    static uint64_t stepTimer = 0;  // Use uint64_t for GPTimer compatibility
     static bool stateEntry = false;
     static bool complete = false;
     static bool error = false;
@@ -24,7 +24,7 @@ namespace Refill {
     void begin() {
         step = MOVING_TO_HOME;
         // Use GPTimer for consistent timing with other system components
-        stepTimer = hwTimer.micros() / 1000;  // Convert microseconds to milliseconds
+        stepTimer = hwTimer.micros() / 1000;  // Convert microseconds to milliseconds (uint64_t)
         stateEntry = true;
         complete = false;
         error = false;
@@ -34,8 +34,8 @@ namespace Refill {
     bool update(CanBusHandlerV2& motor) {
         BroadcastDataStore& broadcast = BroadcastDataStore::getInstance();
         // Use GPTimer for consistent timing with other system components
-        unsigned long now = hwTimer.micros() / 1000;  // Convert microseconds to milliseconds
-        unsigned long elapsed = now - stepTimer;
+        uint64_t now = hwTimer.micros() / 1000;  // Convert microseconds to milliseconds (uint64_t)
+        uint64_t elapsed = now - stepTimer;
         
         // ===== STEP 0: Move to OFFSET_REFILL_GAP =====
         if (step == MOVING_TO_HOME) {
@@ -50,7 +50,7 @@ namespace Refill {
                 MotorWrapper::setTrapTrajParams(motor, commonParams.refillTrapVelLimit, 
                                                 commonParams.refillAccel, commonParams.refillDecel, MODULE_REFILL, "Refill Traj");
                 MotorWrapper::setModeAndMove(motor, 3, 5, OFFSET_REFILL_GAP, MODULE_REFILL, "Pos Refill");
-                stepTimer = hwTimer.micros() / 1000;  // Use GPTimer for consistency
+                stepTimer = hwTimer.micros() / 1000;  // Use GPTimer for consistency (uint64_t)
                 stateEntry = false;
                 
                 // DEBUG: Log after commands sent (commented out to reduce debug overlap)
@@ -59,38 +59,47 @@ namespace Refill {
                 // MessageBuffer::getInstance().sendMessage(dbgBuf2);
             }
             
-            // Check if motor arrived (velocity < threshold for sustained time)
-            unsigned long moveElapsed = now - stepTimer;
+            // Check if motor arrived using ODrive's trajectory completion flag (clean, no timing math)
+            bool trajectoryComplete = broadcast.isTrajectoryComplete();
+            bool motorStopped = fabs(broadcast.getVelocity()) < 0.1f;
+            bool motorActuallyMoving = fabs(broadcast.getVelocity()) > 1.0f;  // Motor has started moving
             
             // DEBUG: Log moveElapsed calculation (helpful for underflow debugging)
-            static unsigned long lastElapsedDebug = 0;
+            static uint64_t lastElapsedDebug = 0;
             if (now - lastElapsedDebug > 1000) {  // Every 1 second
                 char dbgElapsed[60];
-                snprintf(dbgElapsed, sizeof(dbgElapsed), "[REFILL_DEBUG] moveElapsed=%lu now=%lu timer=%lu", 
-                         moveElapsed, now, stepTimer);
+                snprintf(dbgElapsed, sizeof(dbgElapsed), "[REFILL_DEBUG] trajComplete=%d stopped=%d moving=%d vel=%.1f", 
+                         trajectoryComplete, motorStopped, motorActuallyMoving, broadcast.getVelocity());
                 MessageBuffer::getInstance().sendMessage(dbgElapsed);
                 lastElapsedDebug = now;
             }
             
-            if (fabs(broadcast.getVelocity()) < 0.1f && moveElapsed > INJECT_STABLE_TIME_MS) {
+            // CRITICAL: Only check arrival AFTER motor has started moving AND then stopped
+            // This prevents false positives from stale trajectory flags
+            static bool movementStarted = false;
+            if (motorActuallyMoving) movementStarted = true;
+            
+            if (movementStarted && trajectoryComplete && motorStopped) {
                 step = WAIT_ARRIVE;
-                stepTimer = hwTimer.micros() / 1000;  // Use GPTimer for consistency
+                stepTimer = hwTimer.micros() / 1000;  // Use GPTimer for consistency (uint64_t)
                 
                 // DEBUG: Log arrival
                 char dbgBuf3[60];
-                snprintf(dbgBuf3, sizeof(dbgBuf3), "[REFILL_DEBUG] Motor arrived - %lu %.1f", 
-                         moveElapsed, broadcast.getVelocity());
+                snprintf(dbgBuf3, sizeof(dbgBuf3), "[REFILL_DEBUG] Motor arrived via traj flag");
                 MessageBuffer::getInstance().sendMessage(dbgBuf3);
+                
+                // Reset movementStarted for next cycle
+                movementStarted = false;
             }
             
             // Safety timeout for worst-case: Refill from barrel end (355 turns) back to Refill position (47.75 turns)
             // This handles the scenario where barrel is almost empty and motor must travel full distance
             // Only check timeout after commands have been sent (stateEntry = false)
-            // Fix: Check for unsigned underflow (moveElapsed > now means stepTimer > now)
+            uint64_t moveElapsed = now - stepTimer;  // Calculate for timeout check only
             if (!stateEntry && moveElapsed <= now && moveElapsed > REFILL_FROM_BARREL_END_TIMEOUT_MS) {
                 // DEBUG: Log timeout trigger
                 char dbgBuf4[60];
-                snprintf(dbgBuf4, sizeof(dbgBuf4), "[REFILL_DEBUG] TIMEOUT - %lu > %lu", 
+                snprintf(dbgBuf4, sizeof(dbgBuf4), "[REFILL_DEBUG] TIMEOUT - %llu > %lu", 
                          moveElapsed, REFILL_FROM_BARREL_END_TIMEOUT_MS);
                 MessageBuffer::getInstance().sendMessage(dbgBuf4);
                 
@@ -100,11 +109,11 @@ namespace Refill {
             }
             
             // DEBUG: Log periodic status (every 1 second to avoid overlap)
-            static unsigned long lastDebugTime = 0;
+            static uint64_t lastDebugTime = 0;
             if (now - lastDebugTime > 1000) {
                 char dbgBuf5[60];
-                snprintf(dbgBuf5, sizeof(dbgBuf5), "[REFILL_DEBUG] Status - %lu %d %d %.1f", 
-                         moveElapsed, stateEntry, error, broadcast.getVelocity());
+                snprintf(dbgBuf5, sizeof(dbgBuf5), "[REFILL_DEBUG] Status - %d %d %d %d %.1f", 
+                         movementStarted, trajectoryComplete, stateEntry, error, broadcast.getVelocity());
                 MessageBuffer::getInstance().sendMessage(dbgBuf5);
                 lastDebugTime = now;
             }
@@ -117,6 +126,7 @@ namespace Refill {
             // Just idling at position, waiting for button input from main.cpp
             // Main.cpp will call handleCompressButton() to advance state
             // (Don't auto-advance, wait for user button press)
+            return true;  // Motor has arrived, unlock buttons
         }
         
         return complete;
