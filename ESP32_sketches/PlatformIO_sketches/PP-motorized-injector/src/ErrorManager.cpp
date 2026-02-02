@@ -97,6 +97,16 @@ void clearErrorHistory() {
 ErrorSeverity classifyError(uint32_t axisError, uint64_t motorError, uint32_t encoderError, uint32_t controllerError) {
     ErrorSeverity worstSeverity = ERR_EXPECTED_TRANSIENT;
     
+    #if DEBUG_ENABLED
+    // Debug: Print the actual error codes for analysis
+    if (motorError != 0) {
+        Serial.print("[DEBUG] Motor Error Classification: 0x");
+        Serial.print((unsigned long long)motorError, HEX);
+        Serial.print(" | Unknown bits: 0x");
+        Serial.println((unsigned long long)(motorError & ~0x100000000), HEX);  // Mask out known bit
+    }
+    #endif
+    
     // Check axis errors
     for (int i = 0; i < AXIS_ERROR_COUNT; i++) {
         if (axisError & AXIS_ERRORS[i].code) {
@@ -259,7 +269,16 @@ void handleRecoverableError(ErrorSeverity severity, uint32_t axisError, uint64_t
     
     static int retryCount = 0;
     static uint64_t lastErrorTime = 0;
-    uint64_t currentTime = millis();
+    uint64_t currentTime = millis();  // SAFE: Debug timing only, no CANbus interaction
+    
+    #if DEBUG_ENABLED
+    Serial.print("[DEBUG] Recovery attempt #");
+    Serial.print(retryCount + 1);
+    Serial.print(" | Severity: ");
+    Serial.print(static_cast<int>(severity));
+    Serial.print(" | MoveComplete: ");
+    Serial.println(moveComplete ? "YES" : "NO");
+    #endif
     
     // Reset retry counter if errors are spaced out (>1 second)
     if (currentTime - lastErrorTime > 1000) {

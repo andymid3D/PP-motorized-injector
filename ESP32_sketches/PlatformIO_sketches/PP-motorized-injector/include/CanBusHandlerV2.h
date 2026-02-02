@@ -473,6 +473,23 @@ private:
     
     // Helper: Check if queue has space
     bool isQueueFull() const { return queueFull_; }
+    
+    // ===== STOP VERIFICATION SYSTEM =====
+    // Prevents current spikes by ensuring motor stops before direction changes
+    
+    // Check if motor has actually stopped (velocity near zero)
+    bool isMotorStopped() const;
+    
+    // Check if we're waiting for stop verification
+    bool isWaitingForStop() const { return waitingForStop_; }
+    
+private:
+    // Stop verification state
+    bool waitingForStop_ = false;           // True if waiting for motor to stop
+    uint64_t stopCommandTime_ = 0;          // When stop command was sent
+    static constexpr float STOP_VELOCITY_THRESHOLD = 0.01f;  // Velocity threshold for "stopped"
+    static constexpr uint32_t STOP_SETTLE_TIME_MS = 50;     // Time to wait after stop verification
+    static constexpr uint32_t STOP_TIMEOUT_MS = 500;         // Max time to wait for stop
 };
 
 #endif // __CANBUS_HANDLER_V2_H__

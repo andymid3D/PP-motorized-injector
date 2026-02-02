@@ -37,11 +37,11 @@ namespace Injection {
         currentMould = mouldParams;
         phase = FILLING;
         stateEntry = true;
-        stateEnterTime = millis();
-        phaseStartTime = millis();
+        stateEnterTime = hwTimer.micros() / 1000;  // CRITICAL: Injection timing - must use GPTimer
+        phaseStartTime = hwTimer.micros() / 1000;  // CRITICAL: Injection timing - must use GPTimer
         complete = false;
         error = false;
-        lastCommandTime = millis();
+        lastCommandTime = hwTimer.micros() / 1000;  // CRITICAL: Injection timing - must use GPTimer
         pressureSensorChecked = false;
         
         injectStartPos = 0.0f;
@@ -50,7 +50,7 @@ namespace Injection {
     
     // ===== UPDATE: Non-blocking injection logic =====
     bool update(CanBusHandlerV2& motor) {
-        unsigned long now = millis();
+        unsigned long now = hwTimer.micros() / 1000;  // CRITICAL: Injection timing - must use GPTimer
         unsigned long stateElapsed = now - stateEnterTime;
         unsigned long phaseElapsed = now - phaseStartTime;
         

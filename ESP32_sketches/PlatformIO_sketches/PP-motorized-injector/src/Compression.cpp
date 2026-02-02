@@ -31,13 +31,13 @@ namespace Compression {
     void begin(CompressionMode mode) {
         currentMode = mode;
         stateEntry = true;
-        stateEnterTime = millis();
-        stepTimer = millis();
+        stateEnterTime = hwTimer.micros() / 1000;  // CRITICAL: Compression timing - must use GPTimer
+        stepTimer = hwTimer.micros() / 1000;  // CRITICAL: Compression timing - must use GPTimer
         complete = false;
         isErrorFlag = false;
         isTimeoutFlag = false;
         pressureSensorChecked = false;
-        lastCommandTime = millis();
+        lastCommandTime = hwTimer.micros() / 1000;  // CRITICAL: Compression timing - must use GPTimer
         
         // Start with pressure check for MODE 1, direct to TORQUE_RAMP for MODE 2
         if (mode == MODE_1_TRAVEL) {
@@ -49,7 +49,7 @@ namespace Compression {
     
     // ===== UPDATE: Non-blocking compression logic =====
     bool update(CanBusHandlerV2& motor) {
-        uint64_t now = millis();  // Use uint64_t to match GPTimer
+        uint64_t now = hwTimer.micros() / 1000;  // CRITICAL: Compression timing - must use GPTimer
         uint64_t elapsed = now - stateEnterTime;
         uint64_t stepElapsed = now - stepTimer;
         
@@ -78,8 +78,8 @@ namespace Compression {
                 // Queue all commands - ring buffer handles timing
                 MotorWrapper::setMotorLimits(motor, COMPRESS_TRAVEL_VEL_LIMIT, REFILL_CURRENT_LIMIT, MODULE_COMPRESSION, "Compress Travel");
                 MotorWrapper::setModeAndMove(motor, 1, 6, COMPRESS_TRAVEL_TORQUE, MODULE_COMPRESSION, "Compress Travel Down Torque");
-                lastCommandTime = millis();
-                stepTimer = millis();
+                lastCommandTime = hwTimer.micros() / 1000;  // CRITICAL: Compression timing - must use GPTimer
+                stepTimer = hwTimer.micros() / 1000;  // CRITICAL: Compression timing - must use GPTimer
                 stateEntry = false;
             }
             
@@ -87,7 +87,7 @@ namespace Compression {
             // - Motor stalls (torque exceeds input_torque limit)
             // - Axis error indicates problem
             // Note: Velocity near-zero is NORMAL for torque mode without resistance
-            unsigned long travelElapsed = millis() - stepTimer;
+            unsigned long travelElapsed = (hwTimer.micros() / 1000) - stepTimer;  // CRITICAL: Compression timing - must use GPTimer
             BroadcastDataStore& broadcast = BroadcastDataStore::getInstance();
             bool stallDetected = broadcast.getAxisError() != 0;
             const TimestampedIq* iqData = broadcast.getLatestIq();
@@ -98,7 +98,7 @@ namespace Compression {
                 MotorWrapper::setModeAndMove(motor, 1, 6, 0, MODULE_COMPRESSION, "Compress Stop");  // Stay in torque mode
                 MotorWrapper::adjustMotorLimits(motor, COMPRESS_CONTACT_CURRENT, MODULE_COMPRESSION, "Contact Detected");
                 step = TORQUE_RAMP;
-                stepTimer = millis();
+                stepTimer = hwTimer.micros() / 1000;  // CRITICAL: Compression timing - must use GPTimer
                 stateEntry = true;
                 return false;
             }
@@ -122,13 +122,13 @@ namespace Compression {
                                            ODriveCANProtocol::InputMode::TORQUE_RAMP);
                 }
                 // For MODE 1, already in torque mode from TRAVEL_DOWN
-                stepTimer = millis();
+                stepTimer = hwTimer.micros() / 1000;  // CRITICAL: Compression timing - must use GPTimer
                 stateEntry = false;
             }
             
             // Calculate torque ramp
             float rampDuration = commonParams.compressRampDuration;
-            unsigned long rampElapsed = millis() - stepTimer;
+            unsigned long rampElapsed = (hwTimer.micros() / 1000) - stepTimer;  // CRITICAL: Compression timing - must use GPTimer
             float elapsedSec = rampElapsed / 1000.0f;
             float targetTorque = (commonParams.compressRampTarget / rampDuration) * elapsedSec;
             if (targetTorque > commonParams.compressRampTarget) {

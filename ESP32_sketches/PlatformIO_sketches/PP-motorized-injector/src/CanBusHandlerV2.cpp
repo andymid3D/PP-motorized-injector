@@ -6,6 +6,8 @@
 #include "config.h"
 #include <Arduino.h>
 #include <ESP32-TWAI-CAN.hpp>
+#include <cmath>
+#include <cstdio>
 
 /**
  * CAN Bus Handler V2 Implementation
@@ -52,6 +54,35 @@ void CanBusHandlerV2::loop() {
     // CPU0 (CanRxHandler) is now SOLELY responsible for reading incoming CAN messages.
     // CanBusHandlerV2 will get its needed RX data from BroadcastDataStore.
 
+    // Handle stop verification
+    if (waitingForStop_) {
+        uint64_t now = hwTimer.micros();
+        
+        // Check for timeout
+        if ((now - stopCommandTime_) > (STOP_TIMEOUT_MS * 1000)) {
+            waitingForStop_ = false;
+            char buf[64];
+            snprintf(buf, sizeof(buf), "STOP_VERIFY_TIMEOUT: Motor didn't stop in %dms", STOP_TIMEOUT_MS);
+            MessageBuffer::getInstance().sendMessage(buf);
+            return;
+        }
+        
+        // Check if motor has actually stopped
+        if (isMotorStopped()) {
+            // Motor stopped - wait for settle time
+            if ((now - stopCommandTime_) > (STOP_SETTLE_TIME_MS * 1000)) {
+                waitingForStop_ = false;
+                char buf[64];
+                snprintf(buf, sizeof(buf), "STOP_VERIFIED: Motor stopped and settled");
+                MessageBuffer::getInstance().sendMessage(buf);
+            }
+            return; // Don't send next command yet
+        }
+        
+        // Still waiting for motor to stop
+        return; // Don't send next command yet
+    }
+
     // Send next queued command if CAN_COMMAND_GAP_MS has elapsed since last send
     uint64_t now = hwTimer.micros();
     if (!isQueueEmpty() && (now - lastCommandSentTime_) >= (CAN_COMMAND_GAP_MS * 1000)) {
@@ -72,6 +103,15 @@ bool CanBusHandlerV2::isAlive(uint32_t timeoutMs) const {
     // For now, it will return true, but this needs to be updated in a later phase
     // when BroadcastDataStore is fully populated by CanRxHandler.
     return true;
+}
+
+bool CanBusHandlerV2::isMotorStopped() const {
+    // Get current velocity from BroadcastDataStore
+    BroadcastDataStore& broadcast = BroadcastDataStore::getInstance();
+    float currentVelocity = broadcast.getVelocity();
+    
+    // Check if velocity is below threshold
+    return fabs(currentVelocity) < STOP_VELOCITY_THRESHOLD;
 }
 
 // ===== BACKWARD COMPATIBILITY GETTERS =====
@@ -102,6 +142,19 @@ bool CanBusHandlerV2::_queueCommand(const can_Message_t& cmd) {
             TimingSystemTest::getInstance().onMovementCommandTx(cmd);
             break;
         case (0 << 5) | ODriveCANProtocol::MSG_SET_INPUT_VEL:
+            // Check if this is a stop command (velocity = 0)
+            {
+                float velocity;
+                std::memcpy(&velocity, cmd.buf, sizeof(float));
+                if (fabs(velocity) < STOP_VELOCITY_THRESHOLD) {
+                    // This is a stop command - start verification
+                    waitingForStop_ = true;
+                    stopCommandTime_ = hwTimer.micros();
+                    char buf[64];
+                    snprintf(buf, sizeof(buf), "STOP_CMD_SENT: Starting verification");
+                    MessageBuffer::getInstance().sendMessage(buf);
+                }
+            }
             TimingSystemTest::getInstance().onMovementCommandTx(cmd);
             break;
         case (0 << 5) | ODriveCANProtocol::MSG_SET_INPUT_TORQUE:

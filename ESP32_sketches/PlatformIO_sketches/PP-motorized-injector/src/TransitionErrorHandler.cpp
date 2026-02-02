@@ -8,7 +8,7 @@ void TransitionErrorHandler::handleTransitionFailure(TransitionType type,
                                                      uint8_t controlMode) {
     // Log detailed error message
     char buf[128];
-    snprintf(buf, sizeof(buf), "CRITICAL_TRANSITION_FAIL: %s | AxisState=%d CtrlMode=%d | Time=%lu",
+    snprintf(buf, sizeof(buf), "CRITICAL_TRANSITION_FAIL: %s | AxisState=%d CtrlMode=%d | Time=%lu",  // SAFE: Test code logging only, no CANbus interaction
              getTransitionName(type), axisState, controlMode, millis());
     MessageBuffer::getInstance().sendMessage(buf);
     

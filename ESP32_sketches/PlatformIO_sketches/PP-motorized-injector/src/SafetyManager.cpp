@@ -15,7 +15,7 @@ SafetyManager::SafetyManager()
 
 void SafetyManager::begin() {
     // Initialize boot time for grace period
-    _bootTime = millis();
+    _bootTime = hwTimer.micros();  // CRITICAL: Used for CANbus staleness detection - must use GPTimer
     
     // 1. Initialize Debouncers
     // NOTE: We use INPUT because you added external Pull-up Resistors (1k)
@@ -88,8 +88,8 @@ void SafetyManager::updateInputs() {
     
     // DEBUG: Log endstop states for debugging (commented out for cleaner output)
     // static unsigned long lastEndstopDebug = 0;
-    // if (millis() - lastEndstopDebug > 1000) {  // Every 1 second
-    //     lastEndstopDebug = millis();
+    // if (millis() - lastEndstopDebug > 1000) {  // SAFE: Debug logging only, no CANbus interaction  // Every 1 second
+    //     lastEndstopDebug = millis();  // SAFE: Debug logging only, no CANbus interaction
     //     char dbgBuf[80];
     //     snprintf(dbgBuf, sizeof(dbgBuf), "[ENDSTOP_DEBUG] Top:%s(%d) Bot:%s(%d) Counters:%d/%d", 
     //              (dbTop.read() == LOW) ? "TRIG" : "OPEN", dbTop.read(),
@@ -211,7 +211,7 @@ bool SafetyManager::check(float current_velocity, bool is_moving_down) {
     // NOTE: Don't power off driver (avoids forced homing cycle)
     
     // Skip stale check during first 10 seconds of boot (grace period for ODrive communication)
-    unsigned long uptime = millis() - _bootTime;
+    unsigned long uptime = (hwTimer.micros() - _bootTime) / 1000;  // CRITICAL: Used for CANbus staleness detection - must use GPTimer
     if (uptime < 10000) { // 10 second grace period
         // During grace period, only check if we have ANY data at all
         // If no data after 10 seconds, then we'll trigger stale error
@@ -248,7 +248,7 @@ bool SafetyManager::check(float current_velocity, bool is_moving_down) {
     // Pressure Logic
     if (is_moving_down && abs(current_velocity) > 0.1f) {
         if (!_wasMovingDown) {
-            _moveStartTime = millis();
+            _moveStartTime = hwTimer.micros();  // CRITICAL: Used with CANbus velocity data - must use GPTimer
             _pressureBaseline = _currentPressure;
             BroadcastDataStore& broadcast = BroadcastDataStore::getInstance();
             _startPosition = broadcast.getPosition(); 

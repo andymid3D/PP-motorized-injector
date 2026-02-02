@@ -19,18 +19,18 @@ namespace AntiDrip {
     // ===== BEGIN: Initialize on state entry =====
     void begin() {
         stateEntry = true;
-        stateEnterTime = millis();
+        stateEnterTime = millis();  // SAFE: Test code timing only, no CANbus interaction
         complete = false;
         isTimeoutFlag = false;
         isAbortedFlag = false;
         error = false;
-        lastCommandTime = millis();
+        lastCommandTime = millis();  // SAFE: Test code timing only, no CANbus interaction
         pressureSensorChecked = false;
     }
     
     // ===== UPDATE: Apply slow retract, monitor for timeout/user input =====
     bool update(CanBusHandlerV2& motor) {
-        uint64_t now = millis();
+        uint64_t now = millis();  // SAFE: Test code timing only, no CANbus interaction
         uint64_t elapsed = now - stateEnterTime;
         
         // ===== ENTRY: Set velocity control mode and start upward movement =====

@@ -331,6 +331,10 @@ public:
     bool hasAnyError() const;
     uint32_t getLastErrorUpdate() const;
     
+    // Safe error queries (read previous entry to avoid race conditions)
+    uint64_t getMotorErrorSafe() const;  // Reads previous entry, not latest
+    uint32_t getControllerErrorSafe() const;
+    
     // ===== TRAJECTORY COMPLETION DETECTION =====
     
     // Check if trajectory move is complete (trajectory_done_flag in heartbeat)

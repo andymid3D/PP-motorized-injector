@@ -35,7 +35,7 @@ namespace MotorWrapper {
     
     // ===== SET MOTOR LIMITS (CAN 0x00F) =====
     void setMotorLimits(CanBusHandlerV2& motor, float vel_lim, float current_lim, uint8_t moduleId, String context) {
-        unsigned long now = millis();
+        unsigned long now = hwTimer.micros() / 1000;  // CRITICAL: Motor command timing - must use GPTimer
         
         // Send limits command (CanBusHandlerV2 handles timing)
         if (!motor.setLimits(vel_lim, current_lim)) {
@@ -71,7 +71,7 @@ namespace MotorWrapper {
         }
         
         // Update command tracking
-        lastCmdTime = millis();
+        lastCmdTime = hwTimer.micros() / 1000;  // CRITICAL: Motor command timing - must use GPTimer
         lastCmdStr = "Modes:" + context;
         lastControlMode = (int)ctrlMode;
         lastInputMode = (int)inputMode;
@@ -100,7 +100,7 @@ namespace MotorWrapper {
             return;
         }
         
-        lastCmdTime = millis();
+        lastCmdTime = hwTimer.micros() / 1000;  // CRITICAL: Motor command timing - must use GPTimer
         lastCmdStr = "TrapParams:" + context;
         lastModuleId = moduleId;
             
@@ -179,7 +179,7 @@ namespace MotorWrapper {
         }
         
         // Update tracking variables
-        lastCmdTime = millis();
+        lastCmdTime = hwTimer.micros() / 1000;  // CRITICAL: Motor command timing - must use GPTimer
         lastCmdStr = cmdName;
         lastControlMode = ctrlMode;
         lastInputMode = inputMode;
@@ -232,11 +232,11 @@ namespace MotorWrapper {
             setModeAndMove(motor, ctrlMode, inputMode, value, moduleId, cmdName);
             
             // Wait for START response detection (non-blocking)
-            unsigned long startTime = millis();
+            unsigned long startTime = hwTimer.micros(); // Use GPTimer for consistency
             bool commandStarted = false;
             
             // Check for START response detection within timeout
-            while ((millis() - startTime) < timeoutMs) {
+            while ((hwTimer.micros() - startTime) < (timeoutMs * 1000)) { // Convert to microseconds
                 // Check with TimingSystemTest for actual START response confirmation (disabled for now)
                 // if (TimingSystemTest::getInstance().hasCommandStarted(moduleId, cmdName)) {
                 //     commandStarted = true;
@@ -244,7 +244,7 @@ namespace MotorWrapper {
                 // }
                 
                 // For now, simulate success after short delay (original behavior)
-                if ((millis() - startTime) > 25) { // Simulated 25ms response time
+                if ((hwTimer.micros() - startTime) > (25 * 1000)) { // Simulated 25ms response time
                     commandStarted = true;
                     break;
                 }
@@ -252,7 +252,7 @@ namespace MotorWrapper {
             
             if (commandStarted) {
                 // START detected - success!
-                uint32_t latency = millis() - startTime;
+                uint32_t latency = (hwTimer.micros() - startTime) / 1000; // Convert back to ms for display
                 
                 // Log success
                 char buf[128];
@@ -270,9 +270,25 @@ namespace MotorWrapper {
                      moduleId, cmdName.c_str(), retryCount, MAX_RETRIES, timeoutMs);
             MessageBuffer::getInstance().sendMessage(retryBuf);
             
-            // Exponential backoff before retry
+            // Exponential backoff before retry - NON-BLOCKING
             if (retryCount < MAX_RETRIES) {
-                delay(50 * retryCount); // 50ms, 100ms, 150ms backoff
+                static unsigned long retryDelayStart = 0;
+                static uint8_t currentRetryCount = 0;
+                
+                // Initialize delay for this retry
+                if (retryDelayStart == 0 || currentRetryCount != retryCount) {
+                    retryDelayStart = hwTimer.micros(); // Use GPTimer for consistency
+                    currentRetryCount = retryCount;
+                }
+                
+                // Check if delay completed (convert ms to us)
+                if ((hwTimer.micros() - retryDelayStart) < (50 * retryCount * 1000)) {
+                    retryCount--; // Don't consume retry count yet
+                    return false; // Exit function, will retry on next call
+                }
+                
+                // Delay completed - reset for next retry
+                retryDelayStart = 0;
             }
         }
         
@@ -293,6 +309,6 @@ namespace MotorWrapper {
     }
     
     unsigned long timeSinceLastCommand() {
-        return millis() - lastCmdTime;
+        return (hwTimer.micros() / 1000) - lastCmdTime;  // CRITICAL: Motor command timing - must use GPTimer
     }
 };

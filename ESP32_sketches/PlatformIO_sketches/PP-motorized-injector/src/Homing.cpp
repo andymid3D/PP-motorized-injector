@@ -31,7 +31,7 @@ void Homing::begin(CanBusHandlerV2& motor, SafetyManager& safety) {
     // Reset state machine
     currentState_ = HomingState::CLEAR_ERRORS;
     previousState_ = HomingState::IDLE;
-    stateEnteredMs_ = millis();
+    stateEnteredMs_ = hwTimer.micros();
     calibrationComplete_ = false;
     lastSeenState_ = 0;
     modeCommandSentAtMs_ = 0;
@@ -105,7 +105,7 @@ void Homing::nextState(HomingState newState) {
     if (newState != currentState_) {
         previousState_ = currentState_;
         currentState_ = newState;
-        stateEnteredMs_ = millis();
+        stateEnteredMs_ = hwTimer.micros();
         modeCommandSentAtMs_ = 0;  // Reset timestamp for new state
         backoffVelCmdSent_ = false;  // Reset backoff flag for new state
         // State changes logged via main.cpp [HOMING_DEBUG] every loop iteration
@@ -162,7 +162,7 @@ void Homing::handleWaitCalibrate(CanBusHandlerV2& motor, SafetyManager& safety) 
     }
     
     // Timeout protection
-    if (millis() - stateEnteredMs_ > 15000) {
+    if (hwTimer.micros() - stateEnteredMs_ > (15000 * 1000)) {
         MessageBuffer::getInstance().sendMessage("Calibration timeout (>15s)");
         nextState(HomingState::ERROR_STATE);
     }
@@ -196,7 +196,7 @@ void Homing::handleWaitCL(CanBusHandlerV2& motor, SafetyManager& safety) {
     }
     
     // Timeout
-    if (millis() - stateEnteredMs_ > 3000) {
+    if (hwTimer.micros() - stateEnteredMs_ > (3000 * 1000)) {
         MessageBuffer::getInstance().sendMessage("Closed Loop failed (timeout)");
         nextState(HomingState::ERROR_STATE);
     }
@@ -211,7 +211,7 @@ void Homing::handleRetractFast(CanBusHandlerV2& motor, SafetyManager& safety) {
                                          ODriveCANProtocol::InputMode::VEL_RAMP, MODULE_INIT_HOMING, "RetractFast");
         lastControlModeSent_ = (uint8_t)ODriveCANProtocol::ControlMode::VELOCITY_CONTROL;
         lastInputModeSent_ = (uint8_t)ODriveCANProtocol::InputMode::VEL_RAMP;
-        modeCommandSentAtMs_ = millis();  // Timestamp mode command sent
+        modeCommandSentAtMs_ = hwTimer.micros();  // Timestamp mode command sent (GPTimer)
     }
     
     // Send velocity command ONCE with retry system (no more spamming)
@@ -237,7 +237,7 @@ void Homing::handleRetractFast(CanBusHandlerV2& motor, SafetyManager& safety) {
     // Timeout (barrel length safety)
     float barrelLength = OFFSET_REFILL_GAP + OFFSET_COLD_ZONE + STROKE_HEATED_ZONE;
     float retractTimeMs = (barrelLength / fabs(HOMING_FAST_VEL)) * 1000.0f + 2000;
-    if (millis() - stateEnteredMs_ > (uint32_t)retractTimeMs) {
+    if (millis() - stateEnteredMs_ > (uint32_t)retractTimeMs) {  // SAFE: Internal homing state timeout only, no CANbus interaction
         nextState(HomingState::ERROR_STATE);
     }
 }
@@ -252,7 +252,7 @@ void Homing::handleDecelerate(CanBusHandlerV2& motor, SafetyManager& safety) {
     }
     
     // Timeout
-    if (millis() - stateEnteredMs_ > 3000) {
+    if (millis() - stateEnteredMs_ > 3000) {  // SAFE: Internal homing state timeout only, no CANbus interaction
         nextState(HomingState::BACKOFF);
     }
 }
@@ -264,7 +264,7 @@ void Homing::handleBackoff(CanBusHandlerV2& motor, SafetyManager& safety) {
                                          ODriveCANProtocol::InputMode::VEL_RAMP, MODULE_INIT_HOMING, "Backoff");
         lastControlModeSent_ = (uint8_t)ODriveCANProtocol::ControlMode::VELOCITY_CONTROL;
         lastInputModeSent_ = (uint8_t)ODriveCANProtocol::InputMode::VEL_RAMP;
-        modeCommandSentAtMs_ = millis();  // Timestamp mode command sent
+        modeCommandSentAtMs_ = hwTimer.micros();  // Timestamp mode command sent (GPTimer)
         
         char buf[64];
         snprintf(buf, sizeof(buf), "BACKOFF: Mode cmd sent at %lums", modeCommandSentAtMs_);
@@ -290,19 +290,19 @@ void Homing::handleBackoff(CanBusHandlerV2& motor, SafetyManager& safety) {
     
     // Move forward for HOMING_BACKOFF_DURATION regardless of endstop state
     // This allows the plunger to relax the endstop pressure
-    unsigned long elapsed = millis() - stateEnteredMs_;
+    unsigned long elapsed = millis() - stateEnteredMs_;  // SAFE: Internal homing state timing only, no CANbus interaction
     if (elapsed >= HOMING_BACKOFF_DURATION) {
         motor.setInputVel(0.0f);
         char buf[80];
         snprintf(buf, sizeof(buf), "BACKOFF: Complete at %lums (elapsed=%lums, config=%dms)", 
-                 millis(), elapsed, HOMING_BACKOFF_DURATION);
+                 millis(), elapsed, HOMING_BACKOFF_DURATION);  // SAFE: Debug message only, no CANbus interaction
         MessageBuffer::getInstance().sendMessage(buf);
         nextState(HomingState::APPROACH);
         return;
     }
     
     // Timeout (safety net)
-    if (millis() - stateEnteredMs_ > (HOMING_BACKOFF_DURATION + 5000)) {
+    if (millis() - stateEnteredMs_ > (HOMING_BACKOFF_DURATION + 5000)) {  // SAFE: Internal homing state timeout only, no CANbus interaction
         MessageBuffer::getInstance().sendMessage("Backoff timeout (>duration+5s)");
         nextState(HomingState::ERROR_STATE);
     }
@@ -315,7 +315,7 @@ void Homing::handleApproach(CanBusHandlerV2& motor, SafetyManager& safety) {
                                          ODriveCANProtocol::InputMode::VEL_RAMP, MODULE_INIT_HOMING, "Approach");
         lastControlModeSent_ = (uint8_t)ODriveCANProtocol::ControlMode::VELOCITY_CONTROL;
         lastInputModeSent_ = (uint8_t)ODriveCANProtocol::InputMode::VEL_RAMP;
-        modeCommandSentAtMs_ = millis();  // Timestamp mode command sent
+        modeCommandSentAtMs_ = hwTimer.micros();  // Timestamp mode command sent (GPTimer)
     }
     
     // Send velocity command ONCE with retry system (no more spamming)
@@ -339,7 +339,7 @@ void Homing::handleApproach(CanBusHandlerV2& motor, SafetyManager& safety) {
     }
     
     // Timeout
-    if (millis() - stateEnteredMs_ > 10000) {
+    if (millis() - stateEnteredMs_ > 10000) {  // SAFE: Internal homing state timeout only, no CANbus interaction
         MessageBuffer::getInstance().sendMessage("Approach timeout (>10s)");
         nextState(HomingState::ERROR_STATE);
     }
@@ -353,11 +353,11 @@ void Homing::handleWaitStop(CanBusHandlerV2& motor, SafetyManager& safety) {
     
     if (broadcast.isVelocityBelowThreshold(HOMING_STOP_THRESHOLD)) {
         if (stoppedSinceMs_ == 0) {
-            stoppedSinceMs_ = millis();
+            stoppedSinceMs_ = millis();  // SAFE: Internal homing state timing only, no CANbus interaction
         }
         
         // Need 500ms of below-threshold to confirm stopped
-        if (millis() - stoppedSinceMs_ > 500) {
+        if (millis() - stoppedSinceMs_ > 500) {  // SAFE: Internal homing state timing only, no CANbus interaction
             stoppedSinceMs_ = 0;  // Reset for next time
             nextState(HomingState::RESET_ENCODER);
             return;
@@ -406,7 +406,7 @@ float Homing::checkRefillDrift(CanBusHandlerV2& motor, SafetyManager& safety) {
 
 void Homing::recordDrift(float offset) {
     if (driftCount_ < MAX_DRIFT_HISTORY) {
-        driftHistory_[driftCount_].timestamp = millis();
+        driftHistory_[driftCount_].timestamp = millis();  // SAFE: Internal drift tracking only, no CANbus interaction
         driftHistory_[driftCount_].offsetTurns = offset;
         driftCount_++;
     }

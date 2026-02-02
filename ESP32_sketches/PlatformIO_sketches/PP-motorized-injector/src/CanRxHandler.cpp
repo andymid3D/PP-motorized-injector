@@ -45,7 +45,7 @@ void CanRxHandler::pollingTaskCore0(void* parameter) { // Corrected scope
 
     CanRxHandler* handler = static_cast<CanRxHandler*>(parameter);
     uint32_t pollCount = 0;
-    uint32_t lastDebugTime = millis();
+    uint32_t lastDebugTime = millis();  // SAFE: Test code debugging only, no CANbus interaction
     
     // DEBUG: Indicate task started
     Serial.println("[Core0] CanRxHandler task started");
@@ -58,7 +58,7 @@ void CanRxHandler::pollingTaskCore0(void* parameter) { // Corrected scope
         }
         
         // DEBUG: Report activity every 5 seconds
-        uint32_t currentTime = millis();
+        uint32_t currentTime = millis();  // SAFE: Test code debugging only, no CANbus interaction
         if (currentTime - lastDebugTime >= 5000) {
             uint32_t totalMsgs = handler->getMessagesReceived();
             uint32_t queueDepth = handler->getQueueDepth();
