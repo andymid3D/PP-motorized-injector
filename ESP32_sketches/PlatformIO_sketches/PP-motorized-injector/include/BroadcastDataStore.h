@@ -16,16 +16,17 @@
 // Size calculations based on broadcast intervals:
 // - Encoder (10ms): 250 samples = 2.5s history
 // - Heartbeat (100ms): 10 samples = 1000ms (1s) history
-// - Iq/BusVI (10ms): 250 samples = 2.5s history (upgraded from 100ms)
-// - Errors (10ms): 10 samples = 100ms history (recent errors only)
+// - Iq (10ms): 500 samples = 5s history (reduced from 10s)
+// - Errors (25ms): 200 samples = 5s history (faster rate)
+// - Heartbeat (10ms): 500 samples = 5s history (increased for 10x rate)
 // =============================================================================
-#define BDS_IQ_HISTORY_SIZE 1000        // 10s at 10ms, 100s at 100ms (continuous collection)
-#define BDS_ENCODER_HISTORY_SIZE 1000   // 10s at 10ms, 100s at 100ms (continuous collection)
-#define BDS_MOTOR_ERROR_HISTORY_SIZE  250
-#define BDS_ENCODER_ERROR_HISTORY_SIZE 250
-#define BDS_CONTROLLER_ERROR_HISTORY_SIZE 250
-#define BDS_HEARTBEAT_HISTORY_SIZE    10
-#define BDS_BUSVI_HISTORY_SIZE        10
+#define BDS_IQ_HISTORY_SIZE         500    // 5s at 10ms (reduced from 10s)
+#define BDS_ENCODER_HISTORY_SIZE    500    // 5s at 10ms (reduced from 10s)
+#define BDS_MOTOR_ERROR_HISTORY_SIZE  200  // 5s at 25ms (200 × 25ms = 5s)
+#define BDS_ENCODER_ERROR_HISTORY_SIZE 200 // 5s at 25ms (200 × 25ms = 5s)
+#define BDS_CONTROLLER_ERROR_HISTORY_SIZE 200 // 5s at 25ms (200 × 25ms = 5s)
+#define BDS_HEARTBEAT_HISTORY_SIZE   500    // 5s at 10ms (500 × 10ms = 5s)
+// BUSVI removed - no longer used
 
 // =============================================================================
 // TIMESTAMPED MESSAGE STRUCTS (Phase 1.7 BDS v2)
@@ -73,17 +74,6 @@ struct TimestampedEncoder {
 struct TimestampedIq {
     float iqSetpoint;           // Setpoint current (A)
     float iqMeasured;           // Measured current (A)
-    uint64_t timestamp;         // GPTimer microseconds
-    bool isResponse;            // True if correlates to recent TX command
-};
-
-/**
- * Bus Voltage/Current (CAN 0x017, 100ms interval)
- * Power supply monitoring
- */
-struct TimestampedBusVI {
-    float busVoltage;           // Bus voltage (V)
-    float busCurrent;           // Bus current (A)
     uint64_t timestamp;         // GPTimer microseconds
     bool isResponse;            // True if correlates to recent TX command
 };
@@ -145,7 +135,7 @@ public:
         uint8_t state;           // Current axis state (0=UNDEFINED, 1=IDLE, 7=ENCODER_OFFSET, 8=CLOSED_LOOP, etc)
         float positionTurns;     // Encoder position in turns
         float velocityTurnsPerSec;  // Velocity in turns/second
-        uint32_t lastUpdateMs;   // Timestamp of last broadcast (millis())
+        uint64_t lastUpdateUs;   // Timestamp of last broadcast (microseconds from GPTimer)
     };
     
     // ===== CURRENT & VOLTAGE DATA =====
@@ -154,7 +144,7 @@ public:
         float iqM;              // Measured current (A)
         float busCurrent;       // Total bus current (A)
         float busVoltage;       // Bus voltage (V)
-        uint32_t lastUpdateMs;
+        uint64_t lastUpdateUs;  // Timestamp in microseconds
     };
     
     // ===== SENSOR DATA (from various sources) =====
@@ -172,7 +162,7 @@ public:
         uint64_t motorError;          // Motor error flags (64-bit from CYCLIC_MOTOR_ERROR 0x03)
         uint32_t encoderError;        // Encoder error flags (CYCLIC_ENCODER_ERROR 0x04)
         uint32_t controllerError;     // Controller error flags (CYCLIC_CONTROLLER_ERROR 0x1D)
-        uint32_t lastUpdateMs;        // Timestamp of last error broadcast
+        uint64_t lastUpdateUs;        // Timestamp of last error broadcast (microseconds)
         bool hasAnyError;             // Quick check: any error != 0
     };
     
@@ -183,7 +173,7 @@ public:
     struct EncoderEstimatesData {
         float position;               // Position in turns (CYCLIC_ENCODER_ESTIMATES 0x09)
         float velocity;               // Velocity in turns/second
-        uint32_t lastUpdateMs;
+        uint64_t lastUpdateUs;        // Timestamp in microseconds
     };
     
     // ===== SINGLETON PATTERN =====
@@ -195,7 +185,6 @@ public:
                      uint8_t controllerErrorFlag, uint8_t trajectoryDoneFlag, uint64_t timestamp, bool isResponse = false);
     void storeEncoder(float position, float velocity, uint64_t timestamp, bool isResponse = false);
     void storeIq(float iqSetpoint, float iqMeasured, uint64_t timestamp, bool isResponse = false);
-    void storeBusVI(float busVoltage, float busCurrent, uint64_t timestamp, bool isResponse = false);
     void storeMotorError(uint64_t motorError, uint64_t timestamp, bool isResponse = false);
     void storeEncoderError(uint32_t encoderError, uint64_t timestamp, bool isResponse = false);
     void storeControllerError(uint32_t controllerError, uint64_t timestamp, bool isResponse = false);
@@ -204,7 +193,6 @@ public:
     const TimestampedHeartbeat* getLatestHeartbeat() const;
     const TimestampedEncoder* getLatestEncoder() const;
     const TimestampedIq* getLatestIq() const;
-    const TimestampedBusVI* getLatestBusVI() const;
     
     // History access methods
     const TimestampedIq* getHistoryIq(size_t index) const;
@@ -309,13 +297,13 @@ public:
     uint8_t getAxisState() const;
     float getPosition() const;           // Returns turns
     float getVelocity() const;           // Returns turns/second
-    uint32_t getLastAxisUpdate() const;  // Returns millis() of last update
+    uint64_t getLastAxisUpdate() const;  // Returns microseconds of last update
     
     float getIqSetpoint() const;         // Setpoint current (A)
     float getIqMeasured() const;         // Measured current (A)
     float getBusCurrent() const;         // Bus current (A)
     float getBusVoltage() const;         // Bus voltage (V)
-    uint32_t getLastPowerUpdate() const;
+    uint64_t getLastPowerUpdate() const;  // Returns microseconds
     
     float getTemperature() const;
     float getPressure() const;
@@ -329,7 +317,7 @@ public:
     uint32_t getEncoderError() const;
     uint32_t getControllerError() const;
     bool hasAnyError() const;
-    uint32_t getLastErrorUpdate() const;
+    uint64_t getLastErrorUpdate() const;  // Returns microseconds
     
     // Safe error queries (read previous entry to avoid race conditions)
     uint64_t getMotorErrorSafe() const;  // Reads previous entry, not latest
@@ -361,8 +349,8 @@ public:
     // Non-blocking: check if broadcast data is stale
     bool isAxisDataStale(uint32_t maxAgeMs = 500) const;
     bool isPowerDataStale(uint32_t maxAgeMs = 500) const;
-    uint32_t getAxisDataAgeMsecs() const;
-    uint32_t getPowerDataAgeMsecs() const;
+    uint64_t getAxisDataAgeUs() const;  // Returns age in microseconds (raw GPTimer values)
+    uint64_t getPowerDataAgeUs() const;  // Returns age in microseconds (raw GPTimer values)
     
     // ===== VELOCITY THRESHOLD CHECKS (for state machine logic) =====
     // These enable non-blocking decision logic without arbitrary timeouts
@@ -404,15 +392,20 @@ private:
     SensorData sensors_;
     ErrorData errors_;
     EncoderEstimatesData estimates_;
-    
+
     // ===== V2 STORAGE (ring buffers with timestamps) =====
     RingBuffer<TimestampedHeartbeat, BDS_HEARTBEAT_HISTORY_SIZE> heartbeatHistory_;
     RingBuffer<TimestampedEncoder, BDS_ENCODER_HISTORY_SIZE> encoderHistory_;
     RingBuffer<TimestampedIq, BDS_IQ_HISTORY_SIZE> iqHistory_;
-    RingBuffer<TimestampedBusVI, BDS_BUSVI_HISTORY_SIZE> busVIHistory_;
     RingBuffer<TimestampedMotorError, BDS_MOTOR_ERROR_HISTORY_SIZE> motorErrorHistory_;
     RingBuffer<TimestampedEncoderError, BDS_ENCODER_ERROR_HISTORY_SIZE> encoderErrorHistory_;
     RingBuffer<TimestampedControllerError, BDS_CONTROLLER_ERROR_HISTORY_SIZE> controllerErrorHistory_;
+
+    // Smart delay tracking for fresh data guarantee
+    mutable uint64_t lastHeartbeatRead_ = 0;
+    mutable uint64_t lastEncoderRead_ = 0;
+    mutable uint64_t lastIqRead_ = 0;
+    static const uint64_t FRESH_DATA_DELAY_US = 15000;  // 15ms for 10ms heartbeat
 };
 
 #endif // BROADCAST_DATA_STORE_H

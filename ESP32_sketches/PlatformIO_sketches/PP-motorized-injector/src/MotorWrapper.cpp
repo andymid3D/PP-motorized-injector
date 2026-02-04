@@ -1,10 +1,12 @@
 #include "MotorWrapper.h"
 #include "TimingSystemTest.h"  // Add include for TimingSystemTest
 #include "GPTimer.h"  // Add GPTimer for accurate timing
+#include "BroadcastDataStore.h"  // For velocity monitoring
+#include "MessageBuffer.h"  // For debug messages
 
 namespace MotorWrapper {
     // ===== STATIC VARIABLES (shared across all calls) =====
-    static unsigned long lastCmdTime = 0;
+    static uint64_t lastCmdTime = 0;  // Use uint64_t for microseconds
     static String lastCmdStr = "None";
     static int lastControlMode = -1;
     static int lastInputMode = -1;
@@ -35,7 +37,7 @@ namespace MotorWrapper {
     
     // ===== SET MOTOR LIMITS (CAN 0x00F) =====
     void setMotorLimits(CanBusHandlerV2& motor, float vel_lim, float current_lim, uint8_t moduleId, String context) {
-        unsigned long now = hwTimer.micros() / 1000;  // CRITICAL: Motor command timing - must use GPTimer
+        uint64_t now = hwTimer.micros();  // Use microseconds directly for motor command timing
         
         // Send limits command (CanBusHandlerV2 handles timing)
         if (!motor.setLimits(vel_lim, current_lim)) {
@@ -46,7 +48,7 @@ namespace MotorWrapper {
             return;  // Don't update state if command failed
         }
         
-        lastCmdTime = now;
+        lastCmdTime = now;  // now is already in microseconds
         lastCmdStr = "Limits:" + context;
         lastVelLimit = vel_lim;
         lastCurrentLimit = current_lim;
@@ -71,7 +73,7 @@ namespace MotorWrapper {
         }
         
         // Update command tracking
-        lastCmdTime = hwTimer.micros() / 1000;  // CRITICAL: Motor command timing - must use GPTimer
+        lastCmdTime = hwTimer.micros();  // Use microseconds directly for motor command timing
         lastCmdStr = "Modes:" + context;
         lastControlMode = (int)ctrlMode;
         lastInputMode = (int)inputMode;
@@ -100,7 +102,7 @@ namespace MotorWrapper {
             return;
         }
         
-        lastCmdTime = hwTimer.micros() / 1000;  // CRITICAL: Motor command timing - must use GPTimer
+        lastCmdTime = hwTimer.micros();  // Use microseconds directly for motor command timing
         lastCmdStr = "TrapParams:" + context;
         lastModuleId = moduleId;
             
@@ -158,6 +160,42 @@ namespace MotorWrapper {
         // Notify TimingSystemTest that we're sending a command (disabled for now)
         // TimingSystemTest::getInstance().onMovementCommandTx();
         
+        // ===== DIRECTION CHANGE SAFETY =====
+        // Check if this is a direction change and verify motor is stopped
+        BroadcastDataStore& broadcast = BroadcastDataStore::getInstance();
+        float currentVelocity = broadcast.getVelocity();
+        
+        // Detect direction change: velocity > threshold AND new command in opposite direction
+        bool isDirectionChange = false;
+        if (fabs(currentVelocity) > 0.5f) {  // Motor is moving
+            if ((ctrlMode == 2 && value * currentVelocity < 0) ||  // Velocity reversal
+                (ctrlMode == 3 && fabs(value - broadcast.getPosition()) > 1.0f)) {  // Large position change
+                isDirectionChange = true;
+            }
+        }
+        
+        // For direction changes, ensure motor is stopped first
+        if (isDirectionChange) {
+            char safetyBuf[80];
+            snprintf(safetyBuf, sizeof(safetyBuf), "[MOTOR] Direction change detected - stopping first (vel=%.1f)", currentVelocity);
+            MessageBuffer::getInstance().sendMessage(safetyBuf);
+            
+            // Send stop command and wait for verification
+            motor.setInputVel(0.0f);
+            uint64_t stopStartTime = hwTimer.micros();
+            
+            // Wait up to 100ms for motor to stop
+            while (hwTimer.micros() - stopStartTime < 100000) {
+                BroadcastDataStore& bds = BroadcastDataStore::getInstance();
+                if (fabs(bds.getVelocity()) < 0.1f) {
+                    MessageBuffer::getInstance().sendMessage("[MOTOR] Stop verified, proceeding with direction change");
+                    break;
+                }
+                delay(1);  // Small delay to prevent tight loop
+            }
+        }
+        // ===== END DIRECTION CHANGE SAFETY =====
+        
         // Use safe mode change if mode is different AND we're not switching modules
         // Module transitions (e.g., Homing→Refill) legitimately use different modes
         if ((lastControlMode != ctrlMode || lastInputMode != inputMode) && 
@@ -179,7 +217,7 @@ namespace MotorWrapper {
         }
         
         // Update tracking variables
-        lastCmdTime = hwTimer.micros() / 1000;  // CRITICAL: Motor command timing - must use GPTimer
+        lastCmdTime = hwTimer.micros();  // Use microseconds directly for motor command timing
         lastCmdStr = cmdName;
         lastControlMode = ctrlMode;
         lastInputMode = inputMode;
@@ -308,7 +346,7 @@ namespace MotorWrapper {
         return true;
     }
     
-    unsigned long timeSinceLastCommand() {
-        return (hwTimer.micros() / 1000) - lastCmdTime;  // CRITICAL: Motor command timing - must use GPTimer
+    uint64_t timeSinceLastCommand() {
+        return hwTimer.micros() - lastCmdTime;  // Use microseconds directly for motor command timing
     }
 };

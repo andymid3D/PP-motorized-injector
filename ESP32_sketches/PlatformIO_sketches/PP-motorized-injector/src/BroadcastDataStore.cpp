@@ -1,6 +1,7 @@
 #include "BroadcastDataStore.h"
 #include "config.h"
 #include "GPTimer.h"
+#include "MessageBuffer.h"
 
 BroadcastDataStore& BroadcastDataStore::getInstance() {
     // Meyer's singleton - thread-safe, lazy initialization
@@ -17,14 +18,24 @@ void BroadcastDataStore::storeHeartbeat(uint32_t axisError, uint8_t axisState, u
     TimestampedHeartbeat msg = {axisError, axisState, motorErrorFlag, encoderErrorFlag, controllerErrorFlag, trajectoryDoneFlag, timestamp, isResponse};
     heartbeatHistory_.push(msg);
     
+    // DEBUG: Log heartbeat timestamp updates
+    static uint64_t lastHbDebug = 0;
+    uint64_t currentTime = hwTimer.micros();
+    if (currentTime - lastHbDebug > 1000000) {  // Log every 1 second
+        char hbBuf[80];
+        snprintf(hbBuf, sizeof(hbBuf), "[HB_DEBUG] State=%d, timestamp=%llu, current=%llu", axisState, timestamp, currentTime);
+        MessageBuffer::getInstance().sendMessage(hbBuf);
+        lastHbDebug = currentTime;
+    }
+    
     // Update v1 storage for backward compatibility
     axis_.state = axisState;
-    axis_.lastUpdateMs = hwTimer.micros() / 1000;  // CRITICAL: CANbus message timestamping - must use GPTimer
+    axis_.lastUpdateUs = hwTimer.micros();  // Store microseconds directly
     errors_.axisError = axisError;
     errors_.motorError = motorErrorFlag ? 0xFFFFFFFF : 0;  // Convert flag to full error mask
     errors_.encoderError = encoderErrorFlag ? 0xFFFFFFFF : 0;
     errors_.controllerError = controllerErrorFlag ? 0xFFFFFFFF : 0;
-    errors_.lastUpdateMs = hwTimer.micros() / 1000;  // CRITICAL: CANbus message timestamping - must use GPTimer
+    errors_.lastUpdateUs = hwTimer.micros();  // Store microseconds directly
     errors_.hasAnyError = axisError != 0 || motorErrorFlag || encoderErrorFlag || controllerErrorFlag;
 }
 
@@ -35,7 +46,7 @@ void BroadcastDataStore::storeEncoder(float position, float velocity, uint64_t t
     // Update v1 storage for backward compatibility
     estimates_.position = position;
     estimates_.velocity = velocity;
-    estimates_.lastUpdateMs = hwTimer.micros() / 1000;  // CRITICAL: CANbus message timestamping - must use GPTimer
+    estimates_.lastUpdateUs = hwTimer.micros();  // Store microseconds directly
     axis_.positionTurns = position;
     axis_.velocityTurnsPerSec = velocity;
 }
@@ -47,16 +58,7 @@ void BroadcastDataStore::storeIq(float iqSetpoint, float iqMeasured, uint64_t ti
     // Update v1 storage for backward compatibility
     power_.iqS = iqSetpoint;
     power_.iqM = iqMeasured;
-    power_.lastUpdateMs = hwTimer.micros() / 1000;  // CRITICAL: CANbus message timestamping - must use GPTimer
-}
-
-void BroadcastDataStore::storeBusVI(float busVoltage, float busCurrent, uint64_t timestamp, bool isResponse) {
-    TimestampedBusVI msg = {busVoltage, busCurrent, timestamp, isResponse};
-    busVIHistory_.push(msg);
-    
-    // Update v1 storage for backward compatibility
-    power_.busVoltage = busVoltage;
-    power_.busCurrent = busCurrent;
+    power_.lastUpdateUs = hwTimer.micros();  // Store microseconds directly
 }
 
 void BroadcastDataStore::storeMotorError(uint64_t motorError, uint64_t timestamp, bool isResponse) {
@@ -65,7 +67,7 @@ void BroadcastDataStore::storeMotorError(uint64_t motorError, uint64_t timestamp
     
     if (dataMutex_ && xSemaphoreTake(dataMutex_, portMAX_DELAY) == pdTRUE) {
         errors_.motorError = motorError;
-        errors_.lastUpdateMs = hwTimer.micros() / 1000;  // CRITICAL: CANbus message timestamping - must use GPTimer
+        errors_.lastUpdateUs = hwTimer.micros();  // Store microseconds directly
         errors_.hasAnyError = (motorError != 0);
         xSemaphoreGive(dataMutex_);
     }
@@ -86,7 +88,7 @@ void BroadcastDataStore::storeControllerError(uint32_t controllerError, uint64_t
     
     if (dataMutex_ && xSemaphoreTake(dataMutex_, portMAX_DELAY) == pdTRUE) {
         errors_.controllerError = controllerError;
-        errors_.lastUpdateMs = hwTimer.micros() / 1000;  // CRITICAL: CANbus message timestamping - must use GPTimer
+        errors_.lastUpdateUs = hwTimer.micros();  // Store microseconds directly
         errors_.hasAnyError = (controllerError != 0);
         xSemaphoreGive(dataMutex_);
     }
@@ -97,10 +99,26 @@ void BroadcastDataStore::storeControllerError(uint32_t controllerError, uint64_t
 // =============================================================================
 
 const TimestampedHeartbeat* BroadcastDataStore::getLatestHeartbeat() const {
+    uint64_t now = hwTimer.micros();
+    
+    // Only delay if this is a fresh read request (avoid delays in tight loops)
+    if (now - lastHeartbeatRead_ > FRESH_DATA_DELAY_US) {
+        vTaskDelay(pdMS_TO_TICKS(15));  // Wait for fresh data (10ms heartbeat + 5ms margin)
+        lastHeartbeatRead_ = hwTimer.micros();
+    }
+    
     return heartbeatHistory_.getLatest();
 }
 
 const TimestampedEncoder* BroadcastDataStore::getLatestEncoder() const {
+    uint64_t now = hwTimer.micros();
+    
+    // Only delay if this is a fresh read request (avoid delays in tight loops)
+    if (now - lastEncoderRead_ > FRESH_DATA_DELAY_US) {
+        vTaskDelay(pdMS_TO_TICKS(15));  // Wait for fresh data (10ms heartbeat + 5ms margin)
+        lastEncoderRead_ = hwTimer.micros();
+    }
+    
     return encoderHistory_.getLatest();
 }
 
@@ -116,9 +134,6 @@ const TimestampedEncoder* BroadcastDataStore::getHistoryEncoder(size_t index) co
     return encoderHistory_.getHistory(index);
 }
 
-const TimestampedBusVI* BroadcastDataStore::getLatestBusVI() const {
-    return busVIHistory_.getLatest();
-}
 
 const TimestampedMotorError* BroadcastDataStore::getLatestMotorError() const {
     return motorErrorHistory_.getLatest();
@@ -194,13 +209,13 @@ bool BroadcastDataStore::isBroadcastDataStale() const {
     // If NO heartbeat at all → CAN disconnect/ODrive crash/ESP32 CAN failure
     
     // Option C: Only check stale after first communication has been received
-    // If lastUpdateMs is 0, no data has been received yet - don't trigger stale error
-    if (estimates_.lastUpdateMs == 0) {
+    // If lastUpdateUs is 0, no data has been received yet - don't trigger stale error
+    if (estimates_.lastUpdateUs == 0) {
         return false; // No data received yet, not stale
     }
     
-    uint32_t now = hwTimer.micros() / 1000;  // CRITICAL: CANbus staleness detection - must use GPTimer
-    return (now - estimates_.lastUpdateMs) > BROADCAST_STALE_TIMEOUT_MS;
+    uint64_t now = hwTimer.micros();  // CRITICAL: CANbus staleness detection - must use GPTimer
+    return (now - estimates_.lastUpdateUs) > (BROADCAST_STALE_TIMEOUT_MS * 1000);  // Convert ms to us
 }
 
 // ===== UPDATE METHODS =====
@@ -208,7 +223,7 @@ void BroadcastDataStore::updateAxisData(uint8_t state, float pos, float vel, Saf
     axis_.state = state;
     axis_.positionTurns = pos;
     axis_.velocityTurnsPerSec = vel;
-    axis_.lastUpdateMs = hwTimer.micros() / 1000;  // CRITICAL: CANbus message timestamping - must use GPTimer
+    axis_.lastUpdateUs = hwTimer.micros();  // Store microseconds directly
     
     // Append to debug log (non-blocking serial buffering)
     debugLog += " AxisState:";
@@ -224,7 +239,7 @@ void BroadcastDataStore::updatePowerData(float iqS, float iqM, float busCurrent,
     power_.iqM = iqM;
     power_.busCurrent = busCurrent;
     power_.busVoltage = busVoltage;
-    power_.lastUpdateMs = hwTimer.micros() / 1000;  // CRITICAL: CANbus message timestamping - must use GPTimer
+    power_.lastUpdateUs = hwTimer.micros();  // Store microseconds directly
     
     // Append to debug log
     debugLog += " IqS:";
@@ -247,18 +262,18 @@ void BroadcastDataStore::updateSensorData(float temp, float pressure, bool top, 
 
 void BroadcastDataStore::updateAxisState(uint8_t state) {
     axis_.state = state;
-    axis_.lastUpdateMs = hwTimer.micros() / 1000;  // CRITICAL: CANbus message timestamping - must use GPTimer
+    axis_.lastUpdateUs = hwTimer.micros();  // Store microseconds directly
 }
 
 // ===== ERROR UPDATE METHODS =====
 void BroadcastDataStore::updateAxisError(uint32_t axisError) {
     errors_.axisError = axisError;
-    errors_.lastUpdateMs = hwTimer.micros() / 1000;  // CRITICAL: CANbus message timestamping - must use GPTimer
+    errors_.lastUpdateUs = hwTimer.micros();  // Store microseconds directly
 }
 
 void BroadcastDataStore::updateMotorError(uint64_t motorError, SafeString* debugLog) {
     errors_.motorError = motorError;
-    errors_.lastUpdateMs = hwTimer.micros() / 1000;  // CRITICAL: CANbus message timestamping - must use GPTimer
+    errors_.lastUpdateUs = hwTimer.micros();  // Store microseconds directly
     errors_.hasAnyError = (motorError != 0);
     if (motorError != 0 && debugLog != nullptr) {
         *debugLog += " MotorErr:0x";
@@ -270,7 +285,7 @@ void BroadcastDataStore::updateMotorError(uint64_t motorError, SafeString* debug
 
 void BroadcastDataStore::updateEncoderError(uint32_t encoderError, SafeString* debugLog) {
     errors_.encoderError = encoderError;
-    errors_.lastUpdateMs = hwTimer.micros() / 1000;  // CRITICAL: CANbus message timestamping - must use GPTimer
+    errors_.lastUpdateUs = hwTimer.micros();  // Store microseconds directly
     errors_.hasAnyError = (encoderError != 0);
     if (encoderError != 0 && debugLog != nullptr) {
         *debugLog += " EncoderErr:0x";
@@ -282,7 +297,7 @@ void BroadcastDataStore::updateEncoderError(uint32_t encoderError, SafeString* d
 
 void BroadcastDataStore::updateControllerError(uint32_t controllerError, SafeString* debugLog) {
     errors_.controllerError = controllerError;
-    errors_.lastUpdateMs = hwTimer.micros() / 1000;  // CRITICAL: CANbus message timestamping - must use GPTimer
+    errors_.lastUpdateUs = hwTimer.micros();  // Store microseconds directly
     errors_.hasAnyError = (controllerError != 0);
     if (controllerError != 0 && debugLog != nullptr) {
         *debugLog += " CtrlErr:0x";
@@ -296,7 +311,7 @@ void BroadcastDataStore::updateControllerError(uint32_t controllerError, SafeStr
 void BroadcastDataStore::updateEncoderEstimates(float position, float velocity) {
     estimates_.position = position;
     estimates_.velocity = velocity;
-    estimates_.lastUpdateMs = hwTimer.micros() / 1000;  // CRITICAL: CANbus message timestamping - must use GPTimer
+    estimates_.lastUpdateUs = hwTimer.micros();  // Store microseconds directly
 }
 
 // ===== QUERY METHODS =====
@@ -312,8 +327,18 @@ float BroadcastDataStore::getVelocity() const {
     return estimates_.velocity;
 }
 
-uint32_t BroadcastDataStore::getLastAxisUpdate() const {
-    return axis_.lastUpdateMs;
+uint64_t BroadcastDataStore::getLastAxisUpdate() const {
+    // DEBUG: Log what timestamp is being returned
+    static uint64_t lastUpdateDebug = 0;
+    uint64_t currentTime = hwTimer.micros();
+    if (currentTime - lastUpdateDebug > 1000000) {  // Log every 1 second
+        char updateBuf[80];
+        snprintf(updateBuf, sizeof(updateBuf), "[UPDATE_DEBUG] lastUpdate=%lluus, current=%lluus, age=%llums", 
+                 axis_.lastUpdateUs, currentTime, (currentTime - axis_.lastUpdateUs) / 1000);
+        MessageBuffer::getInstance().sendMessage(updateBuf);
+        lastUpdateDebug = currentTime;
+    }
+    return axis_.lastUpdateUs;
 }
 
 float BroadcastDataStore::getIqSetpoint() const {
@@ -332,16 +357,12 @@ float BroadcastDataStore::getBusVoltage() const {
     return power_.busVoltage;
 }
 
-uint32_t BroadcastDataStore::getLastPowerUpdate() const {
-    return power_.lastUpdateMs;
+uint64_t BroadcastDataStore::getLastPowerUpdate() const {
+    return power_.lastUpdateUs;  // Return microseconds
 }
 
-float BroadcastDataStore::getTemperature() const {
-    return sensors_.temperature;
-}
-
-float BroadcastDataStore::getPressure() const {
-    return sensors_.pressureTorque;
+uint64_t BroadcastDataStore::getLastErrorUpdate() const {
+    return errors_.lastUpdateUs;  // Return microseconds
 }
 
 bool BroadcastDataStore::isTopEndstopActive() const {
@@ -398,10 +419,6 @@ bool BroadcastDataStore::hasAnyError() const {
     return errors_.hasAnyError;
 }
 
-uint32_t BroadcastDataStore::getLastErrorUpdate() const {
-    return errors_.lastUpdateMs;
-}
-
 float BroadcastDataStore::getEncoderPosition() const {
     return estimates_.position;
 }
@@ -412,21 +429,21 @@ float BroadcastDataStore::getEncoderVelocity() const {
 
 // ===== TIME-BASED QUERIES =====
 bool BroadcastDataStore::isAxisDataStale(uint32_t maxAgeMs) const {
-    uint32_t age = (hwTimer.micros() / 1000) - axis_.lastUpdateMs;  // CRITICAL: CANbus staleness detection - must use GPTimer
-    return age > maxAgeMs;
+    uint64_t ageUs = hwTimer.micros() - axis_.lastUpdateUs;  // Raw microseconds
+    return ageUs > (maxAgeMs * 1000);  // Convert threshold to microseconds
 }
 
 bool BroadcastDataStore::isPowerDataStale(uint32_t maxAgeMs) const {
-    uint32_t age = (hwTimer.micros() / 1000) - power_.lastUpdateMs;  // CRITICAL: CANbus staleness detection - must use GPTimer
-    return age > maxAgeMs;
+    uint64_t ageUs = hwTimer.micros() - power_.lastUpdateUs;  // Raw microseconds
+    return ageUs > (maxAgeMs * 1000);  // Convert threshold to microseconds
 }
 
-uint32_t BroadcastDataStore::getAxisDataAgeMsecs() const {
-    return (hwTimer.micros() / 1000) - axis_.lastUpdateMs;  // CRITICAL: CANbus staleness detection - must use GPTimer
+uint64_t BroadcastDataStore::getAxisDataAgeUs() const {
+    return hwTimer.micros() - axis_.lastUpdateUs;  // Raw microseconds - no conversion!
 }
 
-uint32_t BroadcastDataStore::getPowerDataAgeMsecs() const {
-    return (hwTimer.micros() / 1000) - power_.lastUpdateMs;  // CRITICAL: CANbus staleness detection - must use GPTimer
+uint64_t BroadcastDataStore::getPowerDataAgeUs() const {
+    return hwTimer.micros() - power_.lastUpdateUs;  // Raw microseconds - no conversion!
 }
 
 // ===== VELOCITY THRESHOLD CHECKS =====

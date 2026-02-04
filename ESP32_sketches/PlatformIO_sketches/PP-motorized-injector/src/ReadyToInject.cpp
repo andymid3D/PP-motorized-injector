@@ -49,26 +49,26 @@ namespace ReadyToInject {
         
         // ===== STATE: Idle waiting + micro-compression timer =====
         if (state == IDLE_WAITING) {
-            unsigned long timeSinceLastCompress = now - lastAutoCompressionTime;
+            uint64_t timeSinceLastCompress = now - lastAutoCompressionTime;  // Use microseconds directly
             
-            if (timeSinceLastCompress >= READY_MICRO_INTERVAL_MS) {
+            if (timeSinceLastCompress >= (READY_MICRO_INTERVAL_MS * 1000)) {  // Convert ms to us
                 // Time to start micro-compression - queue commands
                 MotorWrapper::setMotorLimits(motor, COMPRESS_MICRO_VEL_LIMIT, COMPRESS_MICRO_CURRENT, MODULE_READY_TO_INJECT, "MicroCompress");
                 motor.setControllerModes(ODriveCANProtocol::ControlMode::TORQUE_CONTROL, ODriveCANProtocol::InputMode::TORQUE_RAMP);
                 state = MICRO_COMPRESSING;
-                compressionStartTime = millis();
-                lastCommandTime = millis();
+                compressionStartTime = hwTimer.micros();  // Use GPTimer for consistency
+                lastCommandTime = hwTimer.micros();
             }
             return false;
         }
         
         // ===== STATE: Execute micro-compression =====
         if (state == MICRO_COMPRESSING) {
-            unsigned long compressionElapsed = now - compressionStartTime;
+            uint64_t compressionElapsed = now - compressionStartTime;  // Use microseconds directly
             
             // Apply torque ramp over configured duration
-            float rampDuration = READY_MICRO_DURATION_MS / 1000.0f;  // Convert to seconds
-            float elapsedSec = compressionElapsed / 1000.0f;
+            float rampDuration = READY_MICRO_DURATION_MS / 1000.0f;  // Duration in seconds (constant)
+            float elapsedSec = compressionElapsed / 1000000.0f;  // Convert microseconds to seconds
             
             // Linear torque ramp: 0 → commonParams.compressMicroCurrent
             float targetTorque = (commonParams.compressMicroCurrent / rampDuration) * elapsedSec;

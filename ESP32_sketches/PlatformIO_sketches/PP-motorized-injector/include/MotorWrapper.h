@@ -107,8 +107,8 @@ namespace MotorWrapper {
     // Check if enough time has passed since last command
     bool canSendCommand();
     
-    // Get milliseconds since last command
-    unsigned long timeSinceLastCommand();
+    // Get microseconds since last command
+    uint64_t timeSinceLastCommand();
 };
 
 #endif

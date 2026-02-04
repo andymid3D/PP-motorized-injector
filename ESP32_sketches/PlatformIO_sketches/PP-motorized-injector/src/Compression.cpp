@@ -31,13 +31,13 @@ namespace Compression {
     void begin(CompressionMode mode) {
         currentMode = mode;
         stateEntry = true;
-        stateEnterTime = hwTimer.micros() / 1000;  // CRITICAL: Compression timing - must use GPTimer
-        stepTimer = hwTimer.micros() / 1000;  // CRITICAL: Compression timing - must use GPTimer
+        stateEnterTime = hwTimer.micros();  // Store microseconds directly
+        stepTimer = hwTimer.micros();  // Store microseconds directly
         complete = false;
         isErrorFlag = false;
         isTimeoutFlag = false;
         pressureSensorChecked = false;
-        lastCommandTime = hwTimer.micros() / 1000;  // CRITICAL: Compression timing - must use GPTimer
+        lastCommandTime = hwTimer.micros();  // Store microseconds directly
         
         // Start with pressure check for MODE 1, direct to TORQUE_RAMP for MODE 2
         if (mode == MODE_1_TRAVEL) {
@@ -49,7 +49,7 @@ namespace Compression {
     
     // ===== UPDATE: Non-blocking compression logic =====
     bool update(CanBusHandlerV2& motor) {
-        uint64_t now = hwTimer.micros() / 1000;  // CRITICAL: Compression timing - must use GPTimer
+        uint64_t now = hwTimer.micros();  // Use microseconds directly
         uint64_t elapsed = now - stateEnterTime;
         uint64_t stepElapsed = now - stepTimer;
         
@@ -78,8 +78,8 @@ namespace Compression {
                 // Queue all commands - ring buffer handles timing
                 MotorWrapper::setMotorLimits(motor, COMPRESS_TRAVEL_VEL_LIMIT, REFILL_CURRENT_LIMIT, MODULE_COMPRESSION, "Compress Travel");
                 MotorWrapper::setModeAndMove(motor, 1, 6, COMPRESS_TRAVEL_TORQUE, MODULE_COMPRESSION, "Compress Travel Down Torque");
-                lastCommandTime = hwTimer.micros() / 1000;  // CRITICAL: Compression timing - must use GPTimer
-                stepTimer = hwTimer.micros() / 1000;  // CRITICAL: Compression timing - must use GPTimer
+                lastCommandTime = hwTimer.micros();  // Use microseconds directly
+                stepTimer = hwTimer.micros();  // Use microseconds directly
                 stateEntry = false;
             }
             
@@ -87,7 +87,7 @@ namespace Compression {
             // - Motor stalls (torque exceeds input_torque limit)
             // - Axis error indicates problem
             // Note: Velocity near-zero is NORMAL for torque mode without resistance
-            unsigned long travelElapsed = (hwTimer.micros() / 1000) - stepTimer;  // CRITICAL: Compression timing - must use GPTimer
+            uint64_t travelElapsed = hwTimer.micros() - stepTimer;  // Use microseconds directly
             BroadcastDataStore& broadcast = BroadcastDataStore::getInstance();
             bool stallDetected = broadcast.getAxisError() != 0;
             const TimestampedIq* iqData = broadcast.getLatestIq();
@@ -98,13 +98,13 @@ namespace Compression {
                 MotorWrapper::setModeAndMove(motor, 1, 6, 0, MODULE_COMPRESSION, "Compress Stop");  // Stay in torque mode
                 MotorWrapper::adjustMotorLimits(motor, COMPRESS_CONTACT_CURRENT, MODULE_COMPRESSION, "Contact Detected");
                 step = TORQUE_RAMP;
-                stepTimer = hwTimer.micros() / 1000;  // CRITICAL: Compression timing - must use GPTimer
+                stepTimer = hwTimer.micros();  // Use microseconds directly
                 stateEntry = true;
                 return false;
             }
             
             // Timeout: no plastic in barrel (reached max distance or endstop)
-            if (travelElapsed > COMPRESS_TRAVEL_TIMEOUT_MS) {
+            if (travelElapsed > (COMPRESS_TRAVEL_TIMEOUT_MS * 1000)) {  // Convert ms to us
                 isTimeoutFlag = true;
                 complete = true;
                 return true;
@@ -122,15 +122,15 @@ namespace Compression {
                                            ODriveCANProtocol::InputMode::TORQUE_RAMP);
                 }
                 // For MODE 1, already in torque mode from TRAVEL_DOWN
-                stepTimer = hwTimer.micros() / 1000;  // CRITICAL: Compression timing - must use GPTimer
+                stepTimer = hwTimer.micros();  // Use microseconds directly
                 stateEntry = false;
             }
             
             // Calculate torque ramp
-            float rampDuration = commonParams.compressRampDuration;
-            unsigned long rampElapsed = (hwTimer.micros() / 1000) - stepTimer;  // CRITICAL: Compression timing - must use GPTimer
-            float elapsedSec = rampElapsed / 1000.0f;
-            float targetTorque = (commonParams.compressRampTarget / rampDuration) * elapsedSec;
+            float rampDuration = commonParams.compressRampDuration;  // Duration in milliseconds
+            uint64_t rampElapsed = hwTimer.micros() - stepTimer;  // Use microseconds directly
+            float elapsedSec = rampElapsed / 1000000.0f;  // Convert microseconds to seconds
+            float targetTorque = (commonParams.compressRampTarget / rampDuration) * (rampElapsed / 1000.0f);  // Convert elapsed to ms for calculation
             if (targetTorque > commonParams.compressRampTarget) {
                 targetTorque = commonParams.compressRampTarget;
             }

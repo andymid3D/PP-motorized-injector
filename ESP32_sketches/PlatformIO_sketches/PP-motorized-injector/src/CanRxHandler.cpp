@@ -3,6 +3,7 @@
 #include <ESP32-TWAI-CAN.hpp>
 #include "BroadcastDataStore.h" // ADDED: For direct classification
 #include "ODriveCANProtocol.h"  // ADDED: For ODriveCANProtocol::parseCyclicHeartbeat
+#include "MessageBuffer.h"      // ADDED: For debug logging
 
 extern GPTimer hwTimer;
 
@@ -159,6 +160,15 @@ void CanRxHandler::pollAndProcess() {
         bds.storeHeartbeat(axis_error, axis_state, motor_error_flag, encoder_error_flag, 
                           controller_error_flag, trajectory_done_flag, timestamp, false);
         
+        // DEBUG: Log heartbeat state changes with timestamps
+        // static uint8_t lastAxisState = 255;  // Initialize to invalid state
+        // if (axis_state != lastAxisState) {
+        //     char debugBuf[60];
+        //     snprintf(debugBuf, sizeof(debugBuf), "[CAN_RX] Heartbeat: state=%d at %llu", axis_state, timestamp);
+        //     MessageBuffer::getInstance().sendMessage(debugBuf);  // SAFE: Debug logging only, no CANbus interaction
+        //     lastAxisState = axisState;
+        // }
+        
         // NOTE: Don't store flags in error structures - those are for full error codes from dedicated messages
         // Flags are available for debugging but not used in main error reporting
     }
@@ -201,12 +211,12 @@ void CanRxHandler::pollAndProcess() {
         motor_error |= ((uint64_t)frame.data[6]) << 48;
         motor_error |= ((uint64_t)frame.data[7]) << 56;
         
-        #if DEBUG_ENABLED
-        Serial.print("[CAN_RX] Motor Error: 0x");
-        Serial.print((unsigned long long)motor_error, HEX);
-        Serial.print(" at ");
-        Serial.println(timestamp);
-        #endif
+        // #if DEBUG_ENABLED
+        // Serial.print("[CAN_RX] Motor Error: 0x");
+        // Serial.print((unsigned long long)motor_error, HEX);
+        // Serial.print(" at ");
+        // Serial.println(timestamp);
+        // #endif
         
         bds.storeMotorError(motor_error, timestamp, false);
     }
@@ -229,12 +239,12 @@ void CanRxHandler::pollAndProcess() {
         controller_error |= ((uint32_t)frame.data[2]) << 16;
         controller_error |= ((uint32_t)frame.data[3]) << 24;
         
-        #if DEBUG_ENABLED
-        Serial.print("[CAN_RX] Controller Error: 0x");
-        Serial.print(controller_error, HEX);
-        Serial.print(" at ");
-        Serial.println(timestamp);
-        #endif
+        // #if DEBUG_ENABLED
+        // Serial.print("[CAN_RX] Controller Error: 0x");
+        // Serial.print(controller_error, HEX);
+        // Serial.print(" at ");
+        // Serial.println(timestamp);
+        // #endif
         
         bds.storeControllerError(controller_error, timestamp, false);
     }
@@ -251,8 +261,7 @@ void CanRxHandler::pollAndProcess() {
         manual_current.bytes[2] = frame.data[6];
         manual_current.bytes[3] = frame.data[7];
         
-        // Store manually parsed values
-        bds.storeBusVI(manual_voltage.f, manual_current.f, timestamp, false);
+        // BUSVI (0x17) no longer handled - removed from system
         
         // DEBUG: Commented out to reduce streaming noise
         // Serial.print("[CAN-FIX] BUS: V=");

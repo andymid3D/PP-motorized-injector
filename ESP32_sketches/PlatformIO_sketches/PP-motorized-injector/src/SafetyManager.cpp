@@ -211,8 +211,8 @@ bool SafetyManager::check(float current_velocity, bool is_moving_down) {
     // NOTE: Don't power off driver (avoids forced homing cycle)
     
     // Skip stale check during first 10 seconds of boot (grace period for ODrive communication)
-    unsigned long uptime = (hwTimer.micros() - _bootTime) / 1000;  // CRITICAL: Used for CANbus staleness detection - must use GPTimer
-    if (uptime < 10000) { // 10 second grace period
+    uint64_t uptime = hwTimer.micros() - _bootTime;  // Use microseconds directly for CANbus staleness detection
+    if (uptime < 10000000) { // 10 second grace period (10,000,000 microseconds)
         // During grace period, only check if we have ANY data at all
         // If no data after 10 seconds, then we'll trigger stale error
         return true; // Allow operation during grace period

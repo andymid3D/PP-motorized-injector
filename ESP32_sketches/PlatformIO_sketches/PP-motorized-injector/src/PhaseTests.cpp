@@ -326,15 +326,7 @@ void PhaseTests::testBDSStorage() {
         Serial.println("FAIL");
     }
     
-    // Test 5: Store BusVI data
-    Serial.print("Test 5 - Store BusVI: ");
-    bds.storeBusVI(24.1f, 5.2f, baseTime + 50000, false);
-    const TimestampedBusVI* busvi = bds.getLatestBusVI();
-    if (busvi != nullptr && busvi->busVoltage == 24.1f && busvi->busCurrent == 5.2f) {
-        Serial.println("PASS");
-    } else {
-        Serial.println("FAIL");
-    }
+    // Test 5: BUSVI removed from system - test skipped
     
     // Test 6: Staleness detection (should NOT be stale - just stored with current time)
     Serial.print("Test 6 - Fresh data not stale: ");

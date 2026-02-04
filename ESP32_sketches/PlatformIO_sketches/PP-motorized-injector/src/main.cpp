@@ -58,6 +58,10 @@ fsm_inputs_t fsm_inputs;
 fsm_outputs_t fsm_outputs;
 fsm_state_t fsm_state;
 
+// ===== SMART USER RESET =====
+static InjectorStates lastNonErrorState = InjectorStates::INIT_HEATING;  // Track state before error
+// ===== END SMART USER RESET =====
+
 // --- Hardware Objects ---
 SafetyManager safety;
 CanBusHandlerV2 motor;
@@ -97,7 +101,7 @@ Bounce2::Button btnLower = Bounce2::Button();
 MachineFlags flags = {0, 0, 0, 0};
 unsigned long lastAutoCompress = 0;
 unsigned long antiDripTimer = 0;
-unsigned long lastDebugTime = 0;
+uint64_t lastDebugTime = 0;  // Use uint64_t for microseconds
 unsigned long lastMotorCmdTime = 0; 
 uint64_t bootTime = 0;
 uint64_t stateTimer = 0; 
@@ -202,12 +206,12 @@ void testCanRxISR() {
 
 bool runCompressionCycle() {
     BroadcastDataStore& broadcast = BroadcastDataStore::getInstance();
-    static unsigned long compressStart = 0;
+    static uint64_t compressStart = 0;
     if (stateEntry) {
         safety.setContext(CTX_BLOCKED);
-        compressStart = hwTimer.micros() / 1000;  // CRITICAL: FSM timing - must use GPTimer
+        compressStart = hwTimer.micros();  // Use microseconds directly
     }
-    float elapsed = (hwTimer.micros() / 1000 - compressStart) / 1000.0f;  // CRITICAL: FSM timing - must use GPTimer
+    float elapsed = (hwTimer.micros() - compressStart) / 1000000.0f;  // Convert microseconds to seconds
     float targetTorque = (COMPRESS_RAMP_TARGET / 2.0f) * elapsed;
     if (targetTorque > COMPRESS_RAMP_TARGET) targetTorque = COMPRESS_RAMP_TARGET;
     
@@ -231,7 +235,7 @@ void printDebugReport(unsigned long currentLoopTime, unsigned long maxLoopTimeSi
     int lastControlMode = MotorWrapper::getLastControlMode();
     int lastInputMode = MotorWrapper::getLastInputMode();
     String lastCmdStr = MotorWrapper::getLastCommand();
-    unsigned long uptimeSeconds = (hwTimer.micros() / 1000) / 1000;  // CRITICAL: FSM timing - must use GPTimer
+    unsigned long uptimeSeconds = hwTimer.micros() / 1000000;  // Convert microseconds to seconds directly
     uint64_t motorErr = broadcast.getMotorErrorSafe();  // Read previous entry to avoid race condition
     uint32_t encoderErr = broadcast.getEncoderError();
     uint32_t controllerErr = broadcast.getControllerErrorSafe();  // Read previous entry to avoid race condition
@@ -457,10 +461,10 @@ void loop() {
 #endif
     
     // NORMAL MAIN LOOP (when MINIMAL_CANRX_TEST_MODE is false)
-    unsigned long loopStart = hwTimer.micros() / 1000;  // CRITICAL: Loop timing affects CANbus processing rate - must use GPTimer
-    static unsigned long lastLoopReportTime = 0;
-    static unsigned long maxLoopTime = 0;
-    static unsigned long loopTime = 0;
+    uint64_t loopStart = hwTimer.micros();  // Use microseconds directly for CANbus processing timing
+    static uint64_t lastLoopReportTime = 0;
+    static uint64_t maxLoopTime = 0;
+    static uint64_t loopTime = 0;
     
     motor.loop(); safety.updateInputs(); fsm_inputs.nozzleTemperature = readThermocouple();
     btnCenter.update(); btnUpper.update(); btnLower.update();
@@ -531,6 +535,15 @@ void loop() {
     if (btnUpper.read() == LOW && btnLower.read() == LOW) buttonLock = true;
     else if (btnCenter.read() == LOW && btnLower.read() == LOW) buttonLock = true;
     if (buttonLock && btnUpper.read() == HIGH && btnLower.read() == HIGH && btnCenter.read() == HIGH) buttonLock = false;
+    
+    // ===== BUTTON LOCK TIMEOUT FOR RESET =====
+    // Release button lock after 500ms to allow normal operation
+    static uint64_t resetTime = 0;  // Static to preserve value across loop iterations
+    if (buttonLock && resetTime > 0 && (hwTimer.micros() - resetTime > 500000)) {
+        buttonLock = false;
+        resetTime = 0;  // Reset timer
+    }
+    // ===== END BUTTON LOCK TIMEOUT =====
 
     static bool moveLockActive = false;
 
@@ -580,6 +593,10 @@ void loop() {
                         
                         // Check if ErrorManager signaled for shutdown
                         if (errorManagerNeedsShutdown()) {
+                            // ===== SMART USER RESET: Track state before error =====
+                            lastNonErrorState = fsm_state.currentState;  // Save current state
+                            // ===== END SMART USER RESET =====
+                            
                             fsm_state.currentState = InjectorStates::ERROR_STATE;
                             fsm_state.error = safety.getLastError();
                             resetErrorManagerState();
@@ -595,6 +612,10 @@ void loop() {
                     break;
                 case ERR_SAFETY_CRITICAL:
                     // ErrorManager already called SafetyManager for shutdown
+                    // ===== SMART USER RESET: Track state before error =====
+                    lastNonErrorState = fsm_state.currentState;  // Save current state
+                    // ===== END SMART USER RESET =====
+                    
                     fsm_state.currentState = InjectorStates::ERROR_STATE;
                     fsm_state.error = safety.getLastError();
                     resetErrorManagerState();
@@ -626,8 +647,8 @@ void loop() {
                 if (fsm_state.error != ERR_ESTOP) {
                     MotorWrapper::setModeAndMove(motor, 2, 1, 0, MODULE_COMPRESSION, "Stop");
                 }
-                char errBuf[64];
-                snprintf(errBuf, sizeof(errBuf), "ERROR STATE ENTERED: 0x%X", fsm_state.error);
+                char errBuf[80];
+                snprintf(errBuf, sizeof(errBuf), "ERROR STATE ENTERED: 0x%X at %lluus", fsm_state.error, hwTimer.micros());
                 MessageBuffer::getInstance().sendMessage(errBuf);
                 errorLogged = true; 
             }
@@ -636,7 +657,55 @@ void loop() {
                 if (safety.isEStopPressed() || safety.isBarrelOpen()) safety.enableMotorPower(false); else safety.enableMotorPower(true);
             }
             if (!ignoreButtons && !buttonLock && btnCenter.released()) { 
-                if (!safety.isEStopPressed() && !safety.isBarrelOpen()) { MessageBuffer::getInstance().sendMessage("User Reset."); safety.resetError(); motor.clearErrors(); fsm_state.currentState = InjectorStates::INIT_HEATING; } 
+                if (!safety.isEStopPressed() && !safety.isBarrelOpen()) { 
+                    // ===== SMART USER RESET =====
+                    MessageBuffer::getInstance().sendMessage("User Reset.");
+                    safety.resetError(); 
+                    motor.clearErrors(); 
+                    
+                    // ===== BUTTON STATE RESET =====
+                    // Reset button states to prevent stuck button interference
+                    btnCenter.update();  // Update button state to clear stuck condition
+                    btnUpper.update();
+                    btnLower.update();
+                    
+                    // Lock buttons briefly to allow physical button release
+                    buttonLock = true;
+                    resetTime = hwTimer.micros();  // Use static variable from main loop
+                    // ===== END BUTTON STATE RESET =====
+                    
+                    // Return to safe resting state, with intelligent fallbacks
+                    switch (lastNonErrorState) {
+                        case InjectorStates::INIT_HOMING:
+                            // Homing is safe - it starts with clear_errors and calibration
+                            fsm_state.currentState = InjectorStates::INIT_HOMING;
+                            break;
+                        case InjectorStates::COMPRESSION:
+                        case InjectorStates::READY_TO_INJECT:
+                        case InjectorStates::INJECT:
+                        case InjectorStates::HOLD_INJECTION:
+                        case InjectorStates::PURGE_ZERO:
+                        case InjectorStates::ANTIDRIP:
+                            // These are moving states - return to safe REFILL state
+                            fsm_state.currentState = InjectorStates::REFILL;
+                            break;
+                        case InjectorStates::REFILL:
+                            // Refill is already a safe resting state
+                            fsm_state.currentState = InjectorStates::REFILL;
+                            break;
+                        case InjectorStates::INIT_HEATING:
+                        case InjectorStates::INIT_HOT_NOT_HOMED:
+                        default:
+                            // Initialization states - safe to go to homing
+                            fsm_state.currentState = InjectorStates::INIT_HOMING;
+                            break;
+                    }
+                    
+                    char resetBuf[80];
+                    snprintf(resetBuf, sizeof(resetBuf), "Reset to: %s", getStateName(fsm_state.currentState));
+                    MessageBuffer::getInstance().sendMessage(resetBuf);
+                    // ===== END SMART USER RESET =====
+                } 
             }
             break;
 
@@ -666,16 +735,20 @@ void loop() {
                 stateEntry = false;
             }
             Homing::update(motor, safety);
-            static unsigned long lastHomingLogTime = 0;
-            if ((hwTimer.micros() / 1000) - lastHomingLogTime > 1000) {  // CRITICAL: FSM timing - must use GPTimer
+            static uint64_t lastHomingLogTime = 0;
+            if (hwTimer.micros() - lastHomingLogTime > 1000000) {  // 1 second in microseconds
                 char homingBuf[64];
                 snprintf(homingBuf, sizeof(homingBuf), "[HOMING: %s]", Homing::getStateString());
                 MessageBuffer::getInstance().sendMessage(homingBuf);
-                lastHomingLogTime = hwTimer.micros() / 1000;  // CRITICAL: FSM timing - must use GPTimer
+                lastHomingLogTime = hwTimer.micros();  // Use microseconds directly
             }
             if (Homing::isComplete()) {
                 fsm_state.currentState = InjectorStates::REFILL;
             } else if (Homing::hasError()) {
+                // ===== SMART USER RESET: Track state before error =====
+                lastNonErrorState = InjectorStates::INIT_HOMING;  // Save current state
+                // ===== END SMART USER RESET =====
+                
                 fsm_state.currentState = InjectorStates::ERROR_STATE;
                 fsm_state.error = 0xFF;
             }
@@ -700,12 +773,12 @@ void loop() {
             // Remove FSM_DEBUG messages for cleaner output
             
             if (!ignoreButtons && !moveLockActive) {
-                unsigned long togglePressTime = 0;
+                uint64_t togglePressTime = 0;
                 bool toggleProcessed = false;
                 if (btnUpper.read() == LOW && btnLower.read() == LOW) {
                     if (!toggleProcessed) {
-                        if (togglePressTime == 0) togglePressTime = hwTimer.micros() / 1000;  // SAFE: Button timing only, no CANbus interaction
-                        if ((hwTimer.micros() / 1000) - togglePressTime >= UI_BUTTON_TOGGLE_DELAY_MS) {
+                        if (togglePressTime == 0) togglePressTime = hwTimer.micros();  // Use microseconds directly
+                        if (hwTimer.micros() - togglePressTime >= (UI_BUTTON_TOGGLE_DELAY_MS * 1000)) {  // Convert ms to us
                             flags.endOfDay = !flags.endOfDay;
                             toggleProcessed = true;
                         }
@@ -731,7 +804,7 @@ void loop() {
             }
             if (Compression::update(motor)) {
                 fsm_state.currentState = InjectorStates::READY_TO_INJECT;
-                lastAutoCompress = hwTimer.micros() / 1000;  // CRITICAL: FSM timing - must use GPTimer
+                lastAutoCompress = hwTimer.micros();  // Use microseconds directly
             }
             if (!ignoreButtons && !buttonLock && btnUpper.released()) { 
                 MessageBuffer::getInstance().sendMessage("Compression: User aborted, returning to Refill");
@@ -742,7 +815,7 @@ void loop() {
             if (!ignoreButtons && !buttonLock && btnLower.released()) { 
                 MessageBuffer::getInstance().sendMessage("Compression: User confirmed, ready to inject");
                 fsm_state.currentState = InjectorStates::READY_TO_INJECT;
-                lastAutoCompress = hwTimer.micros() / 1000;  // CRITICAL: FSM timing - must use GPTimer
+                lastAutoCompress = hwTimer.micros();  // Use microseconds directly
                 Compression::reset();
             }
             if (Compression::hasError()) {
@@ -855,18 +928,18 @@ void loop() {
                 MotorWrapper::setModeAndMove(motor, 3, 5, releaseTarget, MODULE_RELEASE, "Pos Release");
                 stateEntry = false;
             }
-            if ((hwTimer.micros() / 1000) - stateTimer > 2000) {  // CRITICAL: FSM timing - must use GPTimer 
+            if (hwTimer.micros() - stateTimer > 2000000) {  // 2 seconds in microseconds
                 MessageBuffer::getInstance().sendMessage("Release: Complete, confirming mould removal");
                 fsm_state.currentState = InjectorStates::CONFIRM_MOULD_REMOVAL; 
             }
             break;
 
         case InjectorStates::CONFIRM_MOULD_REMOVAL:
-             static unsigned long confirmButtonTime = 0;
+             static uint64_t confirmButtonTime = 0;
              if (!ignoreButtons && !buttonLock && (btnUpper.released() || btnLower.released())) {
-                 if (confirmButtonTime == 0) confirmButtonTime = hwTimer.micros() / 1000;  // SAFE: Button timing only, no CANbus interaction
+                 if (confirmButtonTime == 0) confirmButtonTime = hwTimer.micros();  // Use microseconds directly
              }
-             if (confirmButtonTime > 0 && (hwTimer.micros() / 1000) - confirmButtonTime >= 1000) {
+             if (confirmButtonTime > 0 && hwTimer.micros() - confirmButtonTime >= 1000000) {  // 1 second in microseconds
                  if(flags.endOfDay) {
                      MessageBuffer::getInstance().sendMessage("Confirm: Returning to ReadyToInject");
                      fsm_state.currentState = InjectorStates::READY_TO_INJECT; 
@@ -897,13 +970,13 @@ void loop() {
         CanRxHandlerTest::loop();
     #endif
     
-    unsigned long loopEnd = hwTimer.micros() / 1000;  // CRITICAL: Loop timing affects CANbus processing rate - must use GPTimer
+    uint64_t loopEnd = hwTimer.micros();  // Use microseconds directly for CANbus processing timing
     loopTime = loopEnd - loopStart;
     if (loopTime > maxLoopTime) maxLoopTime = loopTime;
     
-    if ((hwTimer.micros() / 1000) - lastDebugTime > 1000) {  // 1 second (prevent debug overlap)  // CRITICAL: Debug timing - must use GPTimer
-        lastDebugTime = hwTimer.micros() / 1000;  // CRITICAL: Debug timing - must use GPTimer 
-        printDebugReport(loopTime, maxLoopTime);
+    if (hwTimer.micros() - lastDebugTime > 1000000) {  // 1 second (prevent debug overlap) - use microseconds
+        lastDebugTime = hwTimer.micros();  // Use microseconds directly
+        printDebugReport(loopTime / 1000, maxLoopTime / 1000);  // Convert to ms for display
         maxLoopTime = 0;
         #if DEBUG_ENABLED
         const char* output = MessageBuffer::getInstance().getOutput();

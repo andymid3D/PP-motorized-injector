@@ -65,7 +65,7 @@ public:
     // ===== DRIFT TRACKING (for refill homing) =====
     static const int MAX_DRIFT_HISTORY = 100;
     struct DriftRecord {
-        unsigned long timestamp;
+        uint64_t timestamp;
         float offsetTurns;
     };
     
@@ -86,7 +86,7 @@ private:
     // State machine state
     static HomingState currentState_;
     static HomingState previousState_;
-    static uint32_t stateEnteredMs_;
+    static uint64_t stateEnteredUs_;  // Timestamp when state entered (microseconds)
     
     // Persistent flags (survive power cycles)
     static bool calibrationDone_;
@@ -108,7 +108,7 @@ private:
     static uint8_t lastInputModeSent_;
     
     // Critical: Timestamp when mode command was sent (for 50ms gap before velocity command)
-    static uint32_t modeCommandSentAtMs_;
+    static uint64_t modeCommandSentAtUs_;  // Timestamp in microseconds
     static bool backoffVelCmdSent_;  // Track if velocity command sent during backoff
     
     // Transition to next state
