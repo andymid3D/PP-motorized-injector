@@ -487,8 +487,8 @@ private:
     // Stop verification state
     bool waitingForStop_ = false;           // True if waiting for motor to stop
     uint64_t stopCommandTime_ = 0;          // When stop command was sent
-    static constexpr float STOP_VELOCITY_THRESHOLD = 0.01f;  // Velocity threshold for "stopped"
-    static constexpr uint32_t STOP_SETTLE_TIME_MS = 50;     // Time to wait after stop verification
+    static constexpr float STOP_VELOCITY_THRESHOLD = 0.5f;   // Velocity threshold for "stopped"
+    static constexpr uint32_t STOP_SETTLE_TIME_MS = 100;     // Time to wait after stop verification
     static constexpr uint32_t STOP_TIMEOUT_MS = 500;         // Max time to wait for stop
 };
 
