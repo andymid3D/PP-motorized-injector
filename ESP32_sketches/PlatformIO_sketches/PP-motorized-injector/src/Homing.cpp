@@ -173,7 +173,10 @@ void Homing::handleWaitCalibrate(CanBusHandlerV2& motor, SafetyManager& safety) 
 void Homing::handleRequestCL(CanBusHandlerV2& motor, SafetyManager& safety) {
     // One-time: Request Closed Loop
     if (previousState_ != HomingState::REQUEST_CL) {
-        motor.setAxisState(ODriveCANProtocol::AxisState::CLOSED_LOOP_CONTROL);
+        bool cmdSent = motor.setAxisState(ODriveCANProtocol::AxisState::CLOSED_LOOP_CONTROL);
+        char buf[80];
+        snprintf(buf, sizeof(buf), "REQUEST_CL: setAxisState(8) sent = %s", cmdSent ? "SUCCESS" : "FAILED");
+        MessageBuffer::getInstance().sendMessage(buf);
         nextState(HomingState::WAIT_CL);
     }
 }

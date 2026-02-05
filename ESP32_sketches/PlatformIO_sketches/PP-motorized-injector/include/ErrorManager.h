@@ -40,10 +40,10 @@ struct AxisErrorInfo {
 
 const AxisErrorInfo AXIS_ERRORS[] = {
     {0x00000001, "INVALID_STATE", "Requested state not allowed (e.g., CLC before calibration)", ERR_RECOVERABLE_RETRY},
-    {0x00000040, "MOTOR_FAILED", "Check motor.error for details", ERR_SAFETY_CRITICAL},
+    {0x00000040, "MOTOR_FAILED", "Check motor.error for details", ERR_RECOVERABLE_RETRY},
     {0x00000080, "SENSORLESS_ESTIMATOR_FAILED", "Sensorless estimator error", ERR_SAFETY_CRITICAL},
-    {0x00000100, "ENCODER_FAILED", "Check encoder.error for details", ERR_RECOVERABLE_HOMING},
-    {0x00000200, "CONTROLLER_FAILED", "Controller error occurred", ERR_SAFETY_CRITICAL},
+    {0x00000100, "ENCODER_FAILED", "Check encoder.error for details", ERR_RECOVERABLE_RETRY},
+    {0x00000200, "CONTROLLER_FAILED", "Controller error occurred", ERR_RECOVERABLE_RETRY},
     {0x00000800, "WATCHDOG_TIMER_EXPIRED", "Axis watchdog timeout", ERR_SAFETY_CRITICAL},
     {0x00001000, "MIN_ENDSTOP_PRESSED", "Min endstop triggered", ERR_SAFETY_CRITICAL},
     {0x00002000, "MAX_ENDSTOP_PRESSED", "Max endstop triggered", ERR_SAFETY_CRITICAL},
@@ -79,7 +79,7 @@ const MotorErrorInfo MOTOR_ERRORS[] = {
     {0x00200000, "CONTROLLER_FAILED", "FOC controller failed", ERR_SAFETY_CRITICAL},
     {0x00400000, "I_BUS_OUT_OF_RANGE", "DC current exceeded hard limits", ERR_SAFETY_CRITICAL},
     {0x00800000, "BRAKE_RESISTOR_DISARMED", "Brake resistor configured but disarmed", ERR_RECOVERABLE_RETRY},
-    {0x01000000, "SYSTEM_LEVEL", "System-wide error (check ODrive.error)", ERR_SAFETY_CRITICAL},
+    {0x01000000, "SYSTEM_LEVEL", "System-wide error (check ODrive.error)", ERR_RECOVERABLE_RETRY},
     {0x02000000, "BAD_TIMING", "Control loop sync lost", ERR_SAFETY_CRITICAL},
     {0x04000000, "UNKNOWN_PHASE_ESTIMATE", "No valid angle input (calibrate encoder)", ERR_RECOVERABLE_HOMING},
     {0x08000000, "UNKNOWN_PHASE_VEL", "No valid phase velocity input", ERR_RECOVERABLE_HOMING},

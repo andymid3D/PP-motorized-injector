@@ -194,7 +194,7 @@ bool CanBusHandlerV2::setInputPos(float position) {
 }
 
 bool CanBusHandlerV2::setInputVel(float velocity) {
-    return _queueCommand(ODriveCANProtocol::buildSetInputVel(NODE_ID, velocity));
+    return _queueCommand(ODriveCANProtocol::buildSetInputVel(NODE_ID, velocity, 0.0f));
 }
 
 bool CanBusHandlerV2::setInputTorque(float torque) {

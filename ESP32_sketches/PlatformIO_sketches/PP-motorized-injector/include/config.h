@@ -93,6 +93,7 @@
 #define ODRIVE_NODE_ID          0
 #define INVERT_MOTOR_DIR        false
 #define MACHINE_MAX_VEL_LIMIT   25.0f   // 25rps is MAX speed motor can be run at!! do not change!
+#define GENERAL_MACHINE_CURRENT_LIMIT 31.0f
 
 #define IGNORE_NOZZLE_BLOCK     true
 #define TEMP_MIN_MOVE           20
@@ -170,7 +171,7 @@
 #define PURGE_CURRENT_LIMIT     GENERAL_MACHINE_CURRENT_LIMIT
 
 #define ANTIDRIP_VEL            -2.0f
-#define GENERAL_MACHINE_CURRENT_LIMIT 31.0f  // Max current before error (use full machine capability)
+#define ANTIDRIP_CURRENT_LIMIT GENERAL_MACHINE_CURRENT_LIMIT   // Max current before error (use full machine capability)
 #define ANTIDRIP_VEL_LIMIT      5.0f
 #define ANTIDRIP_CURRENT_LIMIT  GENERAL_MACHINE_CURRENT_LIMIT
 #define ANTIDRIP_TIMEOUT_MS     15000

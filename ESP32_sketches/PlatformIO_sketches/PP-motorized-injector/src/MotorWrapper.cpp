@@ -180,19 +180,11 @@ namespace MotorWrapper {
             snprintf(safetyBuf, sizeof(safetyBuf), "[MOTOR] Direction change detected - stopping first (vel=%.1f)", currentVelocity);
             MessageBuffer::getInstance().sendMessage(safetyBuf);
             
-            // Send stop command and wait for verification
+            // Send stop command - CanBusHandlerV2 will handle stop verification
             motor.setInputVel(0.0f);
-            uint64_t stopStartTime = hwTimer.micros();
             
-            // Wait up to 100ms for motor to stop
-            while (hwTimer.micros() - stopStartTime < 100000) {
-                BroadcastDataStore& bds = BroadcastDataStore::getInstance();
-                if (fabs(bds.getVelocity()) < 0.1f) {
-                    MessageBuffer::getInstance().sendMessage("[MOTOR] Stop verified, proceeding with direction change");
-                    break;
-                }
-                delay(1);  // Small delay to prevent tight loop
-            }
+            // Small delay to allow stop command to be processed
+            delay(50);  // 50ms delay for stop command processing
         }
         // ===== END DIRECTION CHANGE SAFETY =====
         

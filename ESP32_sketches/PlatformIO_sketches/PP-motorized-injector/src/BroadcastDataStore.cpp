@@ -111,14 +111,6 @@ const TimestampedHeartbeat* BroadcastDataStore::getLatestHeartbeat() const {
 }
 
 const TimestampedEncoder* BroadcastDataStore::getLatestEncoder() const {
-    uint64_t now = hwTimer.micros();
-    
-    // Only delay if this is a fresh read request (avoid delays in tight loops)
-    if (now - lastEncoderRead_ > FRESH_DATA_DELAY_US) {
-        vTaskDelay(pdMS_TO_TICKS(15));  // Wait for fresh data (10ms heartbeat + 5ms margin)
-        lastEncoderRead_ = hwTimer.micros();
-    }
-    
     return encoderHistory_.getLatest();
 }
 

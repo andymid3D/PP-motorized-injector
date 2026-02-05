@@ -583,6 +583,26 @@ void loop() {
             switch(severity) {
                 case ERR_EXPECTED_TRANSIENT:
                 case ERR_RECOVERABLE_RETRY:
+                    {
+                        // Use centralized error recovery (extends existing ErrorSeverity system)
+                        BroadcastDataStore& broadcast = BroadcastDataStore::getInstance();
+                        bool moveComplete = (fabs(broadcast.getVelocity()) < 0.1f && broadcast.isTrajectoryComplete());
+                        
+                        handleRecoverableError(severity, axisErr, motorErr, encoderErr, controllerErr, moveComplete);
+                        
+                        // Check if ErrorManager signaled for shutdown
+                        if (errorManagerNeedsShutdown()) {
+                            // ===== SMART USER RESET: Track state before error =====
+                            lastNonErrorState = fsm_state.currentState;  // Save current state
+                            // ===== END SMART USER RESET =====
+                            
+                            fsm_state.currentState = InjectorStates::ERROR_STATE;
+                            fsm_state.error = safety.getLastError();
+                            resetErrorManagerState();
+                            return;  // Exit early for shutdown
+                        }
+                    }
+                    break;
                 case ERR_RECOVERABLE_HOMING:
                     {
                         // Use centralized error recovery (extends existing ErrorSeverity system)
@@ -603,11 +623,9 @@ void loop() {
                             return;  // Exit early for shutdown
                         }
                         
-                        // For homing errors, transition to INIT_HOMING
-                        if (severity == ERR_RECOVERABLE_HOMING) {
-                            fsm_state.currentState = InjectorStates::INIT_HOMING;
-                            flags.calibrationDone = false;
-                        }
+                        // For homing errors, transition to INIT_HEATING
+                        fsm_state.currentState = InjectorStates::INIT_HEATING;
+                        flags.calibrationDone = false;
                     }
                     break;
                 case ERR_SAFETY_CRITICAL:
@@ -760,6 +778,7 @@ void loop() {
             // This prevents immediate 0xFE errors during state transition
             if (stateEntry) {
                 Refill::begin();
+                moveLockActive = !Refill::isComplete();  // Lock buttons if Refill not complete
                 stateEntry = false;
             }
             if (Refill::update(motor)) {
@@ -773,8 +792,8 @@ void loop() {
             // Remove FSM_DEBUG messages for cleaner output
             
             if (!ignoreButtons && !moveLockActive) {
-                uint64_t togglePressTime = 0;
-                bool toggleProcessed = false;
+                static uint64_t togglePressTime = 0;
+                static bool toggleProcessed = false;
                 if (btnUpper.read() == LOW && btnLower.read() == LOW) {
                     if (!toggleProcessed) {
                         if (togglePressTime == 0) togglePressTime = hwTimer.micros();  // Use microseconds directly
@@ -925,6 +944,10 @@ void loop() {
                 MotorWrapper::setMotorLimits(motor, RELEASE_CONTROLLER_VEL_LIMIT, RELEASE_CURRENT_LIMIT, MODULE_RELEASE, "RELEASE");
                 MotorWrapper::setTrapTrajParams(motor, RELEASE_TRAP_VEL_LIMIT, RELEASE_ACCEL, RELEASE_DECEL, MODULE_RELEASE, "RELEASE_TRAJ");
                 float releaseTarget = broadcast.getPosition() + RELEASE_DIST;
+                char releaseBuf[80];
+                snprintf(releaseBuf, sizeof(releaseBuf), "Release: Current=%.1f + DIST=%.1f = Target=%.1f", 
+                         broadcast.getPosition(), RELEASE_DIST, releaseTarget);
+                MessageBuffer::getInstance().sendMessage(releaseBuf);
                 MotorWrapper::setModeAndMove(motor, 3, 5, releaseTarget, MODULE_RELEASE, "Pos Release");
                 stateEntry = false;
             }
