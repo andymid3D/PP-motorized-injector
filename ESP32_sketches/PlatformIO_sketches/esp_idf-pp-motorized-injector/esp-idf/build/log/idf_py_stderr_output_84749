@@ -1,0 +1,38 @@
+Command: cmake -G Ninja -DPYTHON_DEPS_CHECKED=1 -DPYTHON=/Users/andy/.espressif/python_env/idf5.5_py3.14_env/bin/python -DESP_PLATFORM=1 -DCCACHE_ENABLE=0 /Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf
+CMake Error at /Users/andy/esp/esp-idf/tools/cmake/build.cmake:629 (message):
+  Traceback (most recent call last):
+
+    File "<frozen runpy>", line 198, in _run_module_as_main
+    File "<frozen runpy>", line 88, in _run_code
+    File "/Users/andy/.espressif/python_env/idf5.5_py3.14_env/lib/python3.14/site-packages/idf_component_manager/prepare_components/__main__.py", line 6, in <module>
+      main()
+      ~~~~^^
+    File "/Users/andy/.espressif/python_env/idf5.5_py3.14_env/lib/python3.14/site-packages/idf_component_manager/prepare_components/prepare.py", line 325, in main
+      args.func(args)
+      ~~~~~~~~~^^^^^^
+    File "/Users/andy/.espressif/python_env/idf5.5_py3.14_env/lib/python3.14/site-packages/idf_component_manager/prepare_components/prepare.py", line 147, in prepare_dep_dirs
+      if sdk_config_json_path and (RunCounter(build_dir).value > 0 or CMAKEV2):
+                                   ~~~~~~~~~~^^^^^^^^^^^
+    File "/Users/andy/.espressif/python_env/idf5.5_py3.14_env/lib/python3.14/site-packages/idf_component_manager/prepare_components/prepare.py", line 64, in __init__
+      self._file_path = Path(build_dir) / f'component_manager_run_counter.{get_cmake_pid()}'
+                                                                           ~~~~~~~~~~~~~^^
+    File "/Users/andy/.espressif/python_env/idf5.5_py3.14_env/lib/python3.14/site-packages/idf_component_manager/prepare_components/prepare.py", line 54, in get_cmake_pid
+      while current.parent():
+            ~~~~~~~~~~~~~~^^
+    File "/Users/andy/.espressif/python_env/idf5.5_py3.14_env/lib/python3.14/site-packages/psutil/__init__.py", line 597, in parent
+      lowest_pid = _LOWEST_PID if _LOWEST_PID is not None else pids()[0]
+                                                               ~~~~^^
+    File "/Users/andy/.espressif/python_env/idf5.5_py3.14_env/lib/python3.14/site-packages/psutil/__init__.py", line 1485, in pids
+      ret = sorted(_psplatform.pids())
+                   ~~~~~~~~~~~~~~~~^^
+    File "/Users/andy/.espressif/python_env/idf5.5_py3.14_env/lib/python3.14/site-packages/psutil/_psosx.py", line 320, in pids
+      ls = cext.pids()
+
+  PermissionError: [Errno 1] Operation not permitted (originated from
+  sysctl() malloc 1/3)
+
+Call Stack (most recent call first):
+  /Users/andy/esp/esp-idf/tools/cmake/project.cmake:740 (idf_build_process)
+  CMakeLists.txt:4 (project)
+
+

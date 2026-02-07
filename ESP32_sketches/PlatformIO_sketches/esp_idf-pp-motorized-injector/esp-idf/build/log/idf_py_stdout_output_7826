@@ -1,0 +1,392 @@
+Command: /Users/andy/.espressif/python_env/idf5.5_py3.14_env/bin/python /Users/andy/esp/esp-idf/tools/idf_monitor.py -p /dev/tty.usbserial-0001 -b 115200 --toolchain-prefix xtensa-esp32-elf- --target esp32 --revision 0 /Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/build/pp_motorized_injector.elf /Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/build/bootloader/bootloader.elf --no-reset -m '/Users/andy/.espressif/python_env/idf5.5_py3.14_env/bin/python' '/Users/andy/esp/esp-idf/tools/idf.py' '-p' '/dev/tty.usbserial-0001'
+[0;32mI (4275) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (5275) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (6275) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (7275) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (8275) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (9275) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (10275) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (11275) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (12275) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (13275) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (14275) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (15275) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (16275) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (17275) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (18275) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (19275) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (20275) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (21275) APP: TEMP_ONLY Temp:16 Contactor:OFF[0m
+[0;32mI (21505) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:17 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (22275) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (23275) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (24005) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:17 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (24275) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (25195) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:17 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (25275) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (26275) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (26755) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:17 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (27275) APP: TEMP_ONLY Temp:16 Contactor:OFF[0m
+[0;32mI (28275) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (29275) APP: TEMP_ONLY Temp:16 Contactor:OFF[0m
+[0;32mI (29365) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:17 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (30285) APP: TEMP_ONLY Temp:16 Contactor:OFF[0m
+[0;32mI (30435) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:17 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (31335) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;33mW (31335) MOTOR_WRAPPER: CAN_QUEUE_FULL: Setpoint [M255:TempCritical Stop][0m
+[0;32mI (31625) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:17 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;33mW (31825) MOTOR_WRAPPER: CAN_QUEUE_FULL: Setpoint [M255:TempCritical Stop][0m
+[0;33mW (32325) MOTOR_WRAPPER: CAN_QUEUE_FULL: Setpoint [M255:TempCritical Stop][0m
+[0;32mI (32435) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;33mW (32445) MOTOR_WRAPPER: CAN_QUEUE_FULL: Setpoint [M255:TempCritical Stop][0m
+[0;32mI (32625) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;33mW (32655) MOTOR_WRAPPER: CAN_QUEUE_FULL: Setpoint [M255:TempCritical Stop][0m
+[0;33mW (33155) MOTOR_WRAPPER: CAN_QUEUE_FULL: Setpoint [M255:TempCritical Stop][0m
+[0;32mI (33525) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;33mW (33525) MOTOR_WRAPPER: CAN_QUEUE_FULL: Setpoint [M255:TempCritical Stop][0m
+[0;32mI (33855) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:17 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;33mW (34155) MOTOR_WRAPPER: CAN_QUEUE_FULL: Setpoint [M255:TempCritical Stop][0m
+[0;32mI (34525) APP: TEMP_ONLY Temp:16 Contactor:OFF[0m
+[0;33mW (34655) MOTOR_WRAPPER: CAN_QUEUE_FULL: Setpoint [M255:TempCritical Stop][0m
+[0;32mI (34855) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (35595) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;33mW (35595) MOTOR_WRAPPER: CAN_QUEUE_FULL: Setpoint [M255:TempCritical Stop][0m
+[0;33mW (35775) MOTOR_WRAPPER: CAN_QUEUE_FULL: Setpoint [M255:TempCritical Stop][0m
+[0;32mI (36175) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:17 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (37185) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (38185) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (39185) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (40185) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (41185) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (42185) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (43185) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (44185) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (45185) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (46185) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (47185) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (48185) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (49185) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (50185) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (51185) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (52185) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (53185) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (54185) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (55185) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (56185) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (57185) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (58195) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (59195) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (60195) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (61195) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (62195) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (63195) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (64195) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (65195) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (66195) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (67195) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (68195) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (69195) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (70195) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (71195) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (72195) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (73195) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (74195) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (75195) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (76195) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (77195) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (78195) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (79195) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (80205) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (81205) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (82205) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (83205) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (84205) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (85205) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (86205) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (87205) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (88205) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (89205) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (90205) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (91205) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (92205) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (93205) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (94205) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (95205) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (96205) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (97205) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (98205) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (99205) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (100215) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (101215) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (102215) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (103215) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (104215) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (105215) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (106215) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (107215) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (108215) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (109215) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (110215) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (111215) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (112215) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (113215) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (114215) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (115215) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (116215) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (117215) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (118215) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (119225) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (120225) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (121225) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (122225) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (123225) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (124225) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (125225) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (126225) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (127225) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (128225) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (129225) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (130225) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (131225) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (132225) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (133225) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (134225) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (135225) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (136225) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (137235) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (138235) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (139235) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (140235) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (141235) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (142235) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (143235) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (144235) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (145235) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (146235) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:16 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (146595) APP: TEMP_ONLY Temp:15 Contactor:ON[0m
+[0;32mI (147595) APP: TEMP_ONLY Temp:16 Contactor:OFF[0m
+[0;32mI (148595) APP: TEMP_ONLY Temp:16 Contactor:OFF[0m
+[0;32mI (149595) APP: TEMP_ONLY Temp:16 Contactor:OFF[0m
+[0;32mI (150595) APP: TEMP_ONLY Temp:16 Contactor:OFF[0m
+[0;32mI (151595) APP: TEMP_ONLY Temp:16 Contactor:OFF[0m
+[0;32mI (152595) APP: TEMP_ONLY Temp:16 Contactor:OFF[0m
+[0;32mI (153595) APP: TEMP_ONLY Temp:16 Contactor:OFF[0m
+[0;32mI (154595) APP: TEMP_ONLY Temp:16 Contactor:OFF[0m
+[0;32mI (155595) APP: TEMP_ONLY Temp:16 Contactor:OFF[0m
+[0;32mI (156595) APP: TEMP_ONLY Temp:16 Contactor:OFF[0m
+[0;32mI (157595) APP: TEMP_ONLY Temp:16 Contactor:OFF[0m
+[0;32mI (158595) APP: TEMP_ONLY Temp:16 Contactor:OFF[0m
+[0;32mI (159595) APP: TEMP_ONLY Temp:16 Contactor:OFF[0m
+[0;32mI (160595) APP: TEMP_ONLY Temp:16 Contactor:OFF[0m
+[0;32mI (161595) APP: TEMP_ONLY Temp:16 Contactor:OFF[0m
+[0;32mI (162595) APP: TEMP_ONLY Temp:16 Contactor:OFF[0m
+[0;32mI (163595) APP: TEMP_ONLY Temp:16 Contactor:OFF[0m
+[0;32mI (164595) APP: TEMP_ONLY Temp:16 Contactor:OFF[0m
+[0;32mI (165595) APP: TEMP_ONLY Temp:16 Contactor:OFF[0m
+[0;32mI (166595) APP: TEMP_ONLY Temp:16 Contactor:OFF[0m
+[0;32mI (167595) APP: TEMP_ONLY Temp:16 Contactor:OFF[0m
+[0;32mI (168595) APP: TEMP_ONLY Temp:16 Contactor:OFF[0m
+[0;32mI (169595) APP: TEMP_ONLY Temp:16 Contactor:OFF[0m
+[0;32mI (170595) APP: TEMP_ONLY Temp:16 Contactor:OFF[0m
+[0;32mI (171595) APP: TEMP_ONLY Temp:16 Contactor:OFF[0m
+[0;32mI (172595) APP: TEMP_ONLY Temp:16 Contactor:OFF[0m
+[0;32mI (173595) APP: TEMP_ONLY Temp:16 Contactor:OFF[0m
+[0;32mI (174595) APP: TEMP_ONLY Temp:16 Contactor:OFF[0m
+[0;32mI (175595) APP: TEMP_ONLY Temp:16 Contactor:OFF[0m
+[0;32mI (176595) APP: TEMP_ONLY Temp:16 Contactor:OFF[0m
+[0;32mI (177595) APP: TEMP_ONLY Temp:16 Contactor:OFF[0m
+[0;32mI (178595) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (179595) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (180595) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (181595) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (182595) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (183595) APP: TEMP_ONLY Temp:16 Contactor:OFF[0m
+[0;32mI (184595) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (185605) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (186605) APP: TEMP_ONLY Temp:16 Contactor:OFF[0m
+[0;32mI (187605) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (188605) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (189605) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (190605) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (191605) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (192605) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (193605) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (194605) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (195605) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (196605) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (197605) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (198605) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (199605) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (200605) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (201605) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (202605) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (203605) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (204605) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (205605) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (206605) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (207605) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (208605) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (209605) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (210605) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (211605) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (212605) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (213605) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (214605) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (215605) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (216605) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (217605) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (218605) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (219605) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (220615) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (221615) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (222615) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (223615) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (224615) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (225615) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (226615) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (227615) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (228615) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (229615) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (230615) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (231615) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (232615) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (233615) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (234615) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (235615) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (236615) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (237615) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (238615) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (239615) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (240615) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (241615) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (242615) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (243615) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (244615) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (245615) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (246615) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (247615) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (248615) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (249615) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (250615) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (251615) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (252625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (253625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (254625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (255625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (256625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (257625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (258625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (259625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (260625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (261625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (262625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (263625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (264625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (265625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (266625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (267625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (268625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (269625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (270625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (271625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (272625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (273625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (274625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (275625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (276625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (277625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (278625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (279625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (280625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (281625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (282625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (283625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (284625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (285625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (286625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (287625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (288625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (289625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (290625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (291625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (292625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (293625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (294625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (295625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (296625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (297625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (298625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (299625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (300625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (301625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (302625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (303625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (304625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (305625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (306625) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (307635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (308635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (309635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (310635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (311635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (312635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (313635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (314635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (315635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (316635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (317635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (318635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (319635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (320635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (321635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (322635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (323635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (324635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (325635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (326635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (327635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (328635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (329635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (330635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (331635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (332635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (333635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (334635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (335635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (336635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (337635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (338635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (339635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (340635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (341635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (342635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (343635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (344635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (345635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (346635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (347635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (348635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (349635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (350635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (351635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (352635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (353635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (354635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (355635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (356635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (357635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (358635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (359635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (360635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (361635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (362635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (363635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (364635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (365635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (366635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (367635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (368635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (369635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (370635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (371635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m
+[0;32mI (372635) APP: TEMP_ONLY Temp:15 Contactor:OFF[0m

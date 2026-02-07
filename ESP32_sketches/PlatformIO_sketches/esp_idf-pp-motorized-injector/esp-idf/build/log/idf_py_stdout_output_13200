@@ -1,0 +1,24 @@
+Command: ninja all
+[1/9] Performing build step for 'bootloader'
+[1/1] cd "/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/build/bootloader/esp-idf/esptool_py" && /Users/andy/.espressif/python_env/idf5.5_py3.14_env/bin/python /Users/andy/esp/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 bootloader 0x1000 /Users/andy/Library/Mobile\ Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/build/bootloader/bootloader.bin
+Bootloader binary size 0x66c0 bytes. 0x940 bytes (8%) free.
+[2/9] No install step for 'bootloader'
+[3/9] Completed 'bootloader'
+[4/9] Building CXX object esp-idf/main/CMakeFiles/__idf_main.dir/motor_wrapper.cpp.obj
+In file included from /Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/broadcast_data_store.h:5,
+                 from /Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/motor_wrapper.cpp:2:
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ring_buffer.h: In member function 'void RingBuffer<T, SIZE>::push(const T&)':
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ring_buffer.h:20:13: warning: '++' expression of 'volatile'-qualified type is deprecated [-Wvolatile]
+   20 |             count_++;
+      |             ^~~~~~
+[5/9] Linking C static library esp-idf/main/libmain.a
+[6/9] Generating esp-idf/esp_system/ld/sections.ld
+[7/9] Linking CXX executable pp_motorized_injector.elf
+[8/9] Generating binary image from built executable
+esptool.py v4.12.dev1
+Creating esp32 image...
+Merged 2 ELF sections
+Successfully created esp32 image.
+Generated /Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/build/pp_motorized_injector.bin
+[9/9] cd "/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/build/esp-idf/esptool_py" && /Users/andy/.espressif/python_env/idf5.5_py3.14_env/bin/python /Users/andy/esp/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 partition --type app /Users/andy/Library/Mobile\ Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/build/partition_table/partition-table.bin /Users/andy/Library/Mobile\ Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/build/pp_motorized_injector.bin
+pp_motorized_injector.bin binary size 0x3c210 bytes. Smallest app partition is 0x100000 bytes. 0xc3df0 bytes (77%) free.

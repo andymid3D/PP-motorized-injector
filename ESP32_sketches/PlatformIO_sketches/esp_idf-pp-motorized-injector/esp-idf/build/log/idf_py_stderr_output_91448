@@ -1,0 +1,232 @@
+Command: /Users/andy/.espressif/python_env/idf5.5_py3.14_env/bin/python /Users/andy/esp/esp-idf/tools/idf_monitor.py -p /dev/tty.usbserial-0001 -b 115200 --toolchain-prefix xtensa-esp32-elf- --target esp32 --revision 0 /Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/build/pp_motorized_injector.elf /Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/build/bootloader/bootloader.elf -m '/Users/andy/.espressif/python_env/idf5.5_py3.14_env/bin/python' '/Users/andy/esp/esp-idf/tools/idf.py' '-p' '/dev/tty.usbserial-0001'
+[0;33m--- Warning: Serial ports accessed as /dev/tty.* will hang gdb if launched.[0m
+[0;33m--- Using /dev/cu.usbserial-0001 instead...[0m
+[0;33m--- esp-idf-monitor 1.9.0 on /dev/cu.usbserial-0001 115200[0m
+[0;33m--- Quit: Ctrl+] | Menu: Ctrl+T | Help: Ctrl+T followed by Ctrl+H[0m
+[0m--- 0x40080400: [0;33m_invalid_pc_placeholder[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/xtensa/xtensa_vectors.S[0m[0m:[1;31m2235[0m
+[0m--- 0x40080644: [0;33mcall_start_cpu0[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/bootloader/subproject/main/bootloader_start.c[0m[0m:[1;31m25[0m
+[0m--- 0x400df33e: [0;33mtask_wdt_timeout_handling[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m436[0m
+[0m--- 0x400df700: [0;33mtask_wdt_isr[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m509[0m
+[0m--- 0x40082bc9: [0;33m_xt_lowint1[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/xtensa/xtensa_vectors.S[0m[0m:[1;31m1240[0m
+[0m--- 0x400e8742: [0;33mws2812_set_pixel[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ws2812.c[0m[0m:[1;31m65[0m
+[0m--- 0x400db5b4: [0;33mset_strip_color(ws2812_strip_t*, int, unsigned long, unsigned char)[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/leds.cpp[0m[0m:[1;31m27[0m
+[0m--- 0x400db7c1: [0;33mleds_update(InjectorStates, bool, bool)[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/leds.cpp[0m[0m:[1;31m122[0m
+[0m--- 0x400d95d2: [0;33mapp_main[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/app_main.cpp[0m[0m:[1;31m466[0m
+[0m--- 0x400eb125: [0;33mmain_task[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/app_startup.c[0m[0m:[1;31m208[0m
+[0m--- 0x40087969: [0;33mvPortTaskWrapper[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/port.c[0m[0m:[1;31m139[0m
+[0m--- 0x400df33e: [0;33mtask_wdt_timeout_handling[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m436[0m
+[0m--- 0x400df700: [0;33mtask_wdt_isr[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m509[0m
+[0m--- 0x40082bc9: [0;33m_xt_lowint1[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/xtensa/xtensa_vectors.S[0m[0m:[1;31m1240[0m
+[0m--- 0x40083d2d: [0;33mesp_crosscore_int_send_yield[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/crosscore_int.c[0m[0m:[1;31m125[0m
+[0m--- 0x400893fe: [0;33mvTaskDelay[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/tasks.c[0m[0m:[1;31m1611[0m
+[0m--- 0x400da4d8: [0;33mCanRxHandler::pollingTaskCore0(void*)[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/can_rx.cpp[0m[0m:[1;31m54[0m
+[0m--- 0x40087969: [0;33mvPortTaskWrapper[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/port.c[0m[0m:[1;31m139[0m
+[0m--- 0x400df33e: [0;33mtask_wdt_timeout_handling[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m436[0m
+[0m--- 0x400df700: [0;33mtask_wdt_isr[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m509[0m
+[0m--- 0x40082bc9: [0;33m_xt_lowint1[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/xtensa/xtensa_vectors.S[0m[0m:[1;31m1240[0m
+[0m--- 0x40083d2d: [0;33mesp_crosscore_int_send_yield[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/crosscore_int.c[0m[0m:[1;31m125[0m
+[0m--- 0x400893fe: [0;33mvTaskDelay[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/tasks.c[0m[0m:[1;31m1611[0m
+[0m--- 0x400da4d8: [0;33mCanRxHandler::pollingTaskCore0(void*)[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/can_rx.cpp[0m[0m:[1;31m54[0m
+[0m--- 0x40087969: [0;33mvPortTaskWrapper[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/port.c[0m[0m:[1;31m139[0m
+[0m--- 0x400df33e: [0;33mtask_wdt_timeout_handling[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m436[0m
+[0m--- 0x400df700: [0;33mtask_wdt_isr[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m509[0m
+[0m--- 0x40082bc9: [0;33m_xt_lowint1[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/xtensa/xtensa_vectors.S[0m[0m:[1;31m1240[0m
+[0m--- 0x40083d2d: [0;33mesp_crosscore_int_send_yield[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/crosscore_int.c[0m[0m:[1;31m125[0m
+[0m--- 0x400893fe: [0;33mvTaskDelay[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/tasks.c[0m[0m:[1;31m1611[0m
+[0m--- 0x400da4d8: [0;33mCanRxHandler::pollingTaskCore0(void*)[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/can_rx.cpp[0m[0m:[1;31m54[0m
+[0m--- 0x40087969: [0;33mvPortTaskWrapper[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/port.c[0m[0m:[1;31m139[0m
+[0m--- 0x400df33e: [0;33mtask_wdt_timeout_handling[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m436[0m
+[0m--- 0x400df700: [0;33mtask_wdt_isr[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m509[0m
+[0m--- 0x40082bc9: [0;33m_xt_lowint1[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/xtensa/xtensa_vectors.S[0m[0m:[1;31m1240[0m
+[0m--- 0x40083d2d: [0;33mesp_crosscore_int_send_yield[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/crosscore_int.c[0m[0m:[1;31m125[0m
+[0m--- 0x400893fe: [0;33mvTaskDelay[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/tasks.c[0m[0m:[1;31m1611[0m
+[0m--- 0x400da4d8: [0;33mCanRxHandler::pollingTaskCore0(void*)[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/can_rx.cpp[0m[0m:[1;31m54[0m
+[0m--- 0x40087969: [0;33mvPortTaskWrapper[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/port.c[0m[0m:[1;31m139[0m
+[0m--- 0x400df33e: [0;33mtask_wdt_timeout_handling[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m436[0m
+[0m--- 0x400df700: [0;33mtask_wdt_isr[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m509[0m
+[0m--- 0x40082bc9: [0;33m_xt_lowint1[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/xtensa/xtensa_vectors.S[0m[0m:[1;31m1240[0m
+[0m--- 0x40083d2d: [0;33mesp_crosscore_int_send_yield[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/crosscore_int.c[0m[0m:[1;31m125[0m
+[0m--- 0x400893fe: [0;33mvTaskDelay[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/tasks.c[0m[0m:[1;31m1611[0m
+[0m--- 0x400da4d8: [0;33mCanRxHandler::pollingTaskCore0(void*)[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/can_rx.cpp[0m[0m:[1;31m54[0m
+[0m--- 0x40087969: [0;33mvPortTaskWrapper[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/port.c[0m[0m:[1;31m139[0m
+[0m--- 0x400df33e: [0;33mtask_wdt_timeout_handling[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m436[0m
+[0m--- 0x400df700: [0;33mtask_wdt_isr[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m509[0m
+[0m--- 0x40082bc9: [0;33m_xt_lowint1[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/xtensa/xtensa_vectors.S[0m[0m:[1;31m1240[0m
+[0m--- 0x40083d2d: [0;33mesp_crosscore_int_send_yield[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/crosscore_int.c[0m[0m:[1;31m125[0m
+[0m--- 0x400893fe: [0;33mvTaskDelay[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/tasks.c[0m[0m:[1;31m1611[0m
+[0m--- 0x400da4d8: [0;33mCanRxHandler::pollingTaskCore0(void*)[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/can_rx.cpp[0m[0m:[1;31m54[0m
+[0m--- 0x40087969: [0;33mvPortTaskWrapper[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/port.c[0m[0m:[1;31m139[0m
+[0m--- 0x400df33e: [0;33mtask_wdt_timeout_handling[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m436[0m
+[0m--- 0x400df700: [0;33mtask_wdt_isr[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m509[0m
+[0m--- 0x40082bc9: [0;33m_xt_lowint1[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/xtensa/xtensa_vectors.S[0m[0m:[1;31m1240[0m
+[0m--- 0x400893c5: [0;33mvTaskDelete[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/tasks.c[0m[0m:[1;31m1484[0m
+[0m--- 0x40087969: [0;33mvPortTaskWrapper[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/port.c[0m[0m:[1;31m139[0m
+[0m--- 0x400df33e: [0;33mtask_wdt_timeout_handling[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m436[0m
+[0m--- 0x400df700: [0;33mtask_wdt_isr[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m509[0m
+[0m--- 0x40082bc9: [0;33m_xt_lowint1[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/xtensa/xtensa_vectors.S[0m[0m:[1;31m1240[0m
+[0m--- 0x40083d2d: [0;33mesp_crosscore_int_send_yield[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/crosscore_int.c[0m[0m:[1;31m125[0m
+[0m--- 0x400893fe: [0;33mvTaskDelay[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/tasks.c[0m[0m:[1;31m1611[0m
+[0m--- 0x400da4d8: [0;33mCanRxHandler::pollingTaskCore0(void*)[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/can_rx.cpp[0m[0m:[1;31m54[0m
+[0m--- 0x40087969: [0;33mvPortTaskWrapper[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/port.c[0m[0m:[1;31m139[0m
+[0m--- 0x400df33e: [0;33mtask_wdt_timeout_handling[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m436[0m
+[0m--- 0x400df700: [0;33mtask_wdt_isr[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m509[0m
+[0m--- 0x40082bc9: [0;33m_xt_lowint1[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/xtensa/xtensa_vectors.S[0m[0m:[1;31m1240[0m
+[0m--- 0x40083d2d: [0;33mesp_crosscore_int_send_yield[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/crosscore_int.c[0m[0m:[1;31m125[0m
+[0m--- 0x400893fe: [0;33mvTaskDelay[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/tasks.c[0m[0m:[1;31m1611[0m
+[0m--- 0x400da4d8: [0;33mCanRxHandler::pollingTaskCore0(void*)[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/can_rx.cpp[0m[0m:[1;31m54[0m
+[0m--- 0x40087969: [0;33mvPortTaskWrapper[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/port.c[0m[0m:[1;31m139[0m
+[0m--- 0x400df33e: [0;33mtask_wdt_timeout_handling[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m436[0m
+[0m--- 0x400df700: [0;33mtask_wdt_isr[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m509[0m
+[0m--- 0x40082bc9: [0;33m_xt_lowint1[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/xtensa/xtensa_vectors.S[0m[0m:[1;31m1240[0m
+[0m--- 0x40083d2d: [0;33mesp_crosscore_int_send_yield[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/crosscore_int.c[0m[0m:[1;31m125[0m
+[0m--- 0x400893fe: [0;33mvTaskDelay[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/tasks.c[0m[0m:[1;31m1611[0m
+[0m--- 0x400da4d8: [0;33mCanRxHandler::pollingTaskCore0(void*)[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/can_rx.cpp[0m[0m:[1;31m54[0m
+[0m--- 0x40087969: [0;33mvPortTaskWrapper[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/port.c[0m[0m:[1;31m139[0m
+[0m--- 0x400df33e: [0;33mtask_wdt_timeout_handling[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m436[0m
+[0m--- 0x400df700: [0;33mtask_wdt_isr[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m509[0m
+[0m--- 0x40082bc9: [0;33m_xt_lowint1[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/xtensa/xtensa_vectors.S[0m[0m:[1;31m1240[0m
+[0m--- 0x4000bfed: [0;33m_xtos_set_intlevel[0m[0m in [0;32mROM[0m
+[0m--- 0x40087cc6: [0;33mvPortClearInterruptMaskFromISR[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/include/freertos/portmacro.h[0m[0m:[1;31m560[0m
+[0m--- (inlined by) [0;33mvPortExitCritical[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/port.c[0m[0m:[1;31m514[0m
+[0m--- 0x400e0c96: [0;33madc1_get_raw[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/driver/deprecated/adc_legacy.c[0m[0m:[1;31m398[0m
+[0m--- 0x400db43b: [0;33mreadTemperatureC()[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/temperature.cpp[0m[0m:[1;31m20[0m
+[0m--- 0x400d8bfe: [0;33mapp_main[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/app_main.cpp[0m[0m:[1;31m115[0m
+[0m--- 0x400eb125: [0;33mmain_task[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/app_startup.c[0m[0m:[1;31m208[0m
+[0m--- 0x40087969: [0;33mvPortTaskWrapper[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/port.c[0m[0m:[1;31m139[0m
+[0m--- 0x400df33e: [0;33mtask_wdt_timeout_handling[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m436[0m
+[0m--- 0x400df700: [0;33mtask_wdt_isr[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m509[0m
+[0m--- 0x40082bc9: [0;33m_xt_lowint1[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/xtensa/xtensa_vectors.S[0m[0m:[1;31m1240[0m
+[0m--- 0x400da4d3: [0;33mCanRxHandler::pollingTaskCore0(void*)[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/can_rx.cpp[0m[0m:[1;31m51[0m
+[0m--- 0x40087969: [0;33mvPortTaskWrapper[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/port.c[0m[0m:[1;31m139[0m
+[0m--- 0x400df33e: [0;33mtask_wdt_timeout_handling[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m436[0m
+[0m--- 0x400df700: [0;33mtask_wdt_isr[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m509[0m
+[0m--- 0x40082bc9: [0;33m_xt_lowint1[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/xtensa/xtensa_vectors.S[0m[0m:[1;31m1240[0m
+[0m--- 0x400db193: [0;33mDebouncedInput::readRaw() const[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/debounced_input.cpp[0m[0m:[1;31m25[0m
+[0m--- 0x400db207: [0;33mDebouncedInput::update()[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/debounced_input.cpp[0m[0m:[1;31m32[0m
+[0m--- 0x400dad9b: [0;33mSafetyManager::updateInputs()[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/safety_manager.cpp[0m[0m:[1;31m72[0m
+[0m--- 0x400d8bfb: [0;33mapp_main[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/app_main.cpp[0m[0m:[1;31m114[0m
+[0m--- 0x400eb125: [0;33mmain_task[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/app_startup.c[0m[0m:[1;31m208[0m
+[0m--- 0x40087969: [0;33mvPortTaskWrapper[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/port.c[0m[0m:[1;31m139[0m
+[0m--- 0x400df33e: [0;33mtask_wdt_timeout_handling[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m436[0m
+[0m--- 0x400df700: [0;33mtask_wdt_isr[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m509[0m
+[0m--- 0x40082bc9: [0;33m_xt_lowint1[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/xtensa/xtensa_vectors.S[0m[0m:[1;31m1240[0m
+[0m--- 0x4000bfed: [0;33m_xtos_set_intlevel[0m[0m in [0;32mROM[0m
+[0m--- 0x40087cc6: [0;33mvPortClearInterruptMaskFromISR[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/include/freertos/portmacro.h[0m[0m:[1;31m560[0m
+[0m--- (inlined by) [0;33mvPortExitCritical[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/port.c[0m[0m:[1;31m514[0m
+[0m--- 0x400e0c96: [0;33madc1_get_raw[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/driver/deprecated/adc_legacy.c[0m[0m:[1;31m398[0m
+[0m--- 0x400db43b: [0;33mreadTemperatureC()[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/temperature.cpp[0m[0m:[1;31m20[0m
+[0m--- 0x400d8bfe: [0;33mapp_main[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/app_main.cpp[0m[0m:[1;31m115[0m
+[0m--- 0x400eb125: [0;33mmain_task[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/app_startup.c[0m[0m:[1;31m208[0m
+[0m--- 0x40087969: [0;33mvPortTaskWrapper[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/port.c[0m[0m:[1;31m139[0m
+[0m--- 0x400df33e: [0;33mtask_wdt_timeout_handling[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m436[0m
+[0m--- 0x400df700: [0;33mtask_wdt_isr[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m509[0m
+[0m--- 0x40082bc9: [0;33m_xt_lowint1[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/xtensa/xtensa_vectors.S[0m[0m:[1;31m1240[0m
+[0m--- 0x4000bfed: [0;33m_xtos_set_intlevel[0m[0m in [0;32mROM[0m
+[0m--- 0x40087cc6: [0;33mvPortClearInterruptMaskFromISR[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/include/freertos/portmacro.h[0m[0m:[1;31m560[0m
+[0m--- (inlined by) [0;33mvPortExitCritical[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/port.c[0m[0m:[1;31m514[0m
+[0m--- 0x400e0b76: [0;33madc1_rtc_mode_acquire[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/driver/deprecated/adc_legacy.c[0m[0m:[1;31m356[0m
+[0m--- 0x400e0be4: [0;33madc1_get_raw[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/driver/deprecated/adc_legacy.c[0m[0m:[1;31m375[0m
+[0m--- 0x400db43b: [0;33mreadTemperatureC()[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/temperature.cpp[0m[0m:[1;31m20[0m
+[0m--- 0x400d8bfe: [0;33mapp_main[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/app_main.cpp[0m[0m:[1;31m115[0m
+[0m--- 0x400eb125: [0;33mmain_task[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/app_startup.c[0m[0m:[1;31m208[0m
+[0m--- 0x40087969: [0;33mvPortTaskWrapper[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/port.c[0m[0m:[1;31m139[0m
+[0m--- 0x400df33e: [0;33mtask_wdt_timeout_handling[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m436[0m
+[0m--- 0x400df700: [0;33mtask_wdt_isr[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m509[0m
+[0m--- 0x40082bc9: [0;33m_xt_lowint1[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/xtensa/xtensa_vectors.S[0m[0m:[1;31m1240[0m
+[0m--- 0x4000bfed: [0;33m_xtos_set_intlevel[0m[0m in [0;32mROM[0m
+[0m--- 0x40087cc6: [0;33mvPortClearInterruptMaskFromISR[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/include/freertos/portmacro.h[0m[0m:[1;31m560[0m
+[0m--- (inlined by) [0;33mvPortExitCritical[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/port.c[0m[0m:[1;31m514[0m
+[0m--- 0x400e0c96: [0;33madc1_get_raw[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/driver/deprecated/adc_legacy.c[0m[0m:[1;31m398[0m
+[0m--- 0x400db43b: [0;33mreadTemperatureC()[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/temperature.cpp[0m[0m:[1;31m20[0m
+[0m--- 0x400d8bfe: [0;33mapp_main[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/app_main.cpp[0m[0m:[1;31m115[0m
+[0m--- 0x400eb125: [0;33mmain_task[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/app_startup.c[0m[0m:[1;31m208[0m
+[0m--- 0x40087969: [0;33mvPortTaskWrapper[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/port.c[0m[0m:[1;31m139[0m
+[0m--- 0x400df33e: [0;33mtask_wdt_timeout_handling[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m436[0m
+[0m--- 0x400df700: [0;33mtask_wdt_isr[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m509[0m
+[0m--- 0x40082bc9: [0;33m_xt_lowint1[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/xtensa/xtensa_vectors.S[0m[0m:[1;31m1240[0m
+[0m--- 0x400db8b6: [0;33mws2812_refresh[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ws2812.c[0m[0m:[1;31m77[0m
+[0m--- 0x400db57d: [0;33mset_button_colors(unsigned long, unsigned long, unsigned long, unsigned char)[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/leds.cpp[0m[0m:[1;31m45[0m
+[0m--- 0x400db7b4: [0;33mleds_update(InjectorStates, bool, bool)[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/leds.cpp[0m[0m:[1;31m121[0m
+[0m--- 0x400d95d2: [0;33mapp_main[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/app_main.cpp[0m[0m:[1;31m466[0m
+[0m--- 0x400eb125: [0;33mmain_task[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/app_startup.c[0m[0m:[1;31m208[0m
+[0m--- 0x40087969: [0;33mvPortTaskWrapper[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/port.c[0m[0m:[1;31m139[0m
+[0m--- 0x400df33e: [0;33mtask_wdt_timeout_handling[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m436[0m
+[0m--- 0x400df700: [0;33mtask_wdt_isr[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m509[0m
+[0m--- 0x40082bc9: [0;33m_xt_lowint1[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/xtensa/xtensa_vectors.S[0m[0m:[1;31m1240[0m
+[0m--- 0x4000bfed: [0;33m_xtos_set_intlevel[0m[0m in [0;32mROM[0m
+[0m--- 0x40087cc6: [0;33mvPortClearInterruptMaskFromISR[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/include/freertos/portmacro.h[0m[0m:[1;31m560[0m
+[0m--- (inlined by) [0;33mvPortExitCritical[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/port.c[0m[0m:[1;31m514[0m
+[0m--- 0x40087383: [0;33mxQueueGenericSend[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/queue.c[0m[0m:[1;31m1056[0m
+[0m--- 0x400e9de9: [0;33mrmt_transmit[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_driver_rmt/src/rmt_tx.c[0m[0m:[1;31m561[0m
+[0m--- 0x400db8d2: [0;33mws2812_refresh[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ws2812.c[0m[0m:[1;31m83[0m
+[0m--- 0x400db5be: [0;33mset_strip_color(ws2812_strip_t*, int, unsigned long, unsigned char)[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/leds.cpp[0m[0m:[1;31m29[0m
+[0m--- 0x400db7c1: [0;33mleds_update(InjectorStates, bool, bool)[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/leds.cpp[0m[0m:[1;31m122[0m
+[0m--- 0x400d95d2: [0;33mapp_main[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/app_main.cpp[0m[0m:[1;31m466[0m
+[0m--- 0x400eb125: [0;33mmain_task[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/app_startup.c[0m[0m:[1;31m208[0m
+[0m--- 0x40087969: [0;33mvPortTaskWrapper[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/port.c[0m[0m:[1;31m139[0m
+[0m--- 0x400df33e: [0;33mtask_wdt_timeout_handling[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m436[0m
+[0m--- 0x400df700: [0;33mtask_wdt_isr[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m509[0m
+[0m--- 0x40082bc9: [0;33m_xt_lowint1[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/xtensa/xtensa_vectors.S[0m[0m:[1;31m1240[0m
+[0m--- 0x40083d2d: [0;33mesp_crosscore_int_send_yield[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/crosscore_int.c[0m[0m:[1;31m125[0m
+[0m--- 0x400893fe: [0;33mvTaskDelay[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/tasks.c[0m[0m:[1;31m1611[0m
+[0m--- 0x400da4d8: [0;33mCanRxHandler::pollingTaskCore0(void*)[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/can_rx.cpp[0m[0m:[1;31m54[0m
+[0m--- 0x40087969: [0;33mvPortTaskWrapper[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/port.c[0m[0m:[1;31m139[0m
+[0m--- 0x400df33e: [0;33mtask_wdt_timeout_handling[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m436[0m
+[0m--- 0x400df700: [0;33mtask_wdt_isr[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m509[0m
+[0m--- 0x40082bc9: [0;33m_xt_lowint1[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/xtensa/xtensa_vectors.S[0m[0m:[1;31m1240[0m
+[0m--- 0x4000bfed: [0;33m_xtos_set_intlevel[0m[0m in [0;32mROM[0m
+[0m--- 0x40087cc6: [0;33mvPortClearInterruptMaskFromISR[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/include/freertos/portmacro.h[0m[0m:[1;31m560[0m
+[0m--- (inlined by) [0;33mvPortExitCritical[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/port.c[0m[0m:[1;31m514[0m
+[0m--- 0x400e0c96: [0;33madc1_get_raw[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/driver/deprecated/adc_legacy.c[0m[0m:[1;31m398[0m
+[0m--- 0x400db43b: [0;33mreadTemperatureC()[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/temperature.cpp[0m[0m:[1;31m20[0m
+[0m--- 0x400d8bfe: [0;33mapp_main[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/app_main.cpp[0m[0m:[1;31m115[0m
+[0m--- 0x400eb125: [0;33mmain_task[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/app_startup.c[0m[0m:[1;31m208[0m
+[0m--- 0x40087969: [0;33mvPortTaskWrapper[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/port.c[0m[0m:[1;31m139[0m
+[0m--- 0x400df33e: [0;33mtask_wdt_timeout_handling[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m436[0m
+[0m--- 0x400df700: [0;33mtask_wdt_isr[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m509[0m
+[0m--- 0x40082bc9: [0;33m_xt_lowint1[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/xtensa/xtensa_vectors.S[0m[0m:[1;31m1240[0m
+[0m--- 0x400da33b: [0;33mCanRxHandler::pollAndProcess()[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/can_rx.cpp[0m[0m:[1;31m59[0m
+[0m--- 0x400da4c6: [0;33mCanRxHandler::pollingTaskCore0(void*)[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/can_rx.cpp[0m[0m:[1;31m49[0m
+[0m--- 0x40087969: [0;33mvPortTaskWrapper[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/port.c[0m[0m:[1;31m139[0m
+[0m--- 0x400df33e: [0;33mtask_wdt_timeout_handling[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m436[0m
+[0m--- 0x400df700: [0;33mtask_wdt_isr[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m509[0m
+[0m--- 0x40082bc9: [0;33m_xt_lowint1[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/xtensa/xtensa_vectors.S[0m[0m:[1;31m1240[0m
+[0m--- 0x400da4c6: [0;33mCanRxHandler::pollingTaskCore0(void*)[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/can_rx.cpp[0m[0m:[1;31m49[0m
+[0m--- 0x40087969: [0;33mvPortTaskWrapper[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/port.c[0m[0m:[1;31m139[0m
+[0m--- 0x400df33e: [0;33mtask_wdt_timeout_handling[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m436[0m
+[0m--- 0x400df700: [0;33mtask_wdt_isr[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m509[0m
+[0m--- 0x40082bc9: [0;33m_xt_lowint1[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/xtensa/xtensa_vectors.S[0m[0m:[1;31m1240[0m
+[0m--- 0x400db5ab: [0;33mset_strip_color(ws2812_strip_t*, int, unsigned long, unsigned char)[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/leds.cpp[0m[0m:[1;31m27[0m
+[0m--- 0x400db7c1: [0;33mleds_update(InjectorStates, bool, bool)[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/leds.cpp[0m[0m:[1;31m122[0m
+[0m--- 0x400d95d2: [0;33mapp_main[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/app_main.cpp[0m[0m:[1;31m466[0m
+[0m--- 0x400eb125: [0;33mmain_task[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/app_startup.c[0m[0m:[1;31m208[0m
+[0m--- 0x40087969: [0;33mvPortTaskWrapper[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/port.c[0m[0m:[1;31m139[0m
+[0m--- 0x400df33e: [0;33mtask_wdt_timeout_handling[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m436[0m
+[0m--- 0x400df700: [0;33mtask_wdt_isr[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m509[0m
+[0m--- 0x40082bc9: [0;33m_xt_lowint1[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/xtensa/xtensa_vectors.S[0m[0m:[1;31m1240[0m
+[0m--- 0x4000bfed: [0;33m_xtos_set_intlevel[0m[0m in [0;32mROM[0m
+[0m--- 0x40087cc6: [0;33mvPortClearInterruptMaskFromISR[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/include/freertos/portmacro.h[0m[0m:[1;31m560[0m
+[0m--- (inlined by) [0;33mvPortExitCritical[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/port.c[0m[0m:[1;31m514[0m
+[0m--- 0x400844cc: [0;33mvPortExitCriticalSafe[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/include/freertos/portmacro.h[0m[0m:[1;31m596[0m
+[0m--- (inlined by) [0;33mrmt_tx_do_transaction[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_driver_rmt/src/rmt_tx.c[0m[0m:[1;31m738[0m
+[0m--- 0x400e9e5b: [0;33mrmt_transmit[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_driver_rmt/src/rmt_tx.c[0m[0m:[1;31m575[0m
+[0m--- 0x400db8d2: [0;33mws2812_refresh[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ws2812.c[0m[0m:[1;31m83[0m
+[0m--- 0x400db57d: [0;33mset_button_colors(unsigned long, unsigned long, unsigned long, unsigned char)[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/leds.cpp[0m[0m:[1;31m45[0m
+[0m--- 0x400db7b4: [0;33mleds_update(InjectorStates, bool, bool)[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/leds.cpp[0m[0m:[1;31m121[0m
+[0m--- 0x400d95d2: [0;33mapp_main[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/app_main.cpp[0m[0m:[1;31m466[0m
+[0m--- 0x400eb125: [0;33mmain_task[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/app_startup.c[0m[0m:[1;31m208[0m
+[0m--- 0x40087969: [0;33mvPortTaskWrapper[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/port.c[0m[0m:[1;31m139[0m
+[0m--- 0x400df33e: [0;33mtask_wdt_timeout_handling[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m436[0m
+[0m--- 0x400df700: [0;33mtask_wdt_isr[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/esp_system/task_wdt/task_wdt.c[0m[0m:[1;31m509[0m
+[0m--- 0x40082bc9: [0;33m_xt_lowint1[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/xtensa/xtensa_vectors.S[0m[0m:[1;31m1240[0m
+[0m--- 0x4000bfed: [0;33m_xtos_set_intlevel[0m[0m in [0;32mROM[0m
+[0m--- 0x40087cc6: [0;33mvPortClearInterruptMaskFromISR[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/include/freertos/portmacro.h[0m[0m:[1;31m560[0m
+[0m--- (inlined by) [0;33mvPortExitCritical[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/port.c[0m[0m:[1;31m514[0m
+[0m--- 0x400e0c96: [0;33madc1_get_raw[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/driver/deprecated/adc_legacy.c[0m[0m:[1;31m398[0m
+[0m--- 0x400db43b: [0;33mreadTemperatureC()[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/temperature.cpp[0m[0m:[1;31m20[0m
+[0m--- 0x400d8bfe: [0;33mapp_main[0m[0m at [0;32m/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/app_main.cpp[0m[0m:[1;31m115[0m
+[0m--- 0x400eb125: [0;33mmain_task[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/app_startup.c[0m[0m:[1;31m208[0m
+[0m--- 0x40087969: [0;33mvPortTaskWrapper[0m[0m at [0;32m/Users/andy/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/port.c[0m[0m:[1;31m139[0m
+[1;31m--- Error: read failed: [Errno 6] Device not configured[0m
+[0;33m--- Waiting for the device to reconnect[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m.[0m[0;33m[0m
+[0m

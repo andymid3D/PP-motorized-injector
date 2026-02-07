@@ -1,0 +1,11 @@
+Command: cmake -G Ninja -DPYTHON_DEPS_CHECKED=1 -DPYTHON=/Users/andy/.espressif/python_env/idf5.5_py3.14_env/bin/python -DESP_PLATFORM=1 -DCCACHE_ENABLE=0 /Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf
+CMake Error at /Users/andy/esp/esp-idf/tools/cmake/build.cmake:328 (message):
+  Failed to resolve component 'led_strip' required by component 'main':
+  unknown name.
+Call Stack (most recent call first):
+  /Users/andy/esp/esp-idf/tools/cmake/build.cmake:371 (__build_resolve_and_add_req)
+  /Users/andy/esp/esp-idf/tools/cmake/build.cmake:685 (__build_expand_requirements)
+  /Users/andy/esp/esp-idf/tools/cmake/project.cmake:740 (idf_build_process)
+  CMakeLists.txt:4 (project)
+
+

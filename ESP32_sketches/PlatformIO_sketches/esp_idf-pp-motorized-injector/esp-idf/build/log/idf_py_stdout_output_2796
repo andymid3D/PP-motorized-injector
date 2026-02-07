@@ -1,0 +1,52 @@
+Command: /Users/andy/.espressif/python_env/idf5.5_py3.14_env/bin/python /Users/andy/esp/esp-idf/tools/idf_monitor.py -p /dev/tty.usbserial-0001 -b 115200 --toolchain-prefix xtensa-esp32-elf- --target esp32 --revision 0 /Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/build/pp_motorized_injector.elf /Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/build/bootloader/bootloader.elf --no-reset -m '/Users/andy/.espressif/python_env/idf5.5_py3.14_env/bin/python' '/Users/andy/esp/esp-idf/tools/idf.py' '-p' '/dev/tty.usbserial-0001'
+[0;32mI (109095) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:34 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (110095) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:34 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (111095) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:34 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (112105) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:34 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (113105) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:34 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (114105) APP: State:INIT_HOMING Pos:-0.00 Vel:-0.02 Temp:33 Err:0x0 InjVol:-0.00cm3 InjTarget:0.00[0m
+[0;32mI (115105) APP: State:INIT_HOMING Pos:0.02 Vel:0.31 Temp:34 Err:0x0 InjVol:0.02cm3 InjTarget:0.00[0m
+[0;32mI (116105) APP: State:INIT_HOMING Pos:0.52 Vel:0.24 Temp:34 Err:0x0 InjVol:0.52cm3 InjTarget:0.00[0m
+[0;32mI (117105) APP: State:INIT_HOMING Pos:1.03 Vel:0.90 Temp:34 Err:0x0 InjVol:1.03cm3 InjTarget:0.00[0m
+[0;32mI (118105) APP: State:INIT_HOMING Pos:1.52 Vel:0.40 Temp:33 Err:0x0 InjVol:1.52cm3 InjTarget:0.00[0m
+[0;32mI (119105) APP: State:INIT_HOMING Pos:1.92 Vel:-0.21 Temp:34 Err:0x0 InjVol:1.93cm3 InjTarget:0.00[0m
+[0;32mI (120105) APP: State:INIT_HOMING Pos:1.42 Vel:-0.24 Temp:34 Err:0x0 InjVol:1.42cm3 InjTarget:0.00[0m
+[0;32mI (121105) APP: State:INIT_HOMING Pos:0.92 Vel:-0.27 Temp:33 Err:0x0 InjVol:0.92cm3 InjTarget:0.00[0m
+[0;32mI (122105) APP: State:INIT_HOMING Pos:0.42 Vel:-0.27 Temp:33 Err:0x0 InjVol:0.42cm3 InjTarget:0.00[0m
+[0;32mI (123115) APP: State:INIT_HOMING Pos:-0.13 Vel:-3.36 Temp:35 Err:0x0 InjVol:-0.13cm3 InjTarget:0.00[0m
+[0;32mI (124115) APP: State:INIT_HOMING Pos:-11.02 Vel:-12.70 Temp:34 Err:0x0 InjVol:-11.03cm3 InjTarget:0.00[0m
+[0;32mI (125115) APP: State:INIT_HOMING Pos:-16.92 Vel:-0.37 Temp:34 Err:0x0 InjVol:-16.93cm3 InjTarget:0.00[0m
+[0;32mI (126115) APP: State:INIT_HOMING Pos:-16.71 Vel:1.30 Temp:35 Err:0x0 InjVol:-16.73cm3 InjTarget:0.00[0m
+[0;33mW (126905) MOTOR_WRAPPER: Direction change detected, stopping first[0m
+[0;32mI (127115) APP: State:INIT_HOMING Pos:-14.85 Vel:0.85 Temp:33 Err:0x0 InjVol:-14.86cm3 InjTarget:0.00[0m
+[0;32mI (128115) APP: State:INIT_HOMING Pos:-15.20 Vel:-1.54 Temp:33 Err:0x0 InjVol:-15.21cm3 InjTarget:0.00[0m
+[0;32mI (129115) APP: State:INIT_HOMING Pos:-17.46 Vel:-2.49 Temp:33 Err:0x0 InjVol:-17.47cm3 InjTarget:0.00[0m
+[0;32mI (130115) APP: State:INIT_HOMING Pos:-18.59 Vel:0.00 Temp:33 Err:0x0 InjVol:-18.60cm3 InjTarget:0.00[0m
+[0;32mI (130515) MOTOR_WRAPPER: UNIVERSAL_STOP [M5:PreModeChange][0m
+[0;32mI (130555) MOTOR_WRAPPER: SAFE_MODE_CHANGE [M5:Pos Refill][0m
+[0;32mI (131125) APP: State:REFILL Pos:5.00 Vel:14.39 Temp:33 Err:0x0 InjVol:5.00cm3 InjTarget:0.00[0m
+[0;32mI (132125) APP: State:REFILL Pos:19.99 Vel:14.62 Temp:32 Err:0x0 InjVol:20.00cm3 InjTarget:0.00[0m
+[0;32mI (133125) APP: State:REFILL Pos:34.99 Vel:14.74 Temp:33 Err:0x0 InjVol:35.01cm3 InjTarget:0.00[0m
+[0;33mW (133255) SAFETY: SAFETY HALT: 7[0m
+[0;32mI (134125) APP: State:ERROR_STATE Pos:38.23 Vel:0.00 Temp:33 Err:0x7 InjVol:38.25cm3 InjTarget:0.00[0m
+[0;32mI (135125) APP: State:ERROR_STATE Pos:38.23 Vel:0.00 Temp:33 Err:0x7 InjVol:38.25cm3 InjTarget:0.00[0m
+[0;32mI (136125) APP: State:ERROR_STATE Pos:38.23 Vel:0.00 Temp:33 Err:0x7 InjVol:38.25cm3 InjTarget:0.00[0m
+[0;33mW (136425) SAFETY: Broadcast stale > 100ms[0m
+[0;32mI (137125) APP: State:ERROR_STATE Pos:38.23 Vel:0.00 Temp:32 Err:0x9 InjVol:38.25cm3 InjTarget:0.00[0m
+[0;32mI (138125) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:32 Err:0x9 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (139125) APP: State:INIT_HOMING Pos:0.00 Vel:0.00 Temp:32 Err:0x9 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (140125) APP: State:INIT_HOMING Pos:0.00 Vel:0.00 Temp:32 Err:0x9 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (141135) APP: State:INIT_HOMING Pos:0.00 Vel:0.00 Temp:32 Err:0x9 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (142135) APP: State:ERROR_STATE Pos:0.00 Vel:0.00 Temp:32 Err:0xFF InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (143135) APP: State:ERROR_STATE Pos:0.00 Vel:0.00 Temp:32 Err:0xFF InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (144135) APP: State:ERROR_STATE Pos:0.00 Vel:0.00 Temp:32 Err:0xFF InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (145135) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:32 Err:0xFF InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (146135) APP: State:INIT_HOMING Pos:0.00 Vel:0.00 Temp:32 Err:0xFF InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (147135) APP: State:INIT_HOMING Pos:0.00 Vel:0.00 Temp:32 Err:0xFF InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (148135) APP: State:INIT_HOMING Pos:0.00 Vel:0.00 Temp:32 Err:0xFF InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (149135) APP: State:ERROR_STATE Pos:0.00 Vel:0.00 Temp:32 Err:0xFF InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (150145) APP: State:ERROR_STATE Pos:0.00 Vel:0.00 Temp:32 Err:0xFF InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (151145) APP: State:ERROR_STATE Pos:0.00 Vel:0.00 Temp:32 Err:0xFF InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (152145) APP: State:ERROR_STATE Pos:0.00 Vel:0.00 Temp:32 Err:0xFF InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (153145) APP: State:ERROR_STATE Pos:0.00 Vel:0.00 Temp:32 Err:0xFF InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (154145) APP: State:ERROR_STATE Pos:0.00 Vel:0.00 Temp:32 Err:0xFF InjVol:0.00cm3 InjTarget:0.00[0m

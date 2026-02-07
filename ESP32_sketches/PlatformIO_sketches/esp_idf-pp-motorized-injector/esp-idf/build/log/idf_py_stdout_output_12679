@@ -1,0 +1,145 @@
+Command: /Users/andy/.espressif/python_env/idf5.5_py3.14_env/bin/python /Users/andy/esp/esp-idf/tools/idf_monitor.py -p /dev/tty.usbserial-0001 -b 115200 --toolchain-prefix xtensa-esp32-elf- --target esp32 --revision 0 /Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/build/pp_motorized_injector.elf /Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/build/bootloader/bootloader.elf --no-reset -m '/Users/andy/.espressif/python_env/idf5.5_py3.14_env/bin/python' '/Users/andy/esp/esp-idf/tools/idf.py' '-p' '/dev/tty.usbserial-0001'
+[0;32mI (3464) APP: TEMP_ONLY Temp:23 Contactor:OFF[0m
+[0;32mI (3464) SAFETY: CONTACTOR_ENABLE_BLOCKED cooldown 1825ms remaining[0m
+[0;32mI (4464) APP: TEMP_ONLY Temp:23 Contactor:OFF[0m
+[0;32mI (4464) SAFETY: CONTACTOR_ENABLE_BLOCKED cooldown 825ms remaining[0m
+[0;32mI (5294) SAFETY: CONTACTOR ON[0m
+[0;32mI (5464) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:23 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (6464) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:23 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (7464) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:23 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (8464) APP: State:INIT_HOT_WAIT Pos:0.00 Vel:0.00 Temp:23 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (8964) APP: BTN_UP pressed[0m
+[0;32mI (9304) APP: BTN_UP released[0m
+[0;32mI (9304) APP: FSM INIT_HOT_WAIT -> INIT_HOMING (Err:0x0)[0m
+[0;32mI (9304) HOMING: STATE CLEAR_ERRORS -> CALIBRATE[0m
+[0;32mI (9304) HOMING: STATE CALIBRATE -> WAIT_CALIBRATE[0m
+[0;32mI (9464) APP: State:INIT_HOMING Pos:0.00 Vel:0.00 Temp:23 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (10474) APP: State:INIT_HOMING Pos:0.00 Vel:0.00 Temp:25 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (11474) APP: State:INIT_HOMING Pos:0.00 Vel:0.00 Temp:24 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (12474) APP: State:INIT_HOMING Pos:0.00 Vel:0.00 Temp:24 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (13474) APP: State:INIT_HOMING Pos:0.00 Vel:0.00 Temp:24 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (14474) APP: State:INIT_HOMING Pos:0.00 Vel:0.00 Temp:25 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (15474) APP: State:INIT_HOMING Pos:0.00 Vel:0.00 Temp:23 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (16474) APP: State:INIT_HOMING Pos:0.00 Vel:0.00 Temp:22 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (17474) APP: State:INIT_HOMING Pos:0.00 Vel:0.00 Temp:22 Err:0x0 InjVol:0.00cm3 InjTarget:0.00[0m
+[0;32mI (18314) HOMING: STATE WAIT_CALIBRATE -> REQUEST_CL[0m
+[0;32mI (18324) HOMING: STATE REQUEST_CL -> WAIT_CL[0m
+[0;32mI (18324) HOMING: STATE WAIT_CL -> RETRACT_FAST[0m
+[0;32mI (18474) APP: State:INIT_HOMING Pos:-0.30 Vel:-5.05 Temp:23 Err:0x0 InjVol:-0.30cm3 InjTarget:0.00[0m
+[0;32mI (19474) APP: State:INIT_HOMING Pos:-11.59 Vel:-12.68 Temp:23 Err:0x0 InjVol:-11.60cm3 InjTarget:0.00[0m
+[0;32mI (19844) HOMING: STATE RETRACT_FAST -> DECELERATE[0m
+[0;33mW (20344) CAN_BUS: STOP_VERIFY_TIMEOUT[0m
+[0;32mI (20474) APP: State:INIT_HOMING Pos:-17.81 Vel:-0.58 Temp:23 Err:0x0 InjVol:-17.82cm3 InjTarget:0.00[0m
+[0;32mI (20564) HOMING: STATE DECELERATE -> BACKOFF[0m
+[0;32mI (21484) APP: State:INIT_HOMING Pos:-17.24 Vel:1.60 Temp:22 Err:0x0 InjVol:-17.25cm3 InjTarget:0.00[0m
+[0;32mI (22064) HOMING: STATE BACKOFF -> APPROACH[0m
+[0;33mW (22064) MOTOR_WRAPPER: Direction change detected, stopping first[0m
+[0;32mI (22484) APP: State:INIT_HOMING Pos:-15.54 Vel:-0.06 Temp:22 Err:0x0 InjVol:-15.55cm3 InjTarget:0.00[0m
+[0;32mI (23484) APP: State:INIT_HOMING Pos:-16.41 Vel:-2.18 Temp:23 Err:0x0 InjVol:-16.42cm3 InjTarget:0.00[0m
+[0;32mI (24484) APP: State:INIT_HOMING Pos:-18.80 Vel:-2.30 Temp:23 Err:0x0 InjVol:-18.81cm3 InjTarget:0.00[0m
+[0;32mI (24504) HOMING: STATE APPROACH -> WAIT_STOP[0m
+[0;32mI (25484) APP: State:INIT_HOMING Pos:-19.42 Vel:-0.15 Temp:23 Err:0x0 InjVol:-19.44cm3 InjTarget:0.00[0m
+[0;32mI (26484) APP: State:INIT_HOMING Pos:-19.50 Vel:0.00 Temp:22 Err:0x0 InjVol:-19.51cm3 InjTarget:0.00[0m
+[0;32mI (26524) HOMING: STATE WAIT_STOP -> RESET_ENCODER[0m
+[0;32mI (26524) HOMING: STATE RESET_ENCODER -> DONE[0m
+[0;32mI (26524) APP: FSM INIT_HOMING -> REFILL (Err:0x0)[0m
+[0;32mI (26524) MOTOR_WRAPPER: UNIVERSAL_STOP [M5:PreModeChange][0m
+[0;32mI (26564) MOTOR_WRAPPER: SAFE_MODE_CHANGE [M5:Pos Refill][0m
+[0;32mI (27494) APP: State:REFILL Pos:10.41 Vel:15.17 Temp:23 Err:0x0 InjVol:10.41cm3 InjTarget:0.00[0m
+[0;32mI (28494) APP: State:REFILL Pos:25.42 Vel:14.95 Temp:23 Err:0x0 InjVol:25.44cm3 InjTarget:0.00[0m
+[0;32mI (29494) APP: State:REFILL Pos:40.41 Vel:15.18 Temp:23 Err:0x0 InjVol:40.44cm3 InjTarget:0.00[0m
+[0;32mI (30494) APP: State:REFILL Pos:47.77 Vel:-0.31 Temp:23 Err:0x0 InjVol:47.81cm3 InjTarget:0.00[0m
+[0;32mI (31494) APP: State:REFILL Pos:47.75 Vel:0.00 Temp:22 Err:0x0 InjVol:47.78cm3 InjTarget:0.00[0m
+[0;32mI (32494) APP: State:REFILL Pos:47.75 Vel:0.00 Temp:23 Err:0x0 InjVol:47.78cm3 InjTarget:0.00[0m
+[0;32mI (33134) APP: BTN_CENTER pressed[0m
+[0;32mI (33464) APP: BTN_CENTER released[0m
+[0;32mI (33464) APP: FSM REFILL -> COMPRESSION (Err:0x0)[0m
+[0;32mI (33474) MOTOR_WRAPPER: UNIVERSAL_STOP [M6:PreModeChange][0m
+[0;32mI (33514) MOTOR_WRAPPER: SAFE_MODE_CHANGE [M6:Compress Travel Down Torque][0m
+[0;32mI (33514) APP: State:COMPRESSION Pos:47.75 Vel:0.00 Temp:22 Err:0x0 InjVol:47.78cm3 InjTarget:0.00[0m
+[0;32mI (34514) APP: State:COMPRESSION Pos:51.70 Vel:5.46 Temp:24 Err:0x0 InjVol:51.74cm3 InjTarget:0.00[0m
+[0;32mI (35514) APP: State:COMPRESSION Pos:57.22 Vel:5.68 Temp:23 Err:0x0 InjVol:57.27cm3 InjTarget:0.00[0m
+[0;32mI (36514) APP: State:COMPRESSION Pos:62.75 Vel:5.33 Temp:22 Err:0x0 InjVol:62.80cm3 InjTarget:0.00[0m
+[0;32mI (36714) APP: BTN_LOWER pressed[0m
+[0;32mI (36984) APP: BTN_LOWER released[0m
+[0;32mI (36984) APP: FSM COMPRESSION -> READY_TO_INJECT (Err:0x0)[0m
+[0;32mI (37514) APP: State:READY_TO_INJECT Pos:66.85 Vel:0.02 Temp:22 Err:0x0 InjVol:66.90cm3 InjTarget:0.00[0m
+[0;32mI (38514) APP: State:READY_TO_INJECT Pos:66.85 Vel:0.00 Temp:22 Err:0x0 InjVol:66.90cm3 InjTarget:0.00[0m
+[0;32mI (39514) APP: State:READY_TO_INJECT Pos:66.85 Vel:0.00 Temp:21 Err:0x0 InjVol:66.90cm3 InjTarget:0.00[0m
+[0;32mI (40424) APP: BTN_LOWER pressed[0m
+[0;32mI (40434) APP: BTN_UP pressed[0m
+[0;32mI (40434) APP: BTN_COMBO: Upper+Lower[0m
+[0;32mI (40444) APP: FSM READY_TO_INJECT -> PURGE_ZERO (Err:0x0)[0m
+[0;32mI (40514) APP: State:PURGE_ZERO Pos:66.85 Vel:0.00 Temp:25 Err:0x0 InjVol:66.90cm3 InjTarget:0.00[0m
+[0;32mI (40694) APP: BTN_UP released[0m
+[0;32mI (40704) APP: BTN_LOWER released[0m
+[0;32mI (41514) APP: State:PURGE_ZERO Pos:66.85 Vel:0.00 Temp:27 Err:0x0 InjVol:66.90cm3 InjTarget:0.00[0m
+[0;32mI (41944) APP: BTN_LOWER pressed[0m
+[0;32mI (41944) MOTOR_WRAPPER: UNIVERSAL_STOP [M8:PreModeChange][0m
+[0;32mI (41984) MOTOR_WRAPPER: SAFE_MODE_CHANGE [M8:Purge Down][0m
+[0;32mI (42524) APP: State:PURGE_ZERO Pos:67.13 Vel:1.53 Temp:22 Err:0x0 InjVol:67.18cm3 InjTarget:0.00[0m
+[0;32mI (43524) APP: State:PURGE_ZERO Pos:68.94 Vel:2.03 Temp:22 Err:0x0 InjVol:68.99cm3 InjTarget:0.00[0m
+[0;32mI (44104) APP: BTN_LOWER released[0m
+[0;32mI (44524) APP: State:PURGE_ZERO Pos:70.43 Vel:0.40 Temp:26 Err:0x0 InjVol:70.49cm3 InjTarget:0.00[0m
+[0;32mI (44574) APP: BTN_CENTER pressed[0m
+[0;32mI (44854) APP: BTN_CENTER released[0m
+[0;32mI (44854) APP: FSM PURGE_ZERO -> ANTIDRIP (Err:0x0)[0m
+[0;32mI (45524) APP: State:ANTIDRIP Pos:70.44 Vel:0.00 Temp:23 Err:0x0 InjVol:70.49cm3 InjTarget:0.00[0m
+[0;32mI (46524) APP: State:ANTIDRIP Pos:70.44 Vel:0.00 Temp:22 Err:0x0 InjVol:70.49cm3 InjTarget:0.00[0m
+[0;32mI (47524) APP: State:ANTIDRIP Pos:70.44 Vel:0.00 Temp:22 Err:0x0 InjVol:70.49cm3 InjTarget:0.00[0m
+[0;32mI (48524) APP: State:ANTIDRIP Pos:70.44 Vel:0.00 Temp:23 Err:0x0 InjVol:70.49cm3 InjTarget:0.00[0m
+[0;32mI (49524) APP: State:ANTIDRIP Pos:70.44 Vel:0.00 Temp:24 Err:0x0 InjVol:70.49cm3 InjTarget:0.00[0m
+[0;32mI (50524) APP: State:ANTIDRIP Pos:70.44 Vel:0.00 Temp:22 Err:0x0 InjVol:70.49cm3 InjTarget:0.00[0m
+[0;32mI (51524) APP: State:ANTIDRIP Pos:70.44 Vel:0.00 Temp:23 Err:0x0 InjVol:70.49cm3 InjTarget:0.00[0m
+[0;32mI (52524) APP: State:ANTIDRIP Pos:70.44 Vel:0.00 Temp:22 Err:0x0 InjVol:70.49cm3 InjTarget:0.00[0m
+[0;32mI (53054) APP: BTN_UP pressed[0m
+[0;32mI (53284) APP: BTN_UP released[0m
+[0;32mI (53284) APP: FSM ANTIDRIP -> READY_TO_INJECT (Err:0x0)[0m
+[0;32mI (53284) MOTOR_WRAPPER: UNIVERSAL_STOP [M7:PreModeChange][0m
+[0;32mI (53324) MOTOR_WRAPPER: SAFE_MODE_CHANGE [M7:Idle Stop][0m
+[0;32mI (53524) APP: State:READY_TO_INJECT Pos:70.44 Vel:0.03 Temp:21 Err:0x0 InjVol:70.49cm3 InjTarget:0.00[0m
+[0;32mI (54534) APP: State:READY_TO_INJECT Pos:70.44 Vel:0.00 Temp:28 Err:0x0 InjVol:70.49cm3 InjTarget:0.00[0m
+[0;32mI (55534) APP: State:READY_TO_INJECT Pos:70.44 Vel:0.05 Temp:21 Err:0x0 InjVol:70.49cm3 InjTarget:0.00[0m
+[0;32mI (55684) APP: BTN_LOWER pressed[0m
+[0;32mI (55714) APP: BTN_UP pressed[0m
+[0;32mI (55714) APP: BTN_COMBO: Upper+Lower[0m
+[0;32mI (55714) APP: FSM READY_TO_INJECT -> PURGE_ZERO (Err:0x0)[0m
+[0;32mI (56034) APP: BTN_UP released[0m
+[0;32mI (56044) APP: BTN_LOWER released[0m
+[0;32mI (56534) APP: State:PURGE_ZERO Pos:70.44 Vel:0.00 Temp:22 Err:0x0 InjVol:70.49cm3 InjTarget:0.00[0m
+[0;32mI (57354) APP: BTN_LOWER pressed[0m
+[0;32mI (57354) MOTOR_WRAPPER: UNIVERSAL_STOP [M8:PreModeChange][0m
+[0;32mI (57394) MOTOR_WRAPPER: SAFE_MODE_CHANGE [M8:Purge Down][0m
+[0;32mI (57534) APP: State:PURGE_ZERO Pos:70.44 Vel:0.00 Temp:22 Err:0x0 InjVol:70.49cm3 InjTarget:0.00[0m
+[0;32mI (58534) APP: State:PURGE_ZERO Pos:71.73 Vel:1.77 Temp:23 Err:0x0 InjVol:71.78cm3 InjTarget:0.00[0m
+[0;32mI (58684) APP: BTN_LOWER released[0m
+[0;32mI (59464) APP: BTN_CENTER pressed[0m
+[0;32mI (59534) APP: State:PURGE_ZERO Pos:72.43 Vel:0.00 Temp:24 Err:0x0 InjVol:72.49cm3 InjTarget:0.00[0m
+[0;32mI (59724) APP: BTN_CENTER released[0m
+[0;32mI (59724) APP: FSM PURGE_ZERO -> ANTIDRIP (Err:0x0)[0m
+[0;32mI (60534) APP: State:ANTIDRIP Pos:72.43 Vel:0.00 Temp:21 Err:0x0 InjVol:72.49cm3 InjTarget:0.00[0m
+[0;32mI (61534) APP: State:ANTIDRIP Pos:72.43 Vel:0.00 Temp:21 Err:0x0 InjVol:72.49cm3 InjTarget:0.00[0m
+[0;32mI (62534) APP: State:ANTIDRIP Pos:72.43 Vel:0.00 Temp:22 Err:0x0 InjVol:72.49cm3 InjTarget:0.00[0m
+[0;32mI (63534) APP: State:ANTIDRIP Pos:72.43 Vel:0.00 Temp:22 Err:0x0 InjVol:72.49cm3 InjTarget:0.00[0m
+[0;32mI (64534) APP: State:ANTIDRIP Pos:72.43 Vel:0.00 Temp:24 Err:0x0 InjVol:72.49cm3 InjTarget:0.00[0m
+[0;32mI (65024) APP: BTN_LOWER pressed[0m
+[0;32mI (65044) APP: BTN_CENTER pressed[0m
+[0;32mI (65044) APP: BTN_COMBO: Center+Lower[0m
+[0;32mI (65054) APP: FSM ANTIDRIP -> INJECT (Err:0x0)[0m
+[0;32mI (65054) MOTOR_WRAPPER: UNIVERSAL_STOP [M10:PreModeChange][0m
+[0;32mI (65094) MOTOR_WRAPPER: SAFE_MODE_CHANGE [M10:Pos Inject][0m
+[0;32mI (65294) APP: BTN_CENTER released[0m
+[0;32mI (65314) APP: BTN_LOWER released[0m
+[0;32mI (65544) APP: State:INJECT Pos:75.83 Vel:18.23 Temp:23 Err:0x0 InjVol:3.40cm3 InjTarget:107.41[0m
+[0;32mI (66544) APP: State:INJECT Pos:95.91 Vel:19.74 Temp:22 Err:0x0 InjVol:23.50cm3 InjTarget:107.41[0m
+[0;32mI (67544) APP: State:INJECT Pos:107.43 Vel:-0.34 Temp:22 Err:0x0 InjVol:35.02cm3 InjTarget:107.41[0m
+[0;32mI (68544) APP: State:INJECT Pos:112.44 Vel:-0.24 Temp:22 Err:0x0 InjVol:40.04cm3 InjTarget:107.41[0m
+[0;32mI (69544) APP: State:INJECT Pos:112.42 Vel:0.00 Temp:22 Err:0x0 InjVol:40.02cm3 InjTarget:107.41[0m
+[0;32mI (69564) APP: FSM INJECT -> HOLD_PACKING (Err:0x0)[0m
+[0;32mI (69574) APP: FSM HOLD_PACKING -> RELEASE (Err:0x0)[0m
+[0;32mI (69994) ERROR_MGR: ERROR LOGGED | State:12 AX:0x00000240 MX:0x0 EX:0x00000000 CX:0x00000000[0m
+[0;32mI (70044) ERROR_MGR: ERROR LOGGED | State:12 AX:0x00000240 MX:0x110000000 EX:0x00000000 CX:0x00000080[0m
+[0;32mI (70544) APP: State:RELEASE Pos:109.80 Vel:0.00 Temp:21 Err:0x0 InjVol:37.39cm3 InjTarget:107.41[0m
+[0;32mI (71544) APP: State:RELEASE Pos:109.80 Vel:0.00 Temp:22 Err:0x0 InjVol:37.39cm3 InjTarget:107.41[0m
+[0;32mI (71574) APP: FSM RELEASE -> CONFIRM_REMOVAL (Err:0x0)[0m
+[0;32mI (72544) APP: State:CONFIRM_REMOVAL Pos:109.80 Vel:0.06 Temp:22 Err:0x0 InjVol:37.39cm3 InjTarget:107.41[0m

@@ -1,0 +1,167 @@
+Command: ninja all
+[1/25] Building CXX object esp-idf/main/CMakeFiles/__idf_main.dir/temperature.cpp.obj
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/temperature.cpp: In function 'void init_adc()':
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/temperature.cpp:19:22: warning: 'ADC_ATTEN_DB_11' is deprecated [-Wdeprecated-declarations]
+   19 |     chan_cfg.atten = ADC_ATTEN_DB_11;
+      |                      ^~~~~~~~~~~~~~~
+In file included from /Users/andy/esp/esp-idf/components/esp_adc/include/esp_adc/adc_oneshot.h:12,
+                 from /Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/temperature.cpp:2:
+/Users/andy/esp/esp-idf/components/hal/include/hal/adc_types.h:52:5: note: declared here
+   52 |     ADC_ATTEN_DB_11 __attribute__((deprecated)) = ADC_ATTEN_DB_12,  ///<This is deprecated, it behaves the same as `ADC_ATTEN_DB_12`
+      |     ^~~~~~~~~~~~~~~
+[2/25] Building CXX object esp-idf/main/CMakeFiles/__idf_main.dir/leds.cpp.obj
+[3/25] Building CXX object esp-idf/main/CMakeFiles/__idf_main.dir/debug_console.cpp.obj
+[4/25] Building CXX object esp-idf/main/CMakeFiles/__idf_main.dir/error_manager.cpp.obj
+[5/25] Building CXX object esp-idf/main/CMakeFiles/__idf_main.dir/can_bus.cpp.obj
+In file included from /Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/broadcast_data_store.h:5,
+                 from /Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/can_bus.cpp:2:
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ring_buffer.h: In member function 'void RingBuffer<T, SIZE>::push(const T&)':
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ring_buffer.h:20:13: warning: '++' expression of 'volatile'-qualified type is deprecated [-Wvolatile]
+   20 |             count_++;
+      |             ^~~~~~
+[6/25] Building CXX object esp-idf/main/CMakeFiles/__idf_main.dir/display_comms.cpp.obj
+[7/25] Building CXX object esp-idf/main/CMakeFiles/__idf_main.dir/broadcast_data_store.cpp.obj
+In file included from /Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/broadcast_data_store.h:5,
+                 from /Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/broadcast_data_store.cpp:1:
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ring_buffer.h: In member function 'void RingBuffer<T, SIZE>::push(const T&)':
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ring_buffer.h:20:13: warning: '++' expression of 'volatile'-qualified type is deprecated [-Wvolatile]
+   20 |             count_++;
+      |             ^~~~~~
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ring_buffer.h: In instantiation of 'void RingBuffer<T, SIZE>::push(const T&) [with T = TimestampedHeartbeat; unsigned int SIZE = 500]':
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/broadcast_data_store.cpp:25:27:   required from here
+   25 |     heartbeatHistory_.push(msg);
+      |     ~~~~~~~~~~~~~~~~~~~~~~^~~~~
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ring_buffer.h:20:13: warning: '++' expression of 'volatile'-qualified type is deprecated [-Wvolatile]
+   20 |             count_++;
+      |             ^~~~~~
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ring_buffer.h: In instantiation of 'void RingBuffer<T, SIZE>::push(const T&) [with T = TimestampedEncoder; unsigned int SIZE = 500]':
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/broadcast_data_store.cpp:40:25:   required from here
+   40 |     encoderHistory_.push(msg);
+      |     ~~~~~~~~~~~~~~~~~~~~^~~~~
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ring_buffer.h:20:13: warning: '++' expression of 'volatile'-qualified type is deprecated [-Wvolatile]
+   20 |             count_++;
+      |             ^~~~~~
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ring_buffer.h: In instantiation of 'void RingBuffer<T, SIZE>::push(const T&) [with T = TimestampedIq; unsigned int SIZE = 500]':
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/broadcast_data_store.cpp:51:20:   required from here
+   51 |     iqHistory_.push(msg);
+      |     ~~~~~~~~~~~~~~~^~~~~
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ring_buffer.h:20:13: warning: '++' expression of 'volatile'-qualified type is deprecated [-Wvolatile]
+   20 |             count_++;
+      |             ^~~~~~
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ring_buffer.h: In instantiation of 'void RingBuffer<T, SIZE>::push(const T&) [with T = TimestampedMotorError; unsigned int SIZE = 200]':
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/broadcast_data_store.cpp:60:28:   required from here
+   60 |     motorErrorHistory_.push(msg);
+      |     ~~~~~~~~~~~~~~~~~~~~~~~^~~~~
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ring_buffer.h:20:13: warning: '++' expression of 'volatile'-qualified type is deprecated [-Wvolatile]
+   20 |             count_++;
+      |             ^~~~~~
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ring_buffer.h: In instantiation of 'void RingBuffer<T, SIZE>::push(const T&) [with T = TimestampedEncoderError; unsigned int SIZE = 200]':
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/broadcast_data_store.cpp:72:30:   required from here
+   72 |     encoderErrorHistory_.push(msg);
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ring_buffer.h:20:13: warning: '++' expression of 'volatile'-qualified type is deprecated [-Wvolatile]
+   20 |             count_++;
+      |             ^~~~~~
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ring_buffer.h: In instantiation of 'void RingBuffer<T, SIZE>::push(const T&) [with T = TimestampedControllerError; unsigned int SIZE = 200]':
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/broadcast_data_store.cpp:80:33:   required from here
+   80 |     controllerErrorHistory_.push(msg);
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ring_buffer.h:20:13: warning: '++' expression of 'volatile'-qualified type is deprecated [-Wvolatile]
+   20 |             count_++;
+      |             ^~~~~~
+[8/25] Building CXX object esp-idf/main/CMakeFiles/__idf_main.dir/safety_manager.cpp.obj
+In file included from /Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/broadcast_data_store.h:5,
+                 from /Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/safety_manager.cpp:2:
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ring_buffer.h: In member function 'void RingBuffer<T, SIZE>::push(const T&)':
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ring_buffer.h:20:13: warning: '++' expression of 'volatile'-qualified type is deprecated [-Wvolatile]
+   20 |             count_++;
+      |             ^~~~~~
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/safety_manager.cpp: In member function 'bool SafetyManager::check(float, bool)':
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/safety_manager.cpp:215:14: warning: unused variable 'pressureDelta' [-Wunused-variable]
+  215 |         long pressureDelta = _currentPressure - _pressureBaseline;
+      |              ^~~~~~~~~~~~~
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/safety_manager.cpp:217:15: warning: unused variable 'distMoved' [-Wunused-variable]
+  217 |         float distMoved = std::fabs(bds.getPosition() - _startPosition);
+      |               ^~~~~~~~~
+[9/25] Performing build step for 'bootloader'
+[1/1] cd "/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/build/bootloader/esp-idf/esptool_py" && /Users/andy/.espressif/python_env/idf5.5_py3.14_env/bin/python /Users/andy/esp/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 bootloader 0x1000 /Users/andy/Library/Mobile\ Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/build/bootloader/bootloader.bin
+Bootloader binary size 0x66c0 bytes. 0x940 bytes (8%) free.
+[10/25] Building CXX object esp-idf/main/CMakeFiles/__idf_main.dir/antidrip.cpp.obj
+[11/25] Building CXX object esp-idf/main/CMakeFiles/__idf_main.dir/purge_zero.cpp.obj
+In file included from /Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/broadcast_data_store.h:5,
+                 from /Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/purge_zero.cpp:5:
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ring_buffer.h: In member function 'void RingBuffer<T, SIZE>::push(const T&)':
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ring_buffer.h:20:13: warning: '++' expression of 'volatile'-qualified type is deprecated [-Wvolatile]
+   20 |             count_++;
+      |             ^~~~~~
+[12/25] No install step for 'bootloader'
+[13/25] Completed 'bootloader'
+[14/25] Building CXX object esp-idf/main/CMakeFiles/__idf_main.dir/refill.cpp.obj
+In file included from /Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/broadcast_data_store.h:5,
+                 from /Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/refill.cpp:5:
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ring_buffer.h: In member function 'void RingBuffer<T, SIZE>::push(const T&)':
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ring_buffer.h:20:13: warning: '++' expression of 'volatile'-qualified type is deprecated [-Wvolatile]
+   20 |             count_++;
+      |             ^~~~~~
+[15/25] Building CXX object esp-idf/main/CMakeFiles/__idf_main.dir/ready_to_inject.cpp.obj
+In file included from /Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/broadcast_data_store.h:5,
+                 from /Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ready_to_inject.cpp:5:
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ring_buffer.h: In member function 'void RingBuffer<T, SIZE>::push(const T&)':
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ring_buffer.h:20:13: warning: '++' expression of 'volatile'-qualified type is deprecated [-Wvolatile]
+   20 |             count_++;
+      |             ^~~~~~
+[16/25] Building CXX object esp-idf/main/CMakeFiles/__idf_main.dir/injection.cpp.obj
+In file included from /Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/broadcast_data_store.h:5,
+                 from /Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/injection.cpp:5:
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ring_buffer.h: In member function 'void RingBuffer<T, SIZE>::push(const T&)':
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ring_buffer.h:20:13: warning: '++' expression of 'volatile'-qualified type is deprecated [-Wvolatile]
+   20 |             count_++;
+      |             ^~~~~~
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/injection.cpp: In function 'bool Injection::update(CanBus&)':
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/injection.cpp:53:18: warning: unused variable 'stateElapsed' [-Wunused-variable]
+   53 |         uint64_t stateElapsed = (now - stateEnterTime) / 1000ULL;
+      |                  ^~~~~~~~~~~~
+[17/25] Building CXX object esp-idf/main/CMakeFiles/__idf_main.dir/compression.cpp.obj
+In file included from /Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/broadcast_data_store.h:5,
+                 from /Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/compression.cpp:6:
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ring_buffer.h: In member function 'void RingBuffer<T, SIZE>::push(const T&)':
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ring_buffer.h:20:13: warning: '++' expression of 'volatile'-qualified type is deprecated [-Wvolatile]
+   20 |             count_++;
+      |             ^~~~~~
+[18/25] Building CXX object esp-idf/main/CMakeFiles/__idf_main.dir/homing.cpp.obj
+In file included from /Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/broadcast_data_store.h:5,
+                 from /Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/homing.h:6,
+                 from /Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/homing.cpp:1:
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ring_buffer.h: In member function 'void RingBuffer<T, SIZE>::push(const T&)':
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ring_buffer.h:20:13: warning: '++' expression of 'volatile'-qualified type is deprecated [-Wvolatile]
+   20 |             count_++;
+      |             ^~~~~~
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/homing.cpp: At global scope:
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/homing.cpp:7:20: warning: 'TAG' defined but not used [-Wunused-variable]
+    7 | static const char* TAG = "HOMING";
+      |                    ^~~
+[19/25] Building CXX object esp-idf/main/CMakeFiles/__idf_main.dir/app_main.cpp.obj
+In file included from /Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/broadcast_data_store.h:5,
+                 from /Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/app_main.cpp:15:
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ring_buffer.h: In member function 'void RingBuffer<T, SIZE>::push(const T&)':
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ring_buffer.h:20:13: warning: '++' expression of 'volatile'-qualified type is deprecated [-Wvolatile]
+   20 |             count_++;
+      |             ^~~~~~
+[20/25] Building CXX object esp-idf/main/CMakeFiles/__idf_main.dir/motor_wrapper.cpp.obj
+In file included from /Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/broadcast_data_store.h:5,
+                 from /Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/motor_wrapper.cpp:2:
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ring_buffer.h: In member function 'void RingBuffer<T, SIZE>::push(const T&)':
+/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/main/ring_buffer.h:20:13: warning: '++' expression of 'volatile'-qualified type is deprecated [-Wvolatile]
+   20 |             count_++;
+      |             ^~~~~~
+[21/25] Linking C static library esp-idf/main/libmain.a
+[22/25] Generating esp-idf/esp_system/ld/sections.ld
+[23/25] Linking CXX executable pp_motorized_injector.elf
+[24/25] Generating binary image from built executable
+esptool.py v4.12.dev1
+Creating esp32 image...
+Merged 2 ELF sections
+Successfully created esp32 image.
+Generated /Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/build/pp_motorized_injector.bin
+[25/25] cd "/Users/andy/Library/Mobile Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/build/esp-idf/esptool_py" && /Users/andy/.espressif/python_env/idf5.5_py3.14_env/bin/python /Users/andy/esp/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 partition --type app /Users/andy/Library/Mobile\ Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/build/partition_table/partition-table.bin /Users/andy/Library/Mobile\ Documents/com~apple~CloudDocs/Github_backups/PP-motorized-injector_5_2_26/esp-idf/build/pp_motorized_injector.bin
+pp_motorized_injector.bin binary size 0x3b820 bytes. Smallest app partition is 0x100000 bytes. 0xc47e0 bytes (77%) free.
