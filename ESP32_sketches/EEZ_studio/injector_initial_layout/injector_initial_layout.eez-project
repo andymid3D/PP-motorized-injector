@@ -7,7 +7,7 @@
       "objID": "fd434352-2277-c4a8-e87e-e96cfcbf2305",
       "projectVersion": "v3",
       "projectType": "lvgl",
-      "lvglVersion": "8.3",
+      "lvglVersion": "9.3.0",
       "extensions": [],
       "imports": [],
       "flowSupport": true,
@@ -19,7 +19,8 @@
       "description": "Elecrow 5\" HMI ESP32 RGB Touch screen, using ILI6122 & ILI5960 drivers",
       "resourceFiles": [],
       "hiddenWidgetLines": "dimmed",
-      "dimmedLinesOpacity": "20"
+      "dimmedLinesOpacity": "20",
+      "embedFonts": true
     },
     "build": {
       "objID": "72794a43-a0fc-13c2-7eb5-67dd952141a4",
@@ -93,8 +94,12 @@
       ],
       "destinationFolder": "src\\ui",
       "separateFolderForImagesAndFonts": false,
-      "lvglInclude": "lvgl/lvgl.h",
+      "imageExportMode": "source",
+      "fontExportMode": "source",
+      "fileSystemPath": "",
+      "lvglInclude": "lvgl.h",
       "screensLifetimeSupport": false,
+      "useDockerDesktop": true,
       "generateSourceCodeForEezFramework": true,
       "compressFlowDefinition": false,
       "executionQueueSize": 1000,
@@ -126,6 +131,15 @@
         "defaultValue": "null",
         "persistent": false,
         "native": false
+      },
+      {
+        "objID": "a1b2c3d4-e5f6-4a5b-9c8d-7e6f5a4b3c2d",
+        "name": "plunger_state",
+        "description": "plunger state containing refill history and current temperature",
+        "type": "struct:plunger_state",
+        "defaultValue": "null",
+        "persistent": false,
+        "native": false
       }
     ],
     "structures": [
@@ -144,6 +158,53 @@
             "type": "any"
           }
         ]
+      },
+      {
+        "objID": "f1e2d3c4-b5a6-4978-8c9d-0e1f2a3b4c5d",
+        "name": "refill",
+        "fields": [
+          {
+            "objID": "e1d2c3b4-a596-4877-9b8a-1c2d3e4f5a6b",
+            "name": "size",
+            "type": "integer"
+          },
+          {
+            "objID": "d1c2b3a4-9586-4766-8a79-2b3c4d5e6f7a",
+            "name": "temperature",
+            "type": "float"
+          },
+          {
+            "objID": "c1b2a394-8576-4655-7968-3a4b5c6d7e8f",
+            "name": "refillTime",
+            "type": "integer"
+          }
+        ]
+      },
+      {
+        "objID": "b1a29384-7566-4544-6857-4a5b6c7d8e9f",
+        "name": "plunger_state",
+        "fields": [
+          {
+            "objID": "a192837465-6556-4433-5746-5a6b7c8d9e0f",
+            "name": "refills",
+            "type": "array:struct:refill"
+          },
+          {
+            "objID": "91827364-5546-4322-4635-6a7b8c9d0e1f",
+            "name": "temperature",
+            "type": "float"
+          },
+          {
+            "objID": "400e2bc8-12a3-4b2d-e100-da1bf35693b7",
+            "name": "current_barrel_capacity",
+            "type": "float"
+          },
+          {
+            "objID": "8df4d3f9-1b54-4db2-ca6d-6c510aff95c3",
+            "name": "max_barrel_capacity",
+            "type": "float"
+          }
+        ]
       }
     ],
     "enums": [
@@ -154,32 +215,38 @@
           {
             "objID": "ac0492f0-633f-45db-b8c0-5b92cd434b09",
             "name": "cold",
-            "value": 0
+            "automaticValue": false,
+            "specificValue": 0
           },
           {
             "objID": "f1bad802-88ba-4163-99cd-8d8dd8ceeee4",
             "name": "hot_not_homed",
-            "value": 1
+            "automaticValue": false,
+            "specificValue": 1
           },
           {
             "objID": "2ca1f624-3e08-42ca-d6a3-0648c38e0a34",
             "name": "refill",
-            "value": 2
+            "automaticValue": false,
+            "specificValue": 2
           },
           {
             "objID": "8a06ee90-8ff8-4da5-a54e-df6c6297a7f5",
             "name": "compression",
-            "value": 3
+            "automaticValue": false,
+            "specificValue": 3
           },
           {
             "objID": "eeb281f7-2ada-4cbe-e9ef-41db73e522f8",
             "name": "ready_to_inject",
-            "value": 4
+            "automaticValue": false,
+            "specificValue": 4
           },
           {
             "objID": "5c9d9ab9-c8c6-43dc-d820-22701af31f73",
             "name": "injecting",
-            "value": 5
+            "automaticValue": false,
+            "specificValue": 5
           }
         ]
       },
@@ -190,43 +257,106 @@
           {
             "objID": "01429507-03ae-443e-a7ea-4d3789f6327e",
             "name": "mould_name",
-            "value": 0
+            "automaticValue": false,
+            "specificValue": 0
           },
           {
             "objID": "5080cd35-c653-48a7-c9c3-a9f8b3e0cef9",
             "name": "mould_fill_speed",
-            "value": 70
+            "automaticValue": false,
+            "specificValue": 70
           },
           {
             "objID": "aba7e50b-9353-4822-a976-350f7f8a4690",
             "name": "fill_dist",
-            "value": 200
+            "automaticValue": false,
+            "specificValue": 200
           },
           {
             "objID": "54649401-0a15-4aa9-8158-d313797e6439",
             "name": "fill_accel",
-            "value": 5000
+            "automaticValue": false,
+            "specificValue": 5000
           },
           {
             "objID": "748db411-d4bb-493b-9342-1b99f3bae0dd",
             "name": "hold_speed",
-            "value": 10
+            "automaticValue": false,
+            "specificValue": 10
           },
           {
             "objID": "8bcd96e7-2685-4bac-bcfb-8a414589ec86",
             "name": "hold_dist",
-            "value": 5
+            "automaticValue": false,
+            "specificValue": 5
           },
           {
             "objID": "33db3ca7-517b-43a2-dc10-f82aa165132f",
             "name": "hold_accel",
-            "value": 3000
+            "automaticValue": false,
+            "specificValue": 3000
           }
         ]
       }
     ]
   },
-  "actions": [],
+  "actions": [
+    {
+      "objID": "81726354-4536-4211-3524-7a8b9c0d1e2f",
+      "components": [],
+      "connectionLines": [],
+      "localVariables": [],
+      "componentGroups": [],
+      "userProperties": [],
+      "name": "addRefill",
+      "description": "Add a new refill entry to plunger_state.refills array",
+      "implementationType": "native"
+    },
+    {
+      "objID": "71625344-3526-4100-2413-8a9b0c1d2e3f",
+      "components": [],
+      "connectionLines": [],
+      "localVariables": [],
+      "componentGroups": [],
+      "userProperties": [],
+      "name": "removeRefill",
+      "description": "Remove a refill entry from plunger_state.refills array by index",
+      "implementationType": "native"
+    },
+    {
+      "objID": "61524334-2516-3099-1302-9a0b1c2d3e4f",
+      "components": [],
+      "connectionLines": [],
+      "localVariables": [],
+      "componentGroups": [],
+      "userProperties": [],
+      "name": "clearRefills",
+      "description": "Clear all refill entries from plunger_state.refills array",
+      "implementationType": "native"
+    },
+    {
+      "objID": "51423324-1506-2988-0291-0a1b2c3d4e5f",
+      "components": [],
+      "connectionLines": [],
+      "localVariables": [],
+      "componentGroups": [],
+      "userProperties": [],
+      "name": "updatePlungerTemperature",
+      "description": "Update the current temperature of plunger_state",
+      "implementationType": "native"
+    },
+    {
+      "objID": "41322314-0496-1877-9180-1a2b3c4d5e6f",
+      "components": [],
+      "connectionLines": [],
+      "localVariables": [],
+      "componentGroups": [],
+      "userProperties": [],
+      "name": "updateRefillBands",
+      "description": "Update refill band visualization based on plunger_state.refills array. Scale: 250mm = 793px (3.172 px/mm)",
+      "implementationType": "native"
+    }
+  ],
   "userPages": [
     {
       "objID": "2fb8ae7d-4389-4c45-9da3-401d1944c2f5",
@@ -349,7 +479,7 @@
               "left": 160,
               "top": 0,
               "width": 280,
-              "height": 100,
+              "height": 220,
               "customInputs": [],
               "customOutputs": [],
               "style": {
@@ -601,8 +731,8 @@
           "type": "LVGLActionComponent",
           "left": -77,
           "top": 851,
-          "width": 348,
-          "height": 54,
+          "width": 347,
+          "height": 53,
           "customInputs": [],
           "customOutputs": [],
           "description": "goto_mould_settings_screen",
@@ -628,8 +758,8 @@
           "type": "LVGLActionComponent",
           "left": 326,
           "top": 851,
-          "width": 354,
-          "height": 54,
+          "width": 353,
+          "height": 53,
           "customInputs": [],
           "customOutputs": [],
           "description": "goto_mould_settings_screen",
@@ -668,6 +798,7 @@
         }
       ],
       "localVariables": [],
+      "componentGroups": [],
       "userProperties": [],
       "name": "Main",
       "left": 0,
@@ -753,7 +884,7 @@
               "left": 160,
               "top": 0,
               "width": 280,
-              "height": 100,
+              "height": 220,
               "customInputs": [],
               "customOutputs": [],
               "style": {
@@ -951,8 +1082,8 @@
           "type": "LVGLActionComponent",
           "left": 125,
           "top": 858,
-          "width": 287,
-          "height": 54,
+          "width": 286,
+          "height": 53,
           "customInputs": [],
           "customOutputs": [],
           "description": "goto_main_screen",
@@ -984,6 +1115,7 @@
         }
       ],
       "localVariables": [],
+      "componentGroups": [],
       "userProperties": [],
       "name": "mould_settings",
       "left": 0,
@@ -1069,7 +1201,7 @@
               "left": 156,
               "top": 0,
               "width": 280,
-              "height": 100,
+              "height": 220,
               "customInputs": [],
               "customOutputs": [],
               "style": {
@@ -1223,8 +1355,8 @@
           "type": "LVGLActionComponent",
           "left": 47,
           "top": 825,
-          "width": 287,
-          "height": 54,
+          "width": 286,
+          "height": 53,
           "customInputs": [],
           "customOutputs": [],
           "description": "goto_main_screen",
@@ -1256,6 +1388,7 @@
         }
       ],
       "localVariables": [],
+      "componentGroups": [],
       "userProperties": [],
       "name": "common_settings",
       "left": 0,
@@ -1345,7 +1478,776 @@
           "topUnit": "px",
           "widthUnit": "px",
           "heightUnit": "px",
-          "children": [],
+          "children": [
+            {
+              "objID": "ref0-0000-0000-0000-000000000000",
+              "type": "LVGLPanelWidget",
+              "left": -5,
+              "top": 743,
+              "width": 80,
+              "height": 35,
+              "customInputs": [],
+              "customOutputs": [],
+              "style": {
+                "objID": "ref0-style-0000-0000-000000000000",
+                "useStyle": "default",
+                "conditionalStyles": [],
+                "childStyles": []
+              },
+              "timeline": [],
+              "eventHandlers": [],
+              "identifier": "refill_band_0",
+              "leftUnit": "px",
+              "topUnit": "px",
+              "widthUnit": "px",
+              "heightUnit": "px",
+              "children": [],
+              "widgetFlags": "",
+              "hiddenFlagType": "literal",
+              "clickableFlag": false,
+              "clickableFlagType": "literal",
+              "flagScrollbarMode": "",
+              "scrollSnapX": "",
+              "scrollSnapY": "",
+              "checkedStateType": "literal",
+              "disabledStateType": "literal",
+              "states": "",
+              "localStyles": {
+                "objID": "ref0-lstyle-0000-0000-000000000000",
+                "definition": {
+                  "MAIN": {
+                    "DEFAULT": {
+                      "bg_color": "#ff0000",
+                      "border_width": 0,
+                      "radius": 0
+                    }
+                  }
+                }
+              },
+              "group": "",
+              "groupIndex": 0
+            },
+            {
+              "objID": "ref1-0000-0000-0000-000000000001",
+              "type": "LVGLPanelWidget",
+              "left": -5,
+              "top": 704,
+              "width": 80,
+              "height": 39,
+              "customInputs": [],
+              "customOutputs": [],
+              "style": {
+                "objID": "ref1-style-0000-0000-000000000001",
+                "useStyle": "default",
+                "conditionalStyles": [],
+                "childStyles": []
+              },
+              "timeline": [],
+              "eventHandlers": [],
+              "identifier": "refill_band_1",
+              "leftUnit": "px",
+              "topUnit": "px",
+              "widthUnit": "px",
+              "heightUnit": "px",
+              "children": [],
+              "widgetFlags": "",
+              "hiddenFlagType": "literal",
+              "clickableFlag": false,
+              "clickableFlagType": "literal",
+              "flagScrollbarMode": "",
+              "scrollSnapX": "",
+              "scrollSnapY": "",
+              "checkedStateType": "literal",
+              "disabledStateType": "literal",
+              "states": "",
+              "localStyles": {
+                "objID": "ref1-lstyle-0000-0000-000000000001",
+                "definition": {
+                  "MAIN": {
+                    "DEFAULT": {
+                      "bg_color": "#ee0011",
+                      "border_width": 0,
+                      "radius": 0
+                    }
+                  }
+                }
+              },
+              "group": "",
+              "groupIndex": 0
+            },
+            {
+              "objID": "ref2-0000-0000-0000-000000000002",
+              "type": "LVGLPanelWidget",
+              "left": 0,
+              "top": 793,
+              "width": 100,
+              "height": 0,
+              "customInputs": [],
+              "customOutputs": [],
+              "style": {
+                "objID": "ref2-style-0000-0000-000000000002",
+                "useStyle": "default",
+                "conditionalStyles": [],
+                "childStyles": []
+              },
+              "timeline": [],
+              "eventHandlers": [],
+              "identifier": "refill_band_2",
+              "leftUnit": "px",
+              "topUnit": "px",
+              "widthUnit": "px",
+              "heightUnit": "px",
+              "children": [],
+              "widgetFlags": "",
+              "hiddenFlagType": "literal",
+              "clickableFlag": false,
+              "clickableFlagType": "literal",
+              "flagScrollbarMode": "",
+              "scrollSnapX": "",
+              "scrollSnapY": "",
+              "checkedStateType": "literal",
+              "disabledStateType": "literal",
+              "states": "",
+              "localStyles": {
+                "objID": "ref2-lstyle-0000-0000-000000000002",
+                "definition": {
+                  "MAIN": {
+                    "DEFAULT": {
+                      "bg_color": "#dd0022",
+                      "border_width": 0,
+                      "radius": 0
+                    }
+                  }
+                }
+              },
+              "group": "",
+              "groupIndex": 0
+            },
+            {
+              "objID": "ref3-0000-0000-0000-000000000003",
+              "type": "LVGLPanelWidget",
+              "left": -5,
+              "top": 690,
+              "width": 80,
+              "height": 8,
+              "customInputs": [],
+              "customOutputs": [],
+              "style": {
+                "objID": "ref3-style-0000-0000-000000000003",
+                "useStyle": "default",
+                "conditionalStyles": [],
+                "childStyles": []
+              },
+              "timeline": [],
+              "eventHandlers": [],
+              "identifier": "refill_band_3",
+              "leftUnit": "px",
+              "topUnit": "px",
+              "widthUnit": "px",
+              "heightUnit": "px",
+              "children": [],
+              "widgetFlags": "",
+              "hiddenFlagType": "literal",
+              "clickableFlag": false,
+              "clickableFlagType": "literal",
+              "flagScrollbarMode": "",
+              "scrollSnapX": "",
+              "scrollSnapY": "",
+              "checkedStateType": "literal",
+              "disabledStateType": "literal",
+              "states": "",
+              "localStyles": {
+                "objID": "ref3-lstyle-0000-0000-000000000003",
+                "definition": {
+                  "MAIN": {
+                    "DEFAULT": {
+                      "bg_color": "#cc0033",
+                      "border_width": 0,
+                      "radius": 0
+                    }
+                  }
+                }
+              },
+              "group": "",
+              "groupIndex": 0
+            },
+            {
+              "objID": "ref4-0000-0000-0000-000000000004",
+              "type": "LVGLPanelWidget",
+              "left": 0,
+              "top": 793,
+              "width": 100,
+              "height": 0,
+              "customInputs": [],
+              "customOutputs": [],
+              "style": {
+                "objID": "ref4-style-0000-0000-000000000004",
+                "useStyle": "default",
+                "conditionalStyles": [],
+                "childStyles": []
+              },
+              "timeline": [],
+              "eventHandlers": [],
+              "identifier": "refill_band_4",
+              "leftUnit": "px",
+              "topUnit": "px",
+              "widthUnit": "px",
+              "heightUnit": "px",
+              "children": [],
+              "widgetFlags": "",
+              "hiddenFlagType": "literal",
+              "clickableFlag": false,
+              "clickableFlagType": "literal",
+              "flagScrollbarMode": "",
+              "scrollSnapX": "",
+              "scrollSnapY": "",
+              "checkedStateType": "literal",
+              "disabledStateType": "literal",
+              "states": "",
+              "localStyles": {
+                "objID": "ref4-lstyle-0000-0000-000000000004",
+                "definition": {
+                  "MAIN": {
+                    "DEFAULT": {
+                      "bg_color": "#bb0044",
+                      "border_width": 0,
+                      "radius": 0
+                    }
+                  }
+                }
+              },
+              "group": "",
+              "groupIndex": 0
+            },
+            {
+              "objID": "ref5-0000-0000-0000-000000000005",
+              "type": "LVGLPanelWidget",
+              "left": 0,
+              "top": 793,
+              "width": 100,
+              "height": 0,
+              "customInputs": [],
+              "customOutputs": [],
+              "style": {
+                "objID": "ref5-style-0000-0000-000000000005",
+                "useStyle": "default",
+                "conditionalStyles": [],
+                "childStyles": []
+              },
+              "timeline": [],
+              "eventHandlers": [],
+              "identifier": "refill_band_5",
+              "leftUnit": "px",
+              "topUnit": "px",
+              "widthUnit": "px",
+              "heightUnit": "px",
+              "children": [],
+              "widgetFlags": "",
+              "hiddenFlagType": "literal",
+              "clickableFlag": false,
+              "clickableFlagType": "literal",
+              "flagScrollbarMode": "",
+              "scrollSnapX": "",
+              "scrollSnapY": "",
+              "checkedStateType": "literal",
+              "disabledStateType": "literal",
+              "states": "",
+              "localStyles": {
+                "objID": "ref5-lstyle-0000-0000-000000000005",
+                "definition": {
+                  "MAIN": {
+                    "DEFAULT": {
+                      "bg_color": "#aa0055",
+                      "border_width": 0,
+                      "radius": 0
+                    }
+                  }
+                }
+              },
+              "group": "",
+              "groupIndex": 0
+            },
+            {
+              "objID": "ref6-0000-0000-0000-000000000006",
+              "type": "LVGLPanelWidget",
+              "left": 0,
+              "top": 793,
+              "width": 100,
+              "height": 0,
+              "customInputs": [],
+              "customOutputs": [],
+              "style": {
+                "objID": "ref6-style-0000-0000-000000000006",
+                "useStyle": "default",
+                "conditionalStyles": [],
+                "childStyles": []
+              },
+              "timeline": [],
+              "eventHandlers": [],
+              "identifier": "refill_band_6",
+              "leftUnit": "px",
+              "topUnit": "px",
+              "widthUnit": "px",
+              "heightUnit": "px",
+              "children": [],
+              "widgetFlags": "",
+              "hiddenFlagType": "literal",
+              "clickableFlag": false,
+              "clickableFlagType": "literal",
+              "flagScrollbarMode": "",
+              "scrollSnapX": "",
+              "scrollSnapY": "",
+              "checkedStateType": "literal",
+              "disabledStateType": "literal",
+              "states": "",
+              "localStyles": {
+                "objID": "ref6-lstyle-0000-0000-000000000006",
+                "definition": {
+                  "MAIN": {
+                    "DEFAULT": {
+                      "bg_color": "#990066",
+                      "border_width": 0,
+                      "radius": 0
+                    }
+                  }
+                }
+              },
+              "group": "",
+              "groupIndex": 0
+            },
+            {
+              "objID": "ref7-0000-0000-0000-000000000007",
+              "type": "LVGLPanelWidget",
+              "left": 0,
+              "top": 793,
+              "width": 100,
+              "height": 0,
+              "customInputs": [],
+              "customOutputs": [],
+              "style": {
+                "objID": "ref7-style-0000-0000-000000000007",
+                "useStyle": "default",
+                "conditionalStyles": [],
+                "childStyles": []
+              },
+              "timeline": [],
+              "eventHandlers": [],
+              "identifier": "refill_band_7",
+              "leftUnit": "px",
+              "topUnit": "px",
+              "widthUnit": "px",
+              "heightUnit": "px",
+              "children": [],
+              "widgetFlags": "",
+              "hiddenFlagType": "literal",
+              "clickableFlag": false,
+              "clickableFlagType": "literal",
+              "flagScrollbarMode": "",
+              "scrollSnapX": "",
+              "scrollSnapY": "",
+              "checkedStateType": "literal",
+              "disabledStateType": "literal",
+              "states": "",
+              "localStyles": {
+                "objID": "ref7-lstyle-0000-0000-000000000007",
+                "definition": {
+                  "MAIN": {
+                    "DEFAULT": {
+                      "bg_color": "#880077",
+                      "border_width": 0,
+                      "radius": 0
+                    }
+                  }
+                }
+              },
+              "group": "",
+              "groupIndex": 0
+            },
+            {
+              "objID": "ref8-0000-0000-0000-000000000008",
+              "type": "LVGLPanelWidget",
+              "left": 0,
+              "top": 793,
+              "width": 100,
+              "height": 0,
+              "customInputs": [],
+              "customOutputs": [],
+              "style": {
+                "objID": "ref8-style-0000-0000-000000000008",
+                "useStyle": "default",
+                "conditionalStyles": [],
+                "childStyles": []
+              },
+              "timeline": [],
+              "eventHandlers": [],
+              "identifier": "refill_band_8",
+              "leftUnit": "px",
+              "topUnit": "px",
+              "widthUnit": "px",
+              "heightUnit": "px",
+              "children": [],
+              "widgetFlags": "",
+              "hiddenFlagType": "literal",
+              "clickableFlag": false,
+              "clickableFlagType": "literal",
+              "flagScrollbarMode": "",
+              "scrollSnapX": "",
+              "scrollSnapY": "",
+              "checkedStateType": "literal",
+              "disabledStateType": "literal",
+              "states": "",
+              "localStyles": {
+                "objID": "ref8-lstyle-0000-0000-000000000008",
+                "definition": {
+                  "MAIN": {
+                    "DEFAULT": {
+                      "bg_color": "#770088",
+                      "border_width": 0,
+                      "radius": 0
+                    }
+                  }
+                }
+              },
+              "group": "",
+              "groupIndex": 0
+            },
+            {
+              "objID": "ref9-0000-0000-0000-000000000009",
+              "type": "LVGLPanelWidget",
+              "left": 0,
+              "top": 793,
+              "width": 100,
+              "height": 0,
+              "customInputs": [],
+              "customOutputs": [],
+              "style": {
+                "objID": "ref9-style-0000-0000-000000000009",
+                "useStyle": "default",
+                "conditionalStyles": [],
+                "childStyles": []
+              },
+              "timeline": [],
+              "eventHandlers": [],
+              "identifier": "refill_band_9",
+              "leftUnit": "px",
+              "topUnit": "px",
+              "widthUnit": "px",
+              "heightUnit": "px",
+              "children": [],
+              "widgetFlags": "",
+              "hiddenFlagType": "literal",
+              "clickableFlag": false,
+              "clickableFlagType": "literal",
+              "flagScrollbarMode": "",
+              "scrollSnapX": "",
+              "scrollSnapY": "",
+              "checkedStateType": "literal",
+              "disabledStateType": "literal",
+              "states": "",
+              "localStyles": {
+                "objID": "ref9-lstyle-0000-0000-000000000009",
+                "definition": {
+                  "MAIN": {
+                    "DEFAULT": {
+                      "bg_color": "#660099",
+                      "border_width": 0,
+                      "radius": 0
+                    }
+                  }
+                }
+              },
+              "group": "",
+              "groupIndex": 0
+            },
+            {
+              "objID": "ref10-0000-0000-0000-000000000010",
+              "type": "LVGLPanelWidget",
+              "left": 0,
+              "top": 793,
+              "width": 100,
+              "height": 0,
+              "customInputs": [],
+              "customOutputs": [],
+              "style": {
+                "objID": "ref10-style-0000-0000-000000000010",
+                "useStyle": "default",
+                "conditionalStyles": [],
+                "childStyles": []
+              },
+              "timeline": [],
+              "eventHandlers": [],
+              "identifier": "refill_band_10",
+              "leftUnit": "px",
+              "topUnit": "px",
+              "widthUnit": "px",
+              "heightUnit": "px",
+              "children": [],
+              "widgetFlags": "",
+              "hiddenFlagType": "literal",
+              "clickableFlag": false,
+              "clickableFlagType": "literal",
+              "flagScrollbarMode": "",
+              "scrollSnapX": "",
+              "scrollSnapY": "",
+              "checkedStateType": "literal",
+              "disabledStateType": "literal",
+              "states": "",
+              "localStyles": {
+                "objID": "ref10-lstyle-0000-0000-000000000010",
+                "definition": {
+                  "MAIN": {
+                    "DEFAULT": {
+                      "bg_color": "#5500aa",
+                      "border_width": 0,
+                      "radius": 0
+                    }
+                  }
+                }
+              },
+              "group": "",
+              "groupIndex": 0
+            },
+            {
+              "objID": "ref11-0000-0000-0000-000000000011",
+              "type": "LVGLPanelWidget",
+              "left": 0,
+              "top": 793,
+              "width": 100,
+              "height": 0,
+              "customInputs": [],
+              "customOutputs": [],
+              "style": {
+                "objID": "ref11-style-0000-0000-000000000011",
+                "useStyle": "default",
+                "conditionalStyles": [],
+                "childStyles": []
+              },
+              "timeline": [],
+              "eventHandlers": [],
+              "identifier": "refill_band_11",
+              "leftUnit": "px",
+              "topUnit": "px",
+              "widthUnit": "px",
+              "heightUnit": "px",
+              "children": [],
+              "widgetFlags": "",
+              "hiddenFlagType": "literal",
+              "clickableFlag": false,
+              "clickableFlagType": "literal",
+              "flagScrollbarMode": "",
+              "scrollSnapX": "",
+              "scrollSnapY": "",
+              "checkedStateType": "literal",
+              "disabledStateType": "literal",
+              "states": "",
+              "localStyles": {
+                "objID": "ref11-lstyle-0000-0000-000000000011",
+                "definition": {
+                  "MAIN": {
+                    "DEFAULT": {
+                      "bg_color": "#4400bb",
+                      "border_width": 0,
+                      "radius": 0
+                    }
+                  }
+                }
+              },
+              "group": "",
+              "groupIndex": 0
+            },
+            {
+              "objID": "ref12-0000-0000-0000-000000000012",
+              "type": "LVGLPanelWidget",
+              "left": 0,
+              "top": 793,
+              "width": 100,
+              "height": 0,
+              "customInputs": [],
+              "customOutputs": [],
+              "style": {
+                "objID": "ref12-style-0000-0000-000000000012",
+                "useStyle": "default",
+                "conditionalStyles": [],
+                "childStyles": []
+              },
+              "timeline": [],
+              "eventHandlers": [],
+              "identifier": "refill_band_12",
+              "leftUnit": "px",
+              "topUnit": "px",
+              "widthUnit": "px",
+              "heightUnit": "px",
+              "children": [],
+              "widgetFlags": "",
+              "hiddenFlagType": "literal",
+              "clickableFlag": false,
+              "clickableFlagType": "literal",
+              "flagScrollbarMode": "",
+              "scrollSnapX": "",
+              "scrollSnapY": "",
+              "checkedStateType": "literal",
+              "disabledStateType": "literal",
+              "states": "",
+              "localStyles": {
+                "objID": "ref12-lstyle-0000-0000-000000000012",
+                "definition": {
+                  "MAIN": {
+                    "DEFAULT": {
+                      "bg_color": "#3300cc",
+                      "border_width": 0,
+                      "radius": 0
+                    }
+                  }
+                }
+              },
+              "group": "",
+              "groupIndex": 0
+            },
+            {
+              "objID": "ref13-0000-0000-0000-000000000013",
+              "type": "LVGLPanelWidget",
+              "left": 0,
+              "top": 793,
+              "width": 100,
+              "height": 0,
+              "customInputs": [],
+              "customOutputs": [],
+              "style": {
+                "objID": "ref13-style-0000-0000-000000000013",
+                "useStyle": "default",
+                "conditionalStyles": [],
+                "childStyles": []
+              },
+              "timeline": [],
+              "eventHandlers": [],
+              "identifier": "refill_band_13",
+              "leftUnit": "px",
+              "topUnit": "px",
+              "widthUnit": "px",
+              "heightUnit": "px",
+              "children": [],
+              "widgetFlags": "",
+              "hiddenFlagType": "literal",
+              "clickableFlag": false,
+              "clickableFlagType": "literal",
+              "flagScrollbarMode": "",
+              "scrollSnapX": "",
+              "scrollSnapY": "",
+              "checkedStateType": "literal",
+              "disabledStateType": "literal",
+              "states": "",
+              "localStyles": {
+                "objID": "ref13-lstyle-0000-0000-000000000013",
+                "definition": {
+                  "MAIN": {
+                    "DEFAULT": {
+                      "bg_color": "#2200dd",
+                      "border_width": 0,
+                      "radius": 0
+                    }
+                  }
+                }
+              },
+              "group": "",
+              "groupIndex": 0
+            },
+            {
+              "objID": "ref14-0000-0000-0000-000000000014",
+              "type": "LVGLPanelWidget",
+              "left": 0,
+              "top": 793,
+              "width": 100,
+              "height": 0,
+              "customInputs": [],
+              "customOutputs": [],
+              "style": {
+                "objID": "ref14-style-0000-0000-000000000014",
+                "useStyle": "default",
+                "conditionalStyles": [],
+                "childStyles": []
+              },
+              "timeline": [],
+              "eventHandlers": [],
+              "identifier": "refill_band_14",
+              "leftUnit": "px",
+              "topUnit": "px",
+              "widthUnit": "px",
+              "heightUnit": "px",
+              "children": [],
+              "widgetFlags": "",
+              "hiddenFlagType": "literal",
+              "clickableFlag": false,
+              "clickableFlagType": "literal",
+              "flagScrollbarMode": "",
+              "scrollSnapX": "",
+              "scrollSnapY": "",
+              "checkedStateType": "literal",
+              "disabledStateType": "literal",
+              "states": "",
+              "localStyles": {
+                "objID": "ref14-lstyle-0000-0000-000000000014",
+                "definition": {
+                  "MAIN": {
+                    "DEFAULT": {
+                      "bg_color": "#1100ee",
+                      "border_width": 0,
+                      "radius": 0
+                    }
+                  }
+                }
+              },
+              "group": "",
+              "groupIndex": 0
+            },
+            {
+              "objID": "ref15-0000-0000-0000-000000000015",
+              "type": "LVGLPanelWidget",
+              "left": 0,
+              "top": 793,
+              "width": 100,
+              "height": 0,
+              "customInputs": [],
+              "customOutputs": [],
+              "style": {
+                "objID": "ref15-style-0000-0000-000000000015",
+                "useStyle": "default",
+                "conditionalStyles": [],
+                "childStyles": []
+              },
+              "timeline": [],
+              "eventHandlers": [],
+              "identifier": "refill_band_15",
+              "leftUnit": "px",
+              "topUnit": "px",
+              "widthUnit": "px",
+              "heightUnit": "px",
+              "children": [],
+              "widgetFlags": "",
+              "hiddenFlagType": "literal",
+              "clickableFlag": false,
+              "clickableFlagType": "literal",
+              "flagScrollbarMode": "",
+              "scrollSnapX": "",
+              "scrollSnapY": "",
+              "checkedStateType": "literal",
+              "disabledStateType": "literal",
+              "states": "",
+              "localStyles": {
+                "objID": "ref15-lstyle-0000-0000-000000000015",
+                "definition": {
+                  "MAIN": {
+                    "DEFAULT": {
+                      "bg_color": "#0000ff",
+                      "border_width": 0,
+                      "radius": 0
+                    }
+                  }
+                }
+              },
+              "group": "",
+              "groupIndex": 0
+            }
+          ],
           "widgetFlags": "",
           "hiddenFlagType": "literal",
           "clickableFlag": false,
@@ -1474,8 +2376,8 @@
           "type": "LVGLActionComponent",
           "left": -9,
           "top": -93,
-          "width": 262,
-          "height": 54,
+          "width": 261,
+          "height": 53,
           "customInputs": [],
           "customOutputs": [],
           "catchError": false,
@@ -1495,8 +2397,8 @@
           "type": "WatchVariableActionComponent",
           "left": -147,
           "top": -209,
-          "width": 197,
-          "height": 54,
+          "width": 196,
+          "height": 53,
           "customInputs": [],
           "customOutputs": [],
           "variable": "plunger_tip_position"
@@ -1613,6 +2515,7 @@
         }
       ],
       "localVariables": [],
+      "componentGroups": [],
       "userProperties": [],
       "name": "plunger_and_tip",
       "left": 0,
@@ -1678,7 +2581,9 @@
           "group": "",
           "groupIndex": 0,
           "min": -700,
+          "minType": "expression",
           "max": 0,
+          "maxType": "literal",
           "mode": "NORMAL",
           "value": "plunger_tip_position",
           "valueType": "expression",
@@ -1744,16 +2649,212 @@
           "longMode": "WRAP",
           "recolor": false,
           "previewValue": ""
+        },
+        {
+          "objID": "test-refill-size-input-000000000001",
+          "type": "LVGLTextareaWidget",
+          "left": 20,
+          "top": 110,
+          "width": 100,
+          "height": 40,
+          "customInputs": [],
+          "customOutputs": [],
+          "style": {
+            "objID": "test-refill-size-style-000000000001",
+            "useStyle": "default",
+            "conditionalStyles": [],
+            "childStyles": []
+          },
+          "timeline": [],
+          "eventHandlers": [],
+          "identifier": "refill_size_input",
+          "leftUnit": "px",
+          "topUnit": "px",
+          "widthUnit": "px",
+          "heightUnit": "px",
+          "children": [],
+          "widgetFlags": "CLICK_FOCUSABLE",
+          "hiddenFlagType": "literal",
+          "clickableFlag": true,
+          "clickableFlagType": "literal",
+          "flagScrollbarMode": "",
+          "scrollSnapX": "",
+          "scrollSnapY": "",
+          "checkedStateType": "literal",
+          "disabledStateType": "literal",
+          "states": "",
+          "localStyles": {
+            "objID": "test-refill-size-lstyle-00000000001",
+            "definition": {
+              "MAIN": {
+                "DEFAULT": {
+                  "text_align": "CENTER"
+                }
+              }
+            }
+          },
+          "group": "",
+          "groupIndex": 0,
+          "text": "50",
+          "textType": "literal",
+          "placeholder": "Size (mm)",
+          "oneLineMode": true,
+          "passwordMode": false,
+          "acceptedCharacters": "0123456789"
+        },
+        {
+          "objID": "test-refill-label-000000000002",
+          "type": "LVGLLabelWidget",
+          "left": 130,
+          "top": 120,
+          "width": 30,
+          "height": 16,
+          "customInputs": [],
+          "customOutputs": [],
+          "style": {
+            "objID": "test-refill-label-style-000000000002",
+            "useStyle": "default",
+            "conditionalStyles": [],
+            "childStyles": []
+          },
+          "timeline": [],
+          "eventHandlers": [],
+          "identifier": "refill_size_label",
+          "leftUnit": "px",
+          "topUnit": "px",
+          "widthUnit": "content",
+          "heightUnit": "content",
+          "children": [],
+          "widgetFlags": "",
+          "hiddenFlagType": "literal",
+          "clickableFlagType": "literal",
+          "flagScrollbarMode": "",
+          "scrollSnapX": "",
+          "scrollSnapY": "",
+          "checkedStateType": "literal",
+          "disabledStateType": "literal",
+          "states": "",
+          "localStyles": {
+            "objID": "test-refill-label-lstyle-000000000002"
+          },
+          "group": "",
+          "groupIndex": 0,
+          "text": "mm",
+          "textType": "literal",
+          "longMode": "WRAP",
+          "recolor": false
+        },
+        {
+          "objID": "test-refill-button-000000000003",
+          "type": "LVGLButtonWidget",
+          "left": 20,
+          "top": 160,
+          "width": 140,
+          "height": 50,
+          "customInputs": [],
+          "customOutputs": [],
+          "style": {
+            "objID": "test-refill-button-style-00000000003",
+            "useStyle": "default",
+            "conditionalStyles": [],
+            "childStyles": []
+          },
+          "timeline": [],
+          "eventHandlers": [
+            {
+              "objID": "add-refill-btn-handler-000000000001",
+              "eventName": "PRESSED",
+              "handlerType": "action",
+              "action": "addRefill",
+              "userData": 0
+            }
+          ],
+          "identifier": "add_refill_button",
+          "leftUnit": "px",
+          "topUnit": "px",
+          "widthUnit": "px",
+          "heightUnit": "px",
+          "children": [
+            {
+              "objID": "test-refill-btn-label-000000000004",
+              "type": "LVGLLabelWidget",
+              "left": 0,
+              "top": 0,
+              "width": 140,
+              "height": 50,
+              "customInputs": [],
+              "customOutputs": [],
+              "style": {
+                "objID": "test-refill-btn-label-style-0000004",
+                "useStyle": "default",
+                "conditionalStyles": [],
+                "childStyles": []
+              },
+              "timeline": [],
+              "eventHandlers": [],
+              "leftUnit": "px",
+              "topUnit": "px",
+              "widthUnit": "px",
+              "heightUnit": "px",
+              "children": [],
+              "widgetFlags": "",
+              "hiddenFlagType": "literal",
+              "clickableFlagType": "literal",
+              "flagScrollbarMode": "",
+              "scrollSnapX": "",
+              "scrollSnapY": "",
+              "checkedStateType": "literal",
+              "disabledStateType": "literal",
+              "states": "",
+              "localStyles": {
+                "objID": "test-refill-btn-label-lstyle-000004",
+                "definition": {
+                  "MAIN": {
+                    "DEFAULT": {
+                      "text_align": "CENTER",
+                      "align": "CENTER"
+                    }
+                  }
+                }
+              },
+              "group": "",
+              "groupIndex": 0,
+              "text": "Add Refill",
+              "textType": "literal",
+              "longMode": "WRAP",
+              "recolor": false
+            }
+          ],
+          "widgetFlags": "CLICKABLE|CLICK_FOCUSABLE",
+          "hiddenFlagType": "literal",
+          "clickableFlag": true,
+          "clickableFlagType": "literal",
+          "checkedStateType": "literal",
+          "disabledStateType": "literal",
+          "states": "",
+          "localStyles": {
+            "objID": "test-refill-button-lstyle-0000003",
+            "definition": {
+              "MAIN": {
+                "DEFAULT": {
+                  "bg_color": "#1086e4"
+                }
+              }
+            }
+          },
+          "group": "",
+          "groupIndex": 0
         }
       ],
       "connectionLines": [],
       "localVariables": [],
+      "componentGroups": [],
       "userProperties": [],
       "name": "slider_encoder",
       "left": 0,
       "top": 0,
       "width": 280,
-      "height": 100,
+      "height": 220,
       "isUsedAsUserWidget": true,
       "createAtStart": true,
       "deleteOnScreenUnload": false
@@ -1766,8 +2867,8 @@
           "type": "LVGLLabelWidget",
           "left": 41,
           "top": 0,
-          "width": 269,
-          "height": 27,
+          "width": 1,
+          "height": 1,
           "customInputs": [],
           "customOutputs": [],
           "style": {
@@ -1840,7 +2941,7 @@
               "left": 0,
               "top": 10,
               "width": 47,
-              "height": 22,
+              "height": 1,
               "customInputs": [],
               "customOutputs": [],
               "style": {
@@ -1891,7 +2992,7 @@
               "left": 0,
               "top": 40,
               "width": 47,
-              "height": 22,
+              "height": 1,
               "customInputs": [],
               "customOutputs": [],
               "style": {
@@ -1942,7 +3043,7 @@
               "left": 0,
               "top": 70,
               "width": 47,
-              "height": 22,
+              "height": 1,
               "customInputs": [],
               "customOutputs": [],
               "style": {
@@ -1993,7 +3094,7 @@
               "left": 0,
               "top": 100,
               "width": 47,
-              "height": 22,
+              "height": 1,
               "customInputs": [],
               "customOutputs": [],
               "style": {
@@ -2044,7 +3145,7 @@
               "left": 0,
               "top": 130,
               "width": 47,
-              "height": 22,
+              "height": 1,
               "customInputs": [],
               "customOutputs": [],
               "style": {
@@ -2095,7 +3196,7 @@
               "left": 0,
               "top": 160,
               "width": 47,
-              "height": 22,
+              "height": 1,
               "customInputs": [],
               "customOutputs": [],
               "style": {
@@ -2146,7 +3247,7 @@
               "left": 0,
               "top": 190,
               "width": 47,
-              "height": 22,
+              "height": 1,
               "customInputs": [],
               "customOutputs": [],
               "style": {
@@ -2197,7 +3298,7 @@
               "left": 186,
               "top": 10,
               "width": 47,
-              "height": 26,
+              "height": 1,
               "customInputs": [],
               "customOutputs": [],
               "style": {
@@ -2252,7 +3353,7 @@
               "left": 186,
               "top": 40,
               "width": 47,
-              "height": 26,
+              "height": 1,
               "customInputs": [],
               "customOutputs": [],
               "style": {
@@ -2308,7 +3409,7 @@
               "left": 186,
               "top": 70,
               "width": 47,
-              "height": 26,
+              "height": 1,
               "customInputs": [],
               "customOutputs": [],
               "style": {
@@ -2363,7 +3464,7 @@
               "left": 186,
               "top": 100,
               "width": 47,
-              "height": 26,
+              "height": 1,
               "customInputs": [],
               "customOutputs": [],
               "style": {
@@ -2418,7 +3519,7 @@
               "left": 186,
               "top": 130,
               "width": 47,
-              "height": 26,
+              "height": 1,
               "customInputs": [],
               "customOutputs": [],
               "style": {
@@ -2473,7 +3574,7 @@
               "left": 186,
               "top": 160,
               "width": 47,
-              "height": 26,
+              "height": 1,
               "customInputs": [],
               "customOutputs": [],
               "style": {
@@ -2528,7 +3629,7 @@
               "left": 186,
               "top": 190,
               "width": 47,
-              "height": 26,
+              "height": 1,
               "customInputs": [],
               "customOutputs": [],
               "style": {
@@ -2624,6 +3725,7 @@
       ],
       "connectionLines": [],
       "localVariables": [],
+      "componentGroups": [],
       "userProperties": [],
       "name": "actual_mould_settings_table",
       "left": 0,
@@ -2767,6 +3869,7 @@
       ],
       "connectionLines": [],
       "localVariables": [],
+      "componentGroups": [],
       "userProperties": [],
       "name": "common_mould_settings_table",
       "left": 0,

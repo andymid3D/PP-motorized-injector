@@ -1,28 +1,18 @@
 #ifndef EEZ_LVGL_UI_GUI_H
 #define EEZ_LVGL_UI_GUI_H
 
-#include <lvgl/lvgl.h>
+#include <lvgl.h>
 
 #include "eez-flow.h"
-
-
-
-#if !defined(EEZ_FOR_LVGL)
-#include "screens.h"
-#endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-extern const uint8_t assets[4764];
+extern const uint8_t assets[6044];
 
 void ui_init();
 void ui_tick();
-
-#if !defined(EEZ_FOR_LVGL)
-void loadScreen(enum ScreensEnum screenId);
-#endif
 
 #ifdef __cplusplus
 }

@@ -1,19 +1,21 @@
 #ifndef EEZ_LVGL_UI_SCREENS_H
 #define EEZ_LVGL_UI_SCREENS_H
 
-#include <lvgl/lvgl.h>
+#include <lvgl.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef struct _groups_t {
-    lv_group_t *actual_mould_settings_labels;
-} groups_t;
+// Screens
 
-extern groups_t groups;
-
-void ui_create_groups();
+enum ScreensEnum {
+    _SCREEN_ID_FIRST = 1,
+    SCREEN_ID_MAIN = 1,
+    SCREEN_ID_MOULD_SETTINGS = 2,
+    SCREEN_ID_COMMON_SETTINGS = 3,
+    _SCREEN_ID_LAST = 4
+};
 
 typedef struct _objects_t {
     lv_obj_t *main;
@@ -22,6 +24,22 @@ typedef struct _objects_t {
     lv_obj_t *plunger_tip;
     lv_obj_t *plunger_tip__background_barrel;
     lv_obj_t *plunger_tip__background_barrel_interior;
+    lv_obj_t *plunger_tip__refill_band_0;
+    lv_obj_t *plunger_tip__refill_band_1;
+    lv_obj_t *plunger_tip__refill_band_2;
+    lv_obj_t *plunger_tip__refill_band_3;
+    lv_obj_t *plunger_tip__refill_band_4;
+    lv_obj_t *plunger_tip__refill_band_5;
+    lv_obj_t *plunger_tip__refill_band_6;
+    lv_obj_t *plunger_tip__refill_band_7;
+    lv_obj_t *plunger_tip__refill_band_8;
+    lv_obj_t *plunger_tip__refill_band_9;
+    lv_obj_t *plunger_tip__refill_band_10;
+    lv_obj_t *plunger_tip__refill_band_11;
+    lv_obj_t *plunger_tip__refill_band_12;
+    lv_obj_t *plunger_tip__refill_band_13;
+    lv_obj_t *plunger_tip__refill_band_14;
+    lv_obj_t *plunger_tip__refill_band_15;
     lv_obj_t *plunger_tip__plunger;
     lv_obj_t *plunger_tip__plunger_tip;
     lv_obj_t *plunger_tip__refill_hole;
@@ -29,6 +47,22 @@ typedef struct _objects_t {
     lv_obj_t *obj0;
     lv_obj_t *obj0__background_barrel;
     lv_obj_t *obj0__background_barrel_interior;
+    lv_obj_t *obj0__refill_band_0;
+    lv_obj_t *obj0__refill_band_1;
+    lv_obj_t *obj0__refill_band_2;
+    lv_obj_t *obj0__refill_band_3;
+    lv_obj_t *obj0__refill_band_4;
+    lv_obj_t *obj0__refill_band_5;
+    lv_obj_t *obj0__refill_band_6;
+    lv_obj_t *obj0__refill_band_7;
+    lv_obj_t *obj0__refill_band_8;
+    lv_obj_t *obj0__refill_band_9;
+    lv_obj_t *obj0__refill_band_10;
+    lv_obj_t *obj0__refill_band_11;
+    lv_obj_t *obj0__refill_band_12;
+    lv_obj_t *obj0__refill_band_13;
+    lv_obj_t *obj0__refill_band_14;
+    lv_obj_t *obj0__refill_band_15;
     lv_obj_t *obj0__plunger;
     lv_obj_t *obj0__plunger_tip;
     lv_obj_t *obj0__refill_hole;
@@ -36,9 +70,28 @@ typedef struct _objects_t {
     lv_obj_t *obj1;
     lv_obj_t *obj1__test_plunger_slider;
     lv_obj_t *obj1__machine_state_text;
+    lv_obj_t *obj1__refill_size_input;
+    lv_obj_t *obj1__refill_size_label;
+    lv_obj_t *obj1__add_refill_button;
     lv_obj_t *obj2;
     lv_obj_t *obj2__background_barrel;
     lv_obj_t *obj2__background_barrel_interior;
+    lv_obj_t *obj2__refill_band_0;
+    lv_obj_t *obj2__refill_band_1;
+    lv_obj_t *obj2__refill_band_2;
+    lv_obj_t *obj2__refill_band_3;
+    lv_obj_t *obj2__refill_band_4;
+    lv_obj_t *obj2__refill_band_5;
+    lv_obj_t *obj2__refill_band_6;
+    lv_obj_t *obj2__refill_band_7;
+    lv_obj_t *obj2__refill_band_8;
+    lv_obj_t *obj2__refill_band_9;
+    lv_obj_t *obj2__refill_band_10;
+    lv_obj_t *obj2__refill_band_11;
+    lv_obj_t *obj2__refill_band_12;
+    lv_obj_t *obj2__refill_band_13;
+    lv_obj_t *obj2__refill_band_14;
+    lv_obj_t *obj2__refill_band_15;
     lv_obj_t *obj2__plunger;
     lv_obj_t *obj2__plunger_tip;
     lv_obj_t *obj2__refill_hole;
@@ -46,6 +99,9 @@ typedef struct _objects_t {
     lv_obj_t *obj3;
     lv_obj_t *obj3__test_plunger_slider;
     lv_obj_t *obj3__machine_state_text;
+    lv_obj_t *obj3__refill_size_input;
+    lv_obj_t *obj3__refill_size_label;
+    lv_obj_t *obj3__add_refill_button;
     lv_obj_t *obj4;
     lv_obj_t *obj4__title_mould_settings_page;
     lv_obj_t *obj4__actual_mould_settings_table_view;
@@ -66,6 +122,22 @@ typedef struct _objects_t {
     lv_obj_t *obj5;
     lv_obj_t *obj5__background_barrel;
     lv_obj_t *obj5__background_barrel_interior;
+    lv_obj_t *obj5__refill_band_0;
+    lv_obj_t *obj5__refill_band_1;
+    lv_obj_t *obj5__refill_band_2;
+    lv_obj_t *obj5__refill_band_3;
+    lv_obj_t *obj5__refill_band_4;
+    lv_obj_t *obj5__refill_band_5;
+    lv_obj_t *obj5__refill_band_6;
+    lv_obj_t *obj5__refill_band_7;
+    lv_obj_t *obj5__refill_band_8;
+    lv_obj_t *obj5__refill_band_9;
+    lv_obj_t *obj5__refill_band_10;
+    lv_obj_t *obj5__refill_band_11;
+    lv_obj_t *obj5__refill_band_12;
+    lv_obj_t *obj5__refill_band_13;
+    lv_obj_t *obj5__refill_band_14;
+    lv_obj_t *obj5__refill_band_15;
     lv_obj_t *obj5__plunger;
     lv_obj_t *obj5__plunger_tip;
     lv_obj_t *obj5__refill_hole;
@@ -73,6 +145,9 @@ typedef struct _objects_t {
     lv_obj_t *obj6;
     lv_obj_t *obj6__test_plunger_slider;
     lv_obj_t *obj6__machine_state_text;
+    lv_obj_t *obj6__refill_size_input;
+    lv_obj_t *obj6__refill_size_label;
+    lv_obj_t *obj6__add_refill_button;
     lv_obj_t *button_to_mould_settings;
     lv_obj_t *button_to_mould_settings_3;
     lv_obj_t *button_to_mould_settings_1;
@@ -80,12 +155,6 @@ typedef struct _objects_t {
 } objects_t;
 
 extern objects_t objects;
-
-enum ScreensEnum {
-    SCREEN_ID_MAIN = 1,
-    SCREEN_ID_MOULD_SETTINGS = 2,
-    SCREEN_ID_COMMON_SETTINGS = 3,
-};
 
 void create_screen_main();
 void tick_screen_main();
@@ -113,6 +182,15 @@ void tick_screen(int screen_index);
 
 void create_screens();
 
+// Groups
+
+typedef struct _groups_t {
+    lv_group_t *actual_mould_settings_labels;
+} groups_t;
+
+extern groups_t groups;
+
+void ui_create_groups();
 
 #ifdef __cplusplus
 }

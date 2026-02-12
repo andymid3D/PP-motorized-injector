@@ -1,7 +1,6 @@
 {
   "navigation": {
-    "selectedUserPageObject": "[../../../../../Library/Mobile Documents/com~apple~CloudDocs/Documents/Arduino/sketches/ESP32_sketches/EEZ_studio/Change Screen/Change Screen.eez-project]:/userPages/0",
-    "selectedGlobalVariableObject": "[../../../../../Library/Mobile Documents/com~apple~CloudDocs/Documents/Arduino/sketches/ESP32_sketches/EEZ_studio/Change Screen/Change Screen.eez-project]:/variables/globalVariables/0",
+    "selectedUserPageObject": "[change_screen_example.eez-project]:/userPages/0",
     "subnavigationSelectedItems": {
       "variables-tab/sub-navigation/selected-item": "Widgets"
     }
@@ -203,12 +202,23 @@
               "children": [
                 {
                   "type": "tab",
-                  "id": "#1cf3e5ea-bd12-47e1-8891-c64aba97da39",
+                  "id": "#d383cf8b-36fe-4a15-a610-256e2e19b632",
                   "name": "Main",
                   "component": "editor",
                   "config": {
-                    "objectPath": "[../../../../../Library/Mobile Documents/com~apple~CloudDocs/Documents/Arduino/sketches/ESP32_sketches/EEZ_studio/Change Screen/Change Screen.eez-project]:/userPages/0",
+                    "objectPath": "[change_screen_example.eez-project]:/userPages/0",
                     "permanent": false
+                  },
+                  "icon": "svg:page"
+                },
+                {
+                  "type": "tab",
+                  "id": "#7a8c9c66-c161-4525-9be3-45a2fac775d6",
+                  "name": "Screen_A",
+                  "component": "editor",
+                  "config": {
+                    "objectPath": "[change_screen_example.eez-project]:/userPages/1",
+                    "permanent": true
                   },
                   "icon": "svg:page"
                 }
@@ -1121,6 +1131,54 @@
       }
     },
     "[../../../../../Library/Mobile Documents/com~apple~CloudDocs/Documents/Arduino/sketches/ESP32_sketches/EEZ_studio/Change Screen/Change Screen.eez-project]:/userPages/3[flow-state]": {
+      "selection": {},
+      "transform": {
+        "translate": {
+          "x": -400,
+          "y": -240
+        },
+        "scale": 0.67
+      },
+      "timeline": {
+        "isEditorActive": false,
+        "position": 0,
+        "secondToPx": 200,
+        "scrollLeft": 0
+      }
+    },
+    "[change_screen_example.eez-project]:/userPages/1[flow-state]": {
+      "selection": {},
+      "transform": {
+        "translate": {
+          "x": -400,
+          "y": -240
+        },
+        "scale": 0.67
+      },
+      "timeline": {
+        "isEditorActive": false,
+        "position": 0,
+        "secondToPx": 200,
+        "scrollLeft": 0
+      }
+    },
+    "[change_screen_example.eez-project]:/userPages/3[flow-state]": {
+      "selection": {},
+      "transform": {
+        "translate": {
+          "x": -400,
+          "y": -240
+        },
+        "scale": 0.67
+      },
+      "timeline": {
+        "isEditorActive": false,
+        "position": 0,
+        "secondToPx": 200,
+        "scrollLeft": 0
+      }
+    },
+    "[change_screen_example.eez-project]:/userPages/0[flow-state]": {
       "selection": {},
       "transform": {
         "translate": {
